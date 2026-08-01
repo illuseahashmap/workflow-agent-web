@@ -52,6 +52,10 @@ const rulesQuery = useQuery({
   queryKey: computed(() => ['assignment-rules', applied.value]),
   queryFn: () => assignmentRuleApi.page(applied.value),
 })
+const records = computed(() => rulesQuery.data.value?.records ?? [])
+const total = computed(() => rulesQuery.data.value?.total ?? 0)
+const enabledCount = computed(() => records.value.filter((item) => item.enabled).length)
+const disabledCount = computed(() => Math.max(records.value.length - enabledCount.value, 0))
 const definitionsQuery = useQuery({
   queryKey: ['all-process-definition-versions'],
   queryFn: () => definitionApi.listVersions(),
@@ -276,8 +280,40 @@ function assignmentTargetsText(rule: AssignmentRule) {
 </script>
 
 <template>
-  <div class="page-stack">
-    <section class="page-actions">
+  <div class="definition-page page-stack">
+    <section class="page-hero compact-hero">
+      <div>
+        <span class="eyebrow">Assignment Rule</span>
+        <h2>派单规则中心</h2>
+        <p>按流程版本和 UserTask 节点维护派单策略，统一管理处理人、候选人、会签与空人员兜底规则。</p>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      <article class="metric-card">
+        <span>Σ</span>
+        <div>
+          <strong>{{ total }}</strong>
+          <small>规则总数</small>
+        </div>
+      </article>
+      <article class="metric-card success">
+        <span>✓</span>
+        <div>
+          <strong>{{ enabledCount }}</strong>
+          <small>当前页启用</small>
+        </div>
+      </article>
+      <article class="metric-card warning">
+        <span>–</span>
+        <div>
+          <strong>{{ disabledCount }}</strong>
+          <small>当前页停用</small>
+        </div>
+      </article>
+    </section>
+
+    <section class="page-actions compact-filter">
       <el-form class="filter-form" inline @submit.prevent="search"
         ><el-form-item label="流程标识"
           ><el-input v-model="query.processDefinitionKey" clearable /></el-form-item
@@ -310,7 +346,7 @@ function assignmentTargetsText(rule: AssignmentRule) {
     <section class="table-panel">
       <el-table
         v-loading="rulesQuery.isFetching.value"
-        :data="rulesQuery.data.value?.records ?? []"
+        :data="records"
         height="100%"
         ><el-table-column
           prop="processDefinitionKey"
@@ -351,7 +387,7 @@ function assignmentTargetsText(rule: AssignmentRule) {
         class="table-pagination"
         v-model:current-page="query.pageNum"
         v-model:page-size="query.pageSize"
-        :total="rulesQuery.data.value?.total ?? 0"
+        :total="total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next"
         @change="changePage"

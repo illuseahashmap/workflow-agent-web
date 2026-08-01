@@ -29,6 +29,10 @@ const tenantsQuery = useQuery({
   queryKey: computed(() => ['tenants', applied.value]),
   queryFn: () => tenantApi.page(applied.value),
 })
+const records = computed(() => tenantsQuery.data.value?.records ?? [])
+const total = computed(() => tenantsQuery.data.value?.total ?? 0)
+const enabledCount = computed(() => records.value.filter((item) => item.enabled).length)
+const disabledCount = computed(() => Math.max(records.value.length - enabledCount.value, 0))
 const enabledTenantsQuery = useQuery({
   queryKey: ['enabled-tenants'],
   queryFn: tenantApi.enabled,
@@ -115,8 +119,40 @@ async function toggle(item: WorkflowTenant) {
 </script>
 
 <template>
-  <div class="page-stack">
-    <section class="page-actions">
+  <div class="definition-page page-stack">
+    <section class="page-hero compact-hero">
+      <div>
+        <span class="eyebrow">Tenant</span>
+        <h2>租户管理中心</h2>
+        <p>维护工作流租户、租户编码和启停状态，为流程定义与实例提供隔离边界。</p>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      <article class="metric-card">
+        <span>Σ</span>
+        <div>
+          <strong>{{ total }}</strong>
+          <small>租户总数</small>
+        </div>
+      </article>
+      <article class="metric-card success">
+        <span>✓</span>
+        <div>
+          <strong>{{ enabledCount }}</strong>
+          <small>当前页启用</small>
+        </div>
+      </article>
+      <article class="metric-card warning">
+        <span>–</span>
+        <div>
+          <strong>{{ disabledCount }}</strong>
+          <small>当前页禁用</small>
+        </div>
+      </article>
+    </section>
+
+    <section class="page-actions compact-filter">
       <el-form class="filter-form" inline @submit.prevent="search"
         ><el-form-item label="关键词"
           ><el-input
@@ -142,7 +178,7 @@ async function toggle(item: WorkflowTenant) {
     <section class="table-panel">
       <el-table
         v-loading="tenantsQuery.isFetching.value"
-        :data="tenantsQuery.data.value?.records ?? []"
+        :data="records"
         height="100%"
         ><el-table-column prop="tenantName" label="租户名称" min-width="180" /><el-table-column
           prop="tenantId"
@@ -175,7 +211,7 @@ async function toggle(item: WorkflowTenant) {
         class="table-pagination"
         v-model:current-page="query.pageNum"
         v-model:page-size="query.pageSize"
-        :total="tenantsQuery.data.value?.total ?? 0"
+        :total="total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next"
         @change="changePage"

@@ -4,7 +4,18 @@ import { useRoute } from 'vue-router'
 import { ElDrawer, ElTooltip } from 'element-plus'
 import 'element-plus/es/components/drawer/style/css'
 import 'element-plus/es/components/tooltip/style/css'
-import { Building2, GitBranch, Menu, Route, ScrollText, Workflow, X } from '@lucide/vue'
+import {
+  Building2,
+  CircleDot,
+  GitBranch,
+  Menu,
+  Route,
+  ScrollText,
+  ShieldCheck,
+  Sparkles,
+  Workflow,
+  X,
+} from '@lucide/vue'
 import { useAppStore } from '@/stores/app'
 
 const route = useRoute()
@@ -24,25 +35,38 @@ const navigation = [
   <div class="app-shell">
     <aside class="sidebar" aria-label="主导航">
       <div class="brand">
-        <span class="brand-mark"><Workflow :size="20" /></span>
-        <span>Workflow Agent</span>
+        <span class="brand-mark"><Workflow :size="21" /></span>
+        <span>
+          <strong>Workflow Agent</strong>
+          <small>流程编排工作台</small>
+        </span>
       </div>
+
+      <div class="sidebar-card">
+        <div class="sidebar-card-icon"><Sparkles :size="16" /></div>
+        <div>
+          <strong>Local Workspace</strong>
+          <span>PostgreSQL · Redis · Flowable</span>
+        </div>
+      </div>
+
       <nav class="navigation">
         <RouterLink v-for="item in navigation" :key="item.to" :to="item.to" class="nav-item">
           <component :is="item.icon" :size="18" />
           <span>{{ item.label }}</span>
         </RouterLink>
       </nav>
+
       <div class="sidebar-status">
         <span class="status-dot" />
-        <span>等待用户鉴权接入</span>
+        <span>鉴权接入待完善</span>
       </div>
     </aside>
 
     <el-drawer
       v-model="appStore.mobileNavigationOpen"
       direction="ltr"
-      size="280px"
+      size="292px"
       :show-close="false"
       class="mobile-drawer"
     >
@@ -50,7 +74,10 @@ const navigation = [
         <div class="drawer-header">
           <div class="brand brand-mobile">
             <span class="brand-mark"><Workflow :size="20" /></span>
-            <span>Workflow Agent</span>
+            <span>
+              <strong>Workflow Agent</strong>
+              <small>流程编排工作台</small>
+            </span>
           </div>
           <el-tooltip content="关闭导航" placement="bottom">
             <button
@@ -90,8 +117,14 @@ const navigation = [
             <Menu :size="20" />
           </button>
         </el-tooltip>
-        <h1>{{ pageTitle }}</h1>
-        <div class="environment-label">本地环境</div>
+        <div class="topbar-title">
+          <span>当前页面</span>
+          <h1>{{ pageTitle }}</h1>
+        </div>
+        <div class="topbar-badges">
+          <span class="runtime-badge"><CircleDot :size="13" />本地环境</span>
+          <span class="runtime-badge warning"><ShieldCheck :size="13" />Token 待接入</span>
+        </div>
       </header>
       <main class="content" :class="{ 'content-immersive': route.meta.immersive }">
         <RouterView />

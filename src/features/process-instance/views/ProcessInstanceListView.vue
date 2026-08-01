@@ -26,6 +26,11 @@ const instancesQuery = useQuery({
   queryFn: () => processInstanceApi.page(applied.value),
 })
 
+const records = computed(() => instancesQuery.data.value?.records ?? [])
+const total = computed(() => instancesQuery.data.value?.total ?? 0)
+const runningCount = computed(() => records.value.filter((item) => item.status === 'RUNNING').length)
+const finishedCount = computed(() => Math.max(records.value.length - runningCount.value, 0))
+
 const terminateMutation = useMutation({
   mutationFn: ({ id, reason }: { id: string; reason: string }) =>
     processInstanceApi.terminate(id, reason),
@@ -71,8 +76,40 @@ async function terminate(id: string) {
 </script>
 
 <template>
-  <div class="page-stack">
-    <section class="page-actions filter-only">
+  <div class="definition-page page-stack">
+    <section class="page-hero compact-hero">
+      <div>
+        <span class="eyebrow">Process Instance</span>
+        <h2>流程实例看板</h2>
+        <p>追踪流程运行状态、当前任务、业务标识和执行耗时，快速定位需要人工处理的流程实例。</p>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      <article class="metric-card">
+        <span>Σ</span>
+        <div>
+          <strong>{{ total }}</strong>
+          <small>实例总数</small>
+        </div>
+      </article>
+      <article class="metric-card success">
+        <span>▶</span>
+        <div>
+          <strong>{{ runningCount }}</strong>
+          <small>当前页运行中</small>
+        </div>
+      </article>
+      <article class="metric-card warning">
+        <span>✓</span>
+        <div>
+          <strong>{{ finishedCount }}</strong>
+          <small>当前页已结束</small>
+        </div>
+      </article>
+    </section>
+
+    <section class="page-actions compact-filter filter-only">
       <el-form class="filter-form" inline @submit.prevent="search">
         <el-form-item label="流程标识"
           ><el-input v-model="query.processDefinitionKey" clearable
@@ -102,7 +139,7 @@ async function terminate(id: string) {
     <section class="table-panel">
       <el-table
         v-loading="instancesQuery.isFetching.value"
-        :data="instancesQuery.data.value?.records ?? []"
+        :data="records"
         height="100%"
         table-layout="fixed"
       >
@@ -170,7 +207,7 @@ async function terminate(id: string) {
         class="table-pagination"
         v-model:current-page="query.pageNum"
         v-model:page-size="query.pageSize"
-        :total="instancesQuery.data.value?.total ?? 0"
+        :total="total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next"
         @change="changePage"
