@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Ban, RefreshCw, Send } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
+import { useAuthStore } from '@/stores/auth'
 import {
   displayValue,
   formatDateTime,
@@ -20,6 +21,13 @@ import type { TaskItem } from '../types'
 const route = useRoute()
 const router = useRouter()
 const queryClient = useQueryClient()
+const authStore = useAuthStore()
+const canOperateInstances = computed(
+  () =>
+    authStore.user?.roles.includes('PLATFORM_ADMIN') ||
+    authStore.user?.roles.includes('TENANT_ADMIN') ||
+    authStore.user?.permissions.includes('workflow:instance:operate'),
+)
 const id = computed(() => String(route.params.id))
 const activeTab = ref('diagram')
 const taskPage = reactive({ pageNum: 1, pageSize: 10 })
@@ -132,7 +140,7 @@ function openTransfer(task: TaskItem) {
       }}</el-tag>
       <div class="toolbar-spacer" />
       <el-button @click="refresh"><RefreshCw :size="16" />刷新</el-button>
-      <el-button v-if="instance?.status === 'RUNNING'" type="danger" plain @click="terminate"
+      <el-button v-if="canOperateInstances && instance?.status === 'RUNNING'" type="danger" plain @click="terminate"
         ><Ban :size="16" />终止流程</el-button
       >
     </header>
@@ -184,7 +192,7 @@ function openTransfer(task: TaskItem) {
               ><template #default="{ row }">{{
                 formatDuration(row.durationInMillis)
               }}</template></el-table-column
-            ><el-table-column label="操作" width="100" fixed="right"
+            ><el-table-column v-if="canOperateInstances" label="操作" width="100" fixed="right"
               ><template #default="{ row }"
                 ><el-tooltip :disabled="Boolean(row.assignee)" content="候选任务需接入当前用户身份"
                   ><span

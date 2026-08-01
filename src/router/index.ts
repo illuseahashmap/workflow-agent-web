@@ -24,38 +24,73 @@ const router = createRouter({
           name: 'process-definitions',
           component: () =>
             import('@/features/process-definition/views/ProcessDefinitionListView.vue'),
-          meta: { title: '流程定义' },
+          meta: {
+            title: '流程定义',
+            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
+            requiredAnyPermissions: ['workflow:definition:read', 'workflow:definition:write'],
+          },
         },
         {
           path: 'process-definitions/designer',
           name: 'process-designer',
           component: () => import('@/features/process-definition/views/ProcessDesignerView.vue'),
-          meta: { title: '流程设计器', immersive: true },
+          meta: {
+            title: '流程设计器',
+            immersive: true,
+            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
+            requiredAnyPermissions: ['workflow:definition:write'],
+          },
         },
         {
           path: 'process-instances',
           name: 'process-instances',
           component: () => import('@/features/process-instance/views/ProcessInstanceListView.vue'),
-          meta: { title: '流程实例' },
+          meta: {
+            title: '流程实例',
+            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
+            requiredAnyPermissions: ['workflow:instance:read', 'workflow:instance:operate'],
+          },
         },
         {
           path: 'process-instances/:id',
           name: 'process-instance-detail',
           component: () =>
             import('@/features/process-instance/views/ProcessInstanceDetailView.vue'),
-          meta: { title: '流程实例详情' },
+          meta: {
+            title: '流程实例详情',
+            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
+            requiredAnyPermissions: ['workflow:instance:read', 'workflow:instance:operate'],
+          },
         },
         {
           path: 'assignment-rules',
           name: 'assignment-rules',
           component: () => import('@/features/assignment-rule/views/AssignmentRuleListView.vue'),
-          meta: { title: '派单规则' },
+          meta: {
+            title: '派单规则',
+            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
+            requiredAnyPermissions: ['assignment:manage'],
+          },
+        },
+        {
+          path: 'access',
+          name: 'access-management',
+          component: () => import('@/features/access/views/AccessManagementView.vue'),
+          meta: {
+            title: '成员与角色',
+            requiredAnyRoles: ['PLATFORM_ADMIN'],
+            requiredAnyPermissions: ['member:manage', 'role:manage'],
+          },
         },
         {
           path: 'tenants',
           name: 'tenants',
           component: () => import('@/features/tenant/views/TenantListView.vue'),
-          meta: { title: '租户管理' },
+          meta: {
+            title: '租户管理',
+            requiredAnyRoles: ['PLATFORM_ADMIN'],
+            requiredAnyPermissions: ['tenant:manage'],
+          },
         },
       ],
     },
@@ -68,15 +103,49 @@ const router = createRouter({
   ],
 })
 
+function firstAuthorizedRoute(session: ReturnType<typeof readAuthSession>) {
+  const roles = session?.roles ?? []
+  const permissions = session?.permissions ?? []
+  const administrator = roles.includes('PLATFORM_ADMIN') || roles.includes('TENANT_ADMIN')
+  if (
+    administrator ||
+    permissions.includes('workflow:definition:read') ||
+    permissions.includes('workflow:definition:write')
+  ) return { name: 'process-definitions' }
+  if (
+    permissions.includes('workflow:instance:read') ||
+    permissions.includes('workflow:instance:operate')
+  ) return { name: 'process-instances' }
+  if (permissions.includes('assignment:manage')) return { name: 'assignment-rules' }
+  if (permissions.includes('member:manage') || permissions.includes('role:manage')) {
+    return { name: 'access-management' }
+  }
+  if (roles.includes('PLATFORM_ADMIN') || permissions.includes('tenant:manage')) {
+    return { name: 'tenants' }
+  }
+  return { name: 'not-found' }
+}
+
 router.beforeEach((to) => {
-  const { accessToken, expiresAt } = readAuthSession() ?? {}
+  const session = readAuthSession()
+  const { accessToken, expiresAt } = session ?? {}
   const authenticated = Boolean(accessToken && expiresAt && Date.parse(expiresAt) > Date.now())
 
   if (!to.meta.public && !authenticated) {
     return { name: 'auth', query: { redirect: to.fullPath } }
   }
   if (to.name === 'auth' && authenticated) {
-    return { name: 'process-definitions' }
+    return firstAuthorizedRoute(session)
+  }
+  const requiredRoles = (to.meta.requiredAnyRoles as string[] | undefined) ?? []
+  const requiredPermissions = (to.meta.requiredAnyPermissions as string[] | undefined) ?? []
+  if (
+    authenticated &&
+    (requiredRoles.length || requiredPermissions.length) &&
+    !requiredRoles.some((role) => session?.roles.includes(role)) &&
+    !requiredPermissions.some((permission) => session?.permissions.includes(permission))
+  ) {
+    return firstAuthorizedRoute(session)
   }
 })
 

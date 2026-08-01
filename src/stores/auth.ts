@@ -11,11 +11,13 @@ import type {
   AuthUser,
   LoginRequest,
   RegisterRequest,
+  TenantOption,
 } from '@/features/auth/types'
 
 export const useAuthStore = defineStore('auth', () => {
   const session = ref<AuthSession | null>(readAuthSession())
   const user = ref<AuthUser | null>(session.value)
+  const tenants = ref<TenantOption[]>([])
   const isAuthenticated = computed(() => Boolean(session.value?.accessToken))
 
   function saveSession(nextSession: AuthSession) {
@@ -45,11 +47,36 @@ export const useAuthStore = defineStore('auth', () => {
     return currentUser
   }
 
+  async function loadTenants() {
+    if (!session.value) return []
+    tenants.value = await authApi.getTenants()
+    return tenants.value
+  }
+
+  async function switchTenant(tenantCode: string) {
+    const nextSession = await authApi.switchTenant(tenantCode)
+    saveSession(nextSession)
+    await loadTenants()
+    return nextSession
+  }
+
   function logout() {
     session.value = null
     user.value = null
+    tenants.value = []
     clearAuthSession()
   }
 
-  return { session, user, isAuthenticated, login, register, refreshCurrentUser, logout }
+  return {
+    session,
+    user,
+    tenants,
+    isAuthenticated,
+    login,
+    register,
+    refreshCurrentUser,
+    loadTenants,
+    switchTenant,
+    logout,
+  }
 })

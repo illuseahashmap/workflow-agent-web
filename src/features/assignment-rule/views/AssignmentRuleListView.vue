@@ -33,6 +33,7 @@ const applied = ref({ ...query })
 const dialogVisible = ref(false)
 const editingId = ref<number>()
 const form = reactive({
+  processDefinitionKey: '',
   processDefinitionId: '',
   taskDefinitionKey: '',
   priority: 100,
@@ -56,15 +57,26 @@ const records = computed(() => rulesQuery.data.value?.records ?? [])
 const total = computed(() => rulesQuery.data.value?.total ?? 0)
 const enabledCount = computed(() => records.value.filter((item) => item.enabled).length)
 const disabledCount = computed(() => Math.max(records.value.length - enabledCount.value, 0))
-const definitionsQuery = useQuery({
-  queryKey: ['all-process-definition-versions'],
-  queryFn: () => definitionApi.listVersions(),
+const processCatalogQuery = useQuery({
+  queryKey: ['process-definition-catalog'],
+  queryFn: () => definitionApi.listProcesses(),
+})
+const versionsQuery = useQuery({
+  queryKey: computed(() => ['process-definition-versions', form.processDefinitionKey]),
+  queryFn: () => definitionApi.listVersions(form.processDefinitionKey),
+  enabled: computed(() => Boolean(form.processDefinitionKey)),
 })
 
 const saveMutation = useMutation({
   mutationFn: async () => {
     const command = buildCommand()
-    validateCommand(command)
+    const definition = selectedDefinition()
+    if (!definition) throw new Error('请选择有效的流程版本')
+    const definitionDetail = await definitionApi.detail(
+      definition.processDefinitionKey,
+      definition.version,
+    )
+    validateCommand(command, definitionDetail)
     return editingId.value
       ? assignmentRuleApi.update(editingId.value, command)
       : assignmentRuleApi.create(command)
@@ -110,15 +122,13 @@ function buildCommand(): AssignmentRuleCommand {
   }
 }
 function selectedDefinition() {
-  return definitionsQuery.data.value?.find(
+  return versionsQuery.data.value?.find(
     (item) => item.processDefinitionId === form.processDefinitionId,
   )
 }
-function validateCommand(command: AssignmentRuleCommand) {
+function validateCommand(command: AssignmentRuleCommand, definition: ProcessDefinition) {
   if (!command.processDefinitionId || !command.taskDefinitionKey)
     throw new Error('流程版本和节点标识不能为空')
-  const definition = selectedDefinition()
-  if (!definition) throw new Error('请选择有效的流程版本')
   const mode = resolveTaskMode(definition.bpmnXml, command.taskDefinitionKey)
   if (!mode) throw new Error('流程版本中不存在该 UserTask 节点')
   const allowed: Record<string, AssignmentType[]> = {
@@ -147,6 +157,7 @@ function validateCommand(command: AssignmentRuleCommand) {
 function resetForm() {
   editingId.value = undefined
   Object.assign(form, {
+    processDefinitionKey: '',
     processDefinitionId: '',
     taskDefinitionKey: '',
     priority: 100,
@@ -169,6 +180,7 @@ function openCreate() {
 function openEdit(rule: AssignmentRule) {
   editingId.value = rule.id
   Object.assign(form, {
+    processDefinitionKey: rule.processDefinitionKey,
     processDefinitionId: rule.processDefinitionId,
     taskDefinitionKey: rule.taskDefinitionKey,
     priority: rule.priority,
@@ -188,6 +200,10 @@ function openEdit(rule: AssignmentRule) {
     })),
   })
   dialogVisible.value = true
+}
+function changeProcessDefinition() {
+  form.processDefinitionId = ''
+  form.taskDefinitionKey = ''
 }
 function search() {
   query.pageNum = 1
@@ -257,8 +273,12 @@ async function toggleEnabled(rule: AssignmentRule) {
     ElMessage.error(getErrorMessage(error))
   }
 }
-function definitionLabel(item: ProcessDefinition) {
-  return `${item.processDefinitionName} / ${item.processDefinitionKey} ${formatVersion(item.version)}`
+function processLabel(item: ProcessDefinition) {
+  return `${item.processDefinitionName} / ${item.processDefinitionKey}`
+}
+function versionLabel(item: ProcessDefinition) {
+  const status = item.active ? '当前发布' : '可维护'
+  return `${formatVersion(item.version)} · ${status} · ${formatDateTime(item.deployedAt)}`
 }
 function conditionsText(rule: AssignmentRule) {
   return rule.conditions.length
@@ -351,7 +371,9 @@ function assignmentTargetsText(rule: AssignmentRule) {
           prop="processDefinitionKey"
           label="流程标识"
           min-width="160"
-        /><el-table-column prop="version" label="版本" width="75" /><el-table-column
+        /><el-table-column label="流程版本" width="110"
+          ><template #default="{ row }">{{ formatVersion(row.version) }}</template></el-table-column
+        ><el-table-column
           prop="taskDefinitionKey"
           label="节点标识"
           min-width="160"
@@ -399,17 +421,43 @@ function assignmentTargetsText(rule: AssignmentRule) {
       width="900px"
       destroy-on-close
       ><el-form class="rule-form" label-position="top"
+        ><el-alert
+          v-if="editingId"
+          title="历史版本规则可以持续维护；流程版本与节点绑定不可修改。"
+          type="info"
+          :closable="false"
+          show-icon
+          class="rule-binding-alert"
+        />
         ><div class="form-grid">
-          <el-form-item label="流程版本" required
-            ><el-select v-model="form.processDefinitionId" filterable
+          <el-form-item label="流程" required
+            ><el-select
+              v-model="form.processDefinitionKey"
+              filterable
+              :loading="processCatalogQuery.isFetching.value"
+              :disabled="Boolean(editingId)"
+              @change="changeProcessDefinition"
               ><el-option
-                v-for="item in definitionsQuery.data.value ?? []"
+                v-for="item in processCatalogQuery.data.value ?? []"
+                :key="item.processDefinitionKey"
+                :label="processLabel(item)"
+                :value="item.processDefinitionKey" /></el-select></el-form-item
+          ><el-form-item label="目标版本" required
+            ><el-select
+              v-model="form.processDefinitionId"
+              filterable
+              :loading="versionsQuery.isFetching.value"
+              :disabled="Boolean(editingId) || !form.processDefinitionKey"
+              placeholder="请选择需要维护的版本"
+              ><el-option
+                v-for="item in versionsQuery.data.value ?? []"
                 :key="item.processDefinitionId"
-                :label="definitionLabel(item)"
+                :label="versionLabel(item)"
                 :value="item.processDefinitionId" /></el-select></el-form-item
           ><el-form-item label="节点标识" required
             ><el-input
               v-model="form.taskDefinitionKey"
+              :disabled="Boolean(editingId)"
               placeholder="BPMN UserTask ID" /></el-form-item
           ><el-form-item label="优先级"
             ><el-input-number v-model="form.priority" :min="0" :max="9999" /></el-form-item
@@ -498,6 +546,7 @@ function assignmentTargetsText(rule: AssignmentRule) {
         ><el-button
           type="primary"
           :loading="saveMutation.isPending.value"
+          :disabled="!form.processDefinitionId || versionsQuery.isFetching.value"
           @click="saveMutation.mutate()"
           >保存</el-button
         ></template

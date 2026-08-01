@@ -15,6 +15,7 @@ import {
   Trash2,
 } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
+import { useAuthStore } from '@/stores/auth'
 import { createBlankBpmn } from '@/utils/bpmn'
 import { formatDateTime, formatVersion } from '@/utils/format'
 import { definitionApi } from '../api'
@@ -22,6 +23,13 @@ import type { PublishStatus } from '../types'
 
 const router = useRouter()
 const queryClient = useQueryClient()
+const authStore = useAuthStore()
+const canWriteDefinitions = computed(
+  () =>
+    authStore.user?.roles.includes('PLATFORM_ADMIN') ||
+    authStore.user?.roles.includes('TENANT_ADMIN') ||
+    authStore.user?.permissions.includes('workflow:definition:write'),
+)
 const query = reactive({
   processDefinitionKey: '',
   processDefinitionName: '',
@@ -109,7 +117,7 @@ async function remove(key: string, name: string) {
         <h2>流程定义</h2>
         <p>管理 BPMN 模型、版本发布状态和流程设计。</p>
       </div>
-      <el-button type="primary" @click="createVisible = true">
+      <el-button v-if="canWriteDefinitions" type="primary" @click="createVisible = true">
         <Plus :size="17" />新建流程
       </el-button>
     </section>
@@ -214,7 +222,7 @@ async function remove(key: string, name: string) {
         <el-table-column label="最新部署时间" width="180">
           <template #default="{ row }">{{ formatDateTime(row.latestDeployTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="180">
+        <el-table-column v-if="canWriteDefinitions" label="操作" width="180">
           <template #default="{ row }">
             <div class="row-actions">
               <el-button
@@ -246,7 +254,7 @@ async function remove(key: string, name: string) {
             <span><FilePlus2 :size="32" /></span>
             <strong>还没有流程定义</strong>
             <p>创建第一个 BPMN 流程，完成建模后即可发布版本并发起流程实例。</p>
-            <el-button type="primary" @click="createVisible = true">
+            <el-button v-if="canWriteDefinitions" type="primary" @click="createVisible = true">
               <Plus :size="16" />新建流程
             </el-button>
           </div>

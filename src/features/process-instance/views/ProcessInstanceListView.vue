@@ -5,11 +5,19 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Ban, Eye, RefreshCw, Search } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
+import { useAuthStore } from '@/stores/auth'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import { processInstanceApi } from '../api'
 
 const router = useRouter()
 const queryClient = useQueryClient()
+const authStore = useAuthStore()
+const canOperateInstances = computed(
+  () =>
+    authStore.user?.roles.includes('PLATFORM_ADMIN') ||
+    authStore.user?.roles.includes('TENANT_ADMIN') ||
+    authStore.user?.permissions.includes('workflow:instance:operate'),
+)
 const query = reactive({
   processDefinitionKey: '',
   processDefinitionName: '',
@@ -193,7 +201,7 @@ async function terminate(id: string) {
               ><Eye :size="15" />详情</el-button
             >
             <el-button
-              v-if="row.status === 'RUNNING'"
+              v-if="canOperateInstances && row.status === 'RUNNING'"
               link
               type="danger"
               @click="terminate(row.processInstanceId)"

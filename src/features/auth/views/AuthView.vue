@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, type FormInstance, type FormItemRule, type FormRules } from 'element-plus'
 import { ArrowRight, CheckCircle2, KeyRound, LockKeyhole, UserRound, Workflow } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
@@ -20,9 +20,21 @@ const loginForm = reactive({ username: '', password: '' })
 const registerForm = reactive({
   username: '',
   password: '',
+  confirmPassword: '',
   displayName: '',
-  tenantCode: 'default',
 })
+
+const validateConfirmPassword: FormItemRule['validator'] = (_rule, value, callback) => {
+  if (!value) {
+    callback(new Error('请再次输入密码'))
+    return
+  }
+  if (value !== registerForm.password) {
+    callback(new Error('两次输入的密码不一致'))
+    return
+  }
+  callback()
+}
 
 const loginRules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
@@ -36,9 +48,9 @@ const registerRules: FormRules = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 5, max: 128, message: '密码至少 5 个字符', trigger: 'blur' },
+    { min: 8, max: 128, message: '密码至少 8 个字符', trigger: 'blur' },
   ],
-  tenantCode: [{ required: true, message: '请输入租户编码', trigger: 'blur' }],
+  confirmPassword: [{ required: true, validator: validateConfirmPassword, trigger: 'blur' }],
 }
 
 async function enterWorkspace() {
@@ -67,7 +79,8 @@ async function submitRegister() {
     await registerFormRef.value.validate()
     submitting.value = true
     await authStore.register({
-      ...registerForm,
+      username: registerForm.username,
+      password: registerForm.password,
       displayName: registerForm.displayName || undefined,
     })
     ElMessage.success('注册成功，已自动登录')
@@ -159,6 +172,13 @@ async function submitRegister() {
           class="auth-form"
           @submit.prevent="submitRegister"
         >
+          <el-alert
+            class="registration-notice"
+            type="info"
+            :closable="false"
+            show-icon
+            title="新注册账号固定为普通用户；管理员角色只能由平台管理员分配。"
+          />
           <div class="auth-form-grid">
             <el-form-item label="用户名" prop="username">
               <el-input v-model="registerForm.username" size="large" autocomplete="username" placeholder="英文用户名">
@@ -169,22 +189,33 @@ async function submitRegister() {
               <el-input v-model="registerForm.displayName" size="large" placeholder="选填" />
             </el-form-item>
           </div>
-          <el-form-item label="租户编码" prop="tenantCode">
-            <el-input v-model="registerForm.tenantCode" size="large" autocomplete="organization" />
-          </el-form-item>
-          <el-form-item label="密码" prop="password">
-            <el-input
-              v-model="registerForm.password"
-              type="password"
-              size="large"
-              autocomplete="new-password"
-              show-password
-              placeholder="至少 5 个字符"
-              @keyup.enter="submitRegister"
-            >
-              <template #prefix><LockKeyhole :size="18" /></template>
-            </el-input>
-          </el-form-item>
+          <div class="auth-form-grid auth-credential-grid">
+            <el-form-item label="密码" prop="password">
+              <el-input
+                v-model="registerForm.password"
+                type="password"
+                size="large"
+                autocomplete="new-password"
+                show-password
+                placeholder="至少 8 个字符"
+              >
+                <template #prefix><LockKeyhole :size="18" /></template>
+              </el-input>
+            </el-form-item>
+            <el-form-item label="确认密码" prop="confirmPassword">
+              <el-input
+                v-model="registerForm.confirmPassword"
+                type="password"
+                size="large"
+                autocomplete="new-password"
+                show-password
+                placeholder="再次输入密码"
+                @keyup.enter="submitRegister"
+              >
+                <template #prefix><LockKeyhole :size="18" /></template>
+              </el-input>
+            </el-form-item>
+          </div>
           <el-button type="primary" size="large" native-type="submit" :loading="submitting" class="auth-submit">
             注册并进入 <ArrowRight v-if="!submitting" :size="17" />
           </el-button>

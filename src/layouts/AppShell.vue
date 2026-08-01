@@ -1,21 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
-import { ElDrawer, ElTooltip } from 'element-plus'
+import { ElDrawer, ElMessage, ElTooltip } from 'element-plus'
 import 'element-plus/es/components/drawer/style/css'
 import 'element-plus/es/components/tooltip/style/css'
 import {
   Building2,
   ChevronDown,
-  CircleDot,
   GitBranch,
   LogOut,
   Menu,
   Route,
   ScrollText,
-  ShieldCheck,
-  Sparkles,
   UserRound,
+  UsersRound,
   Workflow,
   X,
 } from '@lucide/vue'
@@ -24,12 +23,101 @@ import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
+const queryClient = useQueryClient()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
 const pageTitle = computed(() => String(route.meta.title ?? '工作台'))
-const displayName = computed(() => authStore.user?.displayName || authStore.user?.username || '用户')
+const displayName = computed(
+  () => authStore.user?.displayName || authStore.user?.username || '用户',
+)
 const userInitial = computed(() => displayName.value.slice(0, 1).toUpperCase())
+const selectedTenant = ref(authStore.user?.tenantCode || '')
+const switchingTenant = ref(false)
+let authorizationRefreshTimer: ReturnType<typeof setInterval> | undefined
+let refreshingAuthorization = false
+const isPlatformAdministrator = computed(
+  () => authStore.user?.roles.includes('PLATFORM_ADMIN') ?? false,
+)
+const canReadDefinitions = computed(
+  () =>
+    isPlatformAdministrator.value ||
+    authStore.user?.permissions.includes('workflow:definition:read') ||
+    authStore.user?.permissions.includes('workflow:definition:write'),
+)
+const canReadInstances = computed(
+  () =>
+    isPlatformAdministrator.value ||
+    authStore.user?.permissions.includes('workflow:instance:read') ||
+    authStore.user?.permissions.includes('workflow:instance:operate'),
+)
+const canManageAssignments = computed(
+  () => isPlatformAdministrator.value || authStore.user?.permissions.includes('assignment:manage'),
+)
+const canManageTenants = computed(
+  () => isPlatformAdministrator.value || authStore.user?.permissions.includes('tenant:manage'),
+)
+const canManageAccess = computed(
+  () =>
+    isPlatformAdministrator.value ||
+    authStore.user?.permissions.includes('member:manage') ||
+    authStore.user?.permissions.includes('role:manage'),
+)
+
+watch(
+  () => authStore.user?.tenantCode,
+  (tenantCode) => (selectedTenant.value = tenantCode || ''),
+)
+
+async function refreshAuthorization(showError = false) {
+  if (!authStore.isAuthenticated || refreshingAuthorization) return
+  refreshingAuthorization = true
+  try {
+    await Promise.all([authStore.refreshCurrentUser(), authStore.loadTenants()])
+  } catch {
+    if (showError) ElMessage.error('无法刷新当前账号权限')
+  } finally {
+    refreshingAuthorization = false
+  }
+}
+
+function handleWindowFocus() {
+  void refreshAuthorization()
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') void refreshAuthorization()
+}
+
+onMounted(async () => {
+  await refreshAuthorization(true)
+  window.addEventListener('focus', handleWindowFocus)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  authorizationRefreshTimer = window.setInterval(() => void refreshAuthorization(), 30_000)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('focus', handleWindowFocus)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  if (authorizationRefreshTimer) window.clearInterval(authorizationRefreshTimer)
+})
+
+async function handleTenantChange(tenantCode: string) {
+  if (!tenantCode || tenantCode === authStore.user?.tenantCode) return
+  switchingTenant.value = true
+  try {
+    await authStore.switchTenant(tenantCode)
+    await queryClient.invalidateQueries()
+    ElMessage.success(
+      `已切换到 ${authStore.tenants.find((item) => item.tenantCode === tenantCode)?.tenantName || tenantCode}`,
+    )
+  } catch {
+    selectedTenant.value = authStore.user?.tenantCode || ''
+    ElMessage.error('租户切换失败')
+  } finally {
+    switchingTenant.value = false
+  }
+}
 
 async function handleUserCommand(command: string) {
   if (command !== 'logout') return
@@ -37,12 +125,19 @@ async function handleUserCommand(command: string) {
   await router.replace({ name: 'auth' })
 }
 
-const navigation = [
-  { label: '流程定义', to: '/process-definitions', icon: ScrollText },
-  { label: '流程实例', to: '/process-instances', icon: GitBranch },
-  { label: '派单规则', to: '/assignment-rules', icon: Route },
-  { label: '租户管理', to: '/tenants', icon: Building2 },
-]
+const navigation = computed(() => [
+  ...(canReadDefinitions.value
+    ? [{ label: '流程定义', to: '/process-definitions', icon: ScrollText }]
+    : []),
+  ...(canReadInstances.value
+    ? [{ label: '流程实例', to: '/process-instances', icon: GitBranch }]
+    : []),
+  ...(canManageAssignments.value
+    ? [{ label: '派单规则', to: '/assignment-rules', icon: Route }]
+    : []),
+  ...(canManageAccess.value ? [{ label: '成员与角色', to: '/access', icon: UsersRound }] : []),
+  ...(canManageTenants.value ? [{ label: '租户管理', to: '/tenants', icon: Building2 }] : []),
+])
 </script>
 
 <template>
@@ -56,25 +151,12 @@ const navigation = [
         </span>
       </div>
 
-      <div class="sidebar-card">
-        <div class="sidebar-card-icon"><Sparkles :size="16" /></div>
-        <div>
-          <strong>Local Workspace</strong>
-          <span>PostgreSQL · Redis · Flowable</span>
-        </div>
-      </div>
-
       <nav class="navigation">
         <RouterLink v-for="item in navigation" :key="item.to" :to="item.to" class="nav-item">
           <component :is="item.icon" :size="18" />
           <span>{{ item.label }}</span>
         </RouterLink>
       </nav>
-
-      <div class="sidebar-status">
-        <span class="status-dot" />
-        <span>用户鉴权已接入</span>
-      </div>
     </aside>
 
     <el-drawer
@@ -136,21 +218,44 @@ const navigation = [
           <h1>{{ pageTitle }}</h1>
         </div>
         <div class="topbar-badges">
-          <span class="runtime-badge"><CircleDot :size="13" />本地环境</span>
-          <span class="runtime-badge success"><ShieldCheck :size="13" />Token 已连接</span>
-          <el-dropdown trigger="click" @command="handleUserCommand">
+          <el-select
+            v-model="selectedTenant"
+            class="tenant-switcher"
+            popper-class="tenant-switcher-dropdown"
+            :loading="switchingTenant"
+            aria-label="切换租户"
+            @change="handleTenantChange"
+          >
+            <template #prefix><Building2 :size="16" /></template>
+            <el-option
+              v-for="tenant in authStore.tenants"
+              :key="tenant.tenantCode"
+              :label="tenant.tenantName"
+              :value="tenant.tenantCode"
+              :disabled="!tenant.enabled"
+            />
+          </el-select>
+          <el-dropdown
+            trigger="click"
+            popper-class="user-account-dropdown"
+            @command="handleUserCommand"
+          >
             <button class="user-menu" type="button">
               <span class="user-avatar">{{ userInitial }}</span>
               <span class="user-menu-copy">
                 <strong>{{ displayName }}</strong>
-                <small>{{ authStore.user?.tenantCode || 'default' }}</small>
+                <small>{{ authStore.user?.username }}</small>
               </span>
               <ChevronDown :size="15" />
             </button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item disabled><UserRound :size="15" />{{ authStore.user?.username }}</el-dropdown-item>
-                <el-dropdown-item divided command="logout"><LogOut :size="15" />退出登录</el-dropdown-item>
+                <el-dropdown-item disabled
+                  ><UserRound :size="15" />{{ authStore.user?.username }}</el-dropdown-item
+                >
+                <el-dropdown-item divided command="logout"
+                  ><LogOut :size="15" />退出登录</el-dropdown-item
+                >
               </el-dropdown-menu>
             </template>
           </el-dropdown>

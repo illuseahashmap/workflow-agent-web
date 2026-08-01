@@ -21,5 +21,13 @@ export interface LoginRequest {
 
 export interface RegisterRequest extends LoginRequest {
   displayName?: string
-  tenantCode?: string
+}
+
+export interface TenantOption {
+  tenantId: string
+  tenantCode: string
+  tenantName: string
+  enabled: boolean
+  current: boolean
+  roles: string[]
 }
