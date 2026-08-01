@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import BpmnViewer from 'bpmn-js/lib/NavigatedViewer'
 import type { BpmnModelerInstance, Canvas } from '@/bpmn/modeler-types'
 import { formatDateTime, formatDuration } from '@/utils/format'
@@ -7,16 +7,23 @@ import type { ActivityDetail, ProcessDiagramData } from '../types'
 
 const props = defineProps<{ data?: ProcessDiagramData }>()
 const host = ref<HTMLDivElement>()
-const viewer = ref<BpmnModelerInstance>()
+const viewer = shallowRef<BpmnModelerInstance>()
 const hover = ref<{ detail: ActivityDetail; x: number; y: number }>()
+let renderVersion = 0
 
 async function render() {
+  const version = ++renderVersion
   if (!host.value || !props.data?.bpmnXml) return
   viewer.value?.destroy()
-  viewer.value = new BpmnViewer({ container: host.value })
-  await viewer.value.importXML(props.data.bpmnXml)
+  const nextViewer = new BpmnViewer({ container: host.value }) as BpmnModelerInstance
+  viewer.value = nextViewer
+  await nextViewer.importXML(props.data.bpmnXml)
+  if (version !== renderVersion || viewer.value !== nextViewer) return
   await nextTick()
-  const canvas = viewer.value.get('canvas') as Canvas
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  if (version !== renderVersion || viewer.value !== nextViewer) return
+  const canvas = nextViewer.get('canvas') as Canvas
+  canvas.resized()
   props.data.completedActivityIds.forEach((id) => canvas.addMarker(id, 'activity-completed'))
   props.data.activeActivityIds.forEach((id) => canvas.addMarker(id, 'activity-active'))
   props.data.highlightedFlows.forEach((id) => canvas.addMarker(id, 'flow-completed'))
@@ -40,7 +47,11 @@ async function render() {
 }
 
 watch(() => props.data, render, { immediate: true })
-onBeforeUnmount(() => viewer.value?.destroy())
+onMounted(render)
+onBeforeUnmount(() => {
+  renderVersion++
+  viewer.value?.destroy()
+})
 </script>
 
 <template>
