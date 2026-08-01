@@ -21,6 +21,7 @@ export interface ProcessDefinition {
   processDefinitionName: string
   version: number
   deploymentId: string
+  deployedAt?: string
   tenantId: string
   active: boolean
   bpmnXml: string

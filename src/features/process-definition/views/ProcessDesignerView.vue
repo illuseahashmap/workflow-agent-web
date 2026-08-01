@@ -31,6 +31,7 @@ import type {
 } from '@/bpmn/modeler-types'
 import { assignmentRuleApi } from '@/features/assignment-rule/api'
 import { createBlankBpmn, validateBpmnXml } from '@/utils/bpmn'
+import { formatDateTime, formatVersion } from '@/utils/format'
 import { definitionApi } from '../api'
 import type { ActiveProcessVersion, ProcessDefinition } from '../types'
 
@@ -38,6 +39,13 @@ const DEFAULT_ASSIGNEE = '${assigneeService.getAssignee(execution)}'
 const DEFAULT_CANDIDATE_USERS = '${assigneeService.getCandidates(execution)}'
 const DEFAULT_CANDIDATE_GROUPS = '${assigneeService.getCandidateGroups(execution)}'
 const DEFAULT_COUNTERSIGN_COLLECTION = '${assigneeService.getAssigneeList(execution)}'
+const HIDDEN_TECHNICAL_ATTRIBUTES = new Set([
+  'flowable:assignee',
+  'flowable:candidateUsers',
+  'flowable:candidateGroups',
+  'flowable:collection',
+  'flowable:elementVariable',
+])
 const LISTENER_SECTIONS: Array<{ kind: ListenerKind; label: string; taskOnly?: boolean }> = [
   { kind: 'executionStart', label: '启动监听器' },
   { kind: 'executionEnd', label: '结束监听器' },
@@ -49,7 +57,7 @@ const route = useRoute()
 const router = useRouter()
 const canvasElement = ref<HTMLDivElement>()
 const fileInput = ref<HTMLInputElement>()
-const modeler = ref<BpmnModelerInstance>()
+const modeler = shallowRef<BpmnModelerInstance>()
 const versions = ref<ProcessDefinition[]>([])
 const activeVersion = ref<ActiveProcessVersion>()
 const selectedVersion = ref<number>()
@@ -63,7 +71,9 @@ const newProcessVisible = ref(false)
 const newProcessSaving = ref(false)
 const newProcessForm = reactive({ key: '', name: '' })
 const processForm = reactive({ key: '', name: '' })
-const selectedElement = ref<BpmnElement>()
+const selectedElement = shallowRef<BpmnElement>()
+const elementBeingEdited = shallowRef<BpmnElement>()
+let elementEditSequence = 0
 const selectedBusinessObject = shallowRef<ModdleElement>()
 const elementForm = reactive({ id: '', name: '', documentation: '', conditionExpression: '' })
 const approvalMode = ref<ApprovalMode>('')
@@ -92,19 +102,15 @@ const extensionAttributes = computed(() => {
   if (!object) return []
   const attributes: Array<{ key: string; value: string }> = []
   Object.entries(object.$attrs || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && String(value)) {
+    if (
+      !HIDDEN_TECHNICAL_ATTRIBUTES.has(key) &&
+      value !== undefined &&
+      value !== null &&
+      String(value)
+    ) {
       attributes.push({ key, value: String(value) })
     }
   })
-  for (const key of ['assignee', 'candidateUsers', 'candidateGroups']) {
-    const value = object[key]
-    if (value) attributes.push({ key: `flowable:${key}`, value: String(value) })
-  }
-  const loop = object.loopCharacteristics
-  for (const key of ['collection', 'elementVariable']) {
-    const value = loop?.[key]
-    if (value) attributes.push({ key: `flowable:${key}`, value: String(value) })
-  }
   return attributes
 })
 const availableListenerSections = computed(() =>
@@ -342,7 +348,7 @@ async function saveVersion() {
     dirty.value = false
     selectedVersion.value = result.version
     await loadVersions(result.processDefinitionKey, result.version)
-    ElMessage.success(`已保存为 v${result.version}`)
+    ElMessage.success(`已保存为 ${formatVersion(result.version)}`)
   } catch (error) {
     ElMessage.error(getErrorMessage(error))
   } finally {
@@ -358,7 +364,7 @@ async function publishVersion() {
       processDefinitionKey: processForm.key,
       version: selectedVersion.value,
     })
-    ElMessage.success(`已发布 v${selectedVersion.value}`)
+    ElMessage.success(`已发布 ${formatVersion(selectedVersion.value)}`)
   } catch (error) {
     ElMessage.error(getErrorMessage(error))
   } finally {
@@ -390,14 +396,18 @@ async function inheritRules() {
 async function deleteVersion() {
   if (!selectedVersion.value) return
   const version = selectedVersion.value
-  await ElMessageBox.confirm(`确认删除 ${processForm.key} v${version}？`, '删除版本', {
-    confirmButtonText: '删除',
-    cancelButtonText: '取消',
-    type: 'warning',
-  })
+  await ElMessageBox.confirm(
+    `确认删除 ${processForm.key} ${formatVersion(version)}？`,
+    '删除版本',
+    {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    },
+  )
   try {
     await definitionApi.deleteVersion(processForm.key, version)
-    ElMessage.success(`v${version} 已删除`)
+    ElMessage.success(`${formatVersion(version)} 已删除`)
     const remainingVersions = await definitionApi.listVersions(processForm.key)
     if (remainingVersions.length === 0) {
       dirty.value = false
@@ -470,35 +480,85 @@ async function createNewProcess() {
   }
 }
 
-function applyBaseProperties(announce = true) {
-  const element = selectedElement.value
+interface ElementFormSnapshot {
+  id: string
+  name: string
+  documentation: string
+  conditionExpression: string
+}
+
+function getElementFormSnapshot(): ElementFormSnapshot {
+  return { ...elementForm }
+}
+
+function applyBaseProperties(
+  announce = true,
+  element = selectedElement.value,
+  values: ElementFormSnapshot = getElementFormSnapshot(),
+) {
   const object = element?.businessObject
   const modeling = service<Modeling>('modeling')
   const registry = service<ElementRegistry>('elementRegistry')
   if (!element || !object || !modeling) return
-  const nextId = elementForm.id.trim()
+  const nextId = values.id.trim()
   if (!nextId) return ElMessage.error('元素 ID 不能为空')
   const existing = registry?.get(nextId)
   if (existing && existing !== element) return ElMessage.error('元素 ID 已存在')
-  modeling.updateProperties(element, { id: nextId, name: elementForm.name.trim() })
+  const nextName = values.name.trim()
+  const baseProperties: Record<string, unknown> = {}
+  if (object.id !== nextId) baseProperties.id = nextId
+  if ((object.name || '') !== nextName) baseProperties.name = nextName
+  if (Object.keys(baseProperties).length) modeling.updateProperties(element, baseProperties)
+  let conditionChanged = false
   if (object.$type === 'bpmn:SequenceFlow') {
-    const expression = elementForm.conditionExpression.trim()
+    const nextExpression = values.conditionExpression.trim()
+    const currentExpression = readExpression(object.conditionExpression)
+    const expression = nextExpression
       ? service<Moddle>('moddle')?.create('bpmn:FormalExpression', {
-          body: elementForm.conditionExpression.trim(),
+          body: nextExpression,
         })
       : undefined
-    modeling.updateModdleProperties(element, object, { conditionExpression: expression })
+    conditionChanged = currentExpression !== nextExpression
+    if (conditionChanged) {
+      modeling.updateModdleProperties(element, object, { conditionExpression: expression })
+    }
   }
-  const documentation = elementForm.documentation.trim()
+  const nextDocumentation = values.documentation.trim()
+  const currentDocumentation =
+    object.documentation?.map((item) => item.text || item.body || '').join('\n') || ''
+  const documentation = nextDocumentation
     ? [
         service<Moddle>('moddle')?.create('bpmn:Documentation', {
-          text: elementForm.documentation.trim(),
+          text: nextDocumentation,
         }),
       ]
     : []
-  modeling.updateModdleProperties(element, object, { documentation })
-  dirty.value = true
+  if (currentDocumentation !== nextDocumentation) {
+    modeling.updateModdleProperties(element, object, { documentation })
+  }
+  if (
+    Object.keys(baseProperties).length ||
+    currentDocumentation !== nextDocumentation ||
+    conditionChanged
+  ) {
+    dirty.value = true
+  }
   if (announce) ElMessage.success('元素属性已应用')
+}
+
+function applyBasePropertiesAfterBlur() {
+  const element = elementBeingEdited.value || selectedElement.value
+  const values = getElementFormSnapshot()
+  const sequence = elementEditSequence
+  window.setTimeout(() => {
+    applyBaseProperties(false, element, values)
+    if (sequence === elementEditSequence) elementBeingEdited.value = undefined
+  }, 0)
+}
+
+function beginBasePropertiesEdit() {
+  elementBeingEdited.value = selectedElement.value
+  elementEditSequence += 1
 }
 
 function applyMode(mode: ApprovalMode) {
@@ -738,7 +798,7 @@ watch(selectedVersion, () => resetSelection())
             <span>当前已发布</span>
             <el-tag :type="activeVersion ? 'success' : 'info'" effect="plain">
               <CheckCircle2 v-if="activeVersion" :size="13" />
-              {{ activeVersion ? `v${activeVersion.version}` : '未发布' }}
+              {{ activeVersion ? formatVersion(activeVersion.version) : '未发布' }}
             </el-tag>
           </div>
           <el-select
@@ -750,7 +810,7 @@ watch(selectedVersion, () => resetSelection())
             <el-option
               v-for="item in versions"
               :key="item.version"
-              :label="`v${item.version} · ${item.deploymentId}`"
+              :label="`${formatVersion(item.version)} · ${formatDateTime(item.deployedAt)}`"
               :value="item.version"
             />
           </el-select>
@@ -784,21 +844,30 @@ watch(selectedVersion, () => resetSelection())
             </div>
           </div>
           <template v-if="selectedElement">
-            <div class="property-block">
+            <div class="property-block base-properties">
               <strong>基础信息</strong>
               <el-form label-position="top" size="small">
                 <el-form-item label="元素 ID">
-                  <el-input v-model="elementForm.id" @blur="applyBaseProperties(false)" />
+                  <el-input
+                    v-model="elementForm.id"
+                    @focus="beginBasePropertiesEdit"
+                    @blur="applyBasePropertiesAfterBlur"
+                  />
                 </el-form-item>
                 <el-form-item label="元素名称">
-                  <el-input v-model="elementForm.name" @blur="applyBaseProperties(false)" />
+                  <el-input
+                    v-model="elementForm.name"
+                    @focus="beginBasePropertiesEdit"
+                    @blur="applyBasePropertiesAfterBlur"
+                  />
                 </el-form-item>
                 <el-form-item label="文档说明">
                   <el-input
                     v-model="elementForm.documentation"
                     type="textarea"
                     :rows="3"
-                    @blur="applyBaseProperties(false)"
+                    @focus="beginBasePropertiesEdit"
+                    @blur="applyBasePropertiesAfterBlur"
                   />
                 </el-form-item>
               </el-form>
@@ -824,7 +893,8 @@ watch(selectedVersion, () => resetSelection())
                     type="textarea"
                     :rows="3"
                     placeholder="${operationType == 'agree'}"
-                    @blur="applyBaseProperties(false)"
+                    @focus="beginBasePropertiesEdit"
+                    @blur="applyBasePropertiesAfterBlur"
                   />
                 </el-form-item>
               </el-form>

@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios'
 import type { ApiResponse } from '@/types/api'
+import { clearAuthSession, getAccessToken } from '@/features/auth/storage'
 
 export class ApiError extends Error {
   constructor(
@@ -22,7 +23,14 @@ export const http = axios.create({
   },
 })
 
-// User authentication is attached by the future same-origin session/BFF contract.
+http.interceptors.request.use((config) => {
+  const accessToken = getAccessToken()
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`
+  }
+  return config
+})
+
 http.interceptors.response.use(
   (response) => {
     const body = response.data as ApiResponse<unknown>
@@ -37,6 +45,10 @@ http.interceptors.response.use(
   (error: AxiosError<ApiResponse<unknown>>) => {
     const body = error.response?.data
     const traceId = error.response?.headers['x-trace-id'] as string | undefined
+    if (error.response?.status === 401) {
+      clearAuthSession()
+      window.dispatchEvent(new CustomEvent('workflow-auth:unauthorized'))
+    }
     const message =
       body?.message ||
       (error.response?.status === 401

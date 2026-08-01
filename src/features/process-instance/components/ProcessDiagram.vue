@@ -57,6 +57,8 @@ onBeforeUnmount(() => viewer.value?.destroy())
         <dd>{{ hover.detail.activityType }}</dd>
         <dt>处理人</dt>
         <dd>{{ hover.detail.assignee || '-' }}</dd>
+        <dt>候选人</dt>
+        <dd>{{ hover.detail.candidateUsers?.join('、') || '-' }}</dd>
         <dt>开始</dt>
         <dd>{{ formatDateTime(hover.detail.startTime) }}</dd>
         <dt>结束</dt>

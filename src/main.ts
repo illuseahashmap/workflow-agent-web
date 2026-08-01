@@ -37,8 +37,9 @@ import router from './router'
 import './styles/main.css'
 
 const app = createApp(App)
+const pinia = createPinia()
 
-app.use(createPinia())
+app.use(pinia)
 app.use(router)
 app.use(VueQueryPlugin)
 const elementComponents = [
@@ -68,5 +69,16 @@ const elementComponents = [
 ]
 elementComponents.forEach((component) => app.component(component.name!, component))
 app.use(ElLoading)
+
+window.addEventListener('workflow-auth:unauthorized', async () => {
+  const { useAuthStore } = await import('@/stores/auth')
+  useAuthStore(pinia).logout()
+  if (router.currentRoute.value.name !== 'auth') {
+    await router.replace({
+      name: 'auth',
+      query: { redirect: router.currentRoute.value.fullPath },
+    })
+  }
+})
 
 app.mount('#app')

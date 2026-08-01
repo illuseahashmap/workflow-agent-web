@@ -1,9 +1,16 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppShell from '@/layouts/AppShell.vue'
+import { readAuthSession } from '@/features/auth/storage'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    {
+      path: '/auth',
+      name: 'auth',
+      component: () => import('@/features/auth/views/AuthView.vue'),
+      meta: { title: '登录', public: true },
+    },
     {
       path: '/',
       component: AppShell,
@@ -59,6 +66,18 @@ const router = createRouter({
       meta: { title: '页面不存在' },
     },
   ],
+})
+
+router.beforeEach((to) => {
+  const { accessToken, expiresAt } = readAuthSession() ?? {}
+  const authenticated = Boolean(accessToken && expiresAt && Date.parse(expiresAt) > Date.now())
+
+  if (!to.meta.public && !authenticated) {
+    return { name: 'auth', query: { redirect: to.fullPath } }
+  }
+  if (to.name === 'auth' && authenticated) {
+    return { name: 'process-definitions' }
+  }
 })
 
 router.afterEach((to) => {

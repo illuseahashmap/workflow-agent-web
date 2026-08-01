@@ -4,6 +4,10 @@ export function formatDateTime(value?: string | null) {
   return value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-'
 }
 
+export function formatVersion(value?: number | null) {
+  return value === null || value === undefined ? '-' : `第 ${value} 版`
+}
+
 export function formatDuration(value?: number | null) {
   if (value === null || value === undefined) return '-'
   const seconds = Math.floor(value / 1000)

@@ -7,7 +7,7 @@ import { getErrorMessage } from '@/api/http'
 import { definitionApi } from '@/features/process-definition/api'
 import type { ProcessDefinition } from '@/features/process-definition/types'
 import { resolveTaskMode } from '@/utils/bpmn'
-import { formatDateTime, joinValues, splitValues } from '@/utils/format'
+import { formatDateTime, formatVersion, joinValues, splitValues } from '@/utils/format'
 import { assignmentRuleApi } from '../api'
 import type {
   AssignmentRule,
@@ -258,7 +258,7 @@ async function toggleEnabled(rule: AssignmentRule) {
   }
 }
 function definitionLabel(item: ProcessDefinition) {
-  return `${item.processDefinitionName} / ${item.processDefinitionKey} v${item.version}`
+  return `${item.processDefinitionName} / ${item.processDefinitionKey} ${formatVersion(item.version)}`
 }
 function conditionsText(rule: AssignmentRule) {
   return rule.conditions.length
@@ -285,7 +285,9 @@ function assignmentTargetsText(rule: AssignmentRule) {
       <div>
         <span class="eyebrow">Assignment Rule</span>
         <h2>派单规则中心</h2>
-        <p>按流程版本和 UserTask 节点维护派单策略，统一管理处理人、候选人、会签与空人员兜底规则。</p>
+        <p>
+          按流程版本和 UserTask 节点维护派单策略，统一管理处理人、候选人、会签与空人员兜底规则。
+        </p>
       </div>
     </section>
 
@@ -344,10 +346,7 @@ function assignmentTargetsText(rule: AssignmentRule) {
       ><el-button type="primary" @click="openCreate"><Plus :size="17" />新增规则</el-button>
     </section>
     <section class="table-panel">
-      <el-table
-        v-loading="rulesQuery.isFetching.value"
-        :data="records"
-        height="100%"
+      <el-table v-loading="rulesQuery.isFetching.value" :data="records" height="100%"
         ><el-table-column
           prop="processDefinitionKey"
           label="流程标识"

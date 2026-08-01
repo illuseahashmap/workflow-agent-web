@@ -9,6 +9,7 @@ import {
   displayValue,
   formatDateTime,
   formatDuration,
+  formatVersion,
   joinValues,
   splitValues,
 } from '@/utils/format'
@@ -140,7 +141,8 @@ function openTransfer(task: TaskItem) {
         <span>业务标识</span><strong>{{ instance?.businessKey || '-' }}</strong>
       </div>
       <div>
-        <span>流程版本</span><strong>v{{ instance?.processDefinitionVersion || '-' }}</strong>
+        <span>流程版本</span
+        ><strong>{{ formatVersion(instance?.processDefinitionVersion) }}</strong>
       </div>
       <div>
         <span>发起人</span><strong>{{ instance?.startUserId || '-' }}</strong>
