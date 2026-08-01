@@ -1,23 +1,27 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  shallowRef,
+  triggerRef,
+  watch,
+} from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Download,
-  FileUp,
-  GitPullRequestArrow,
-  Save,
-  Trash2,
-} from '@lucide/vue'
+import { ArrowLeft, CheckCircle2, Copy, Download, FileUp, Plus, Save, Trash2 } from '@lucide/vue'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { getErrorMessage } from '@/api/http'
 import flowableModdle from '@/bpmn/flowableModdle'
+import workflowPaletteModule from '@/bpmn/workflowPaletteModule'
 import type {
   ApprovalMode,
   BpmnElement,
   BpmnModelerInstance,
+  BpmnReplace,
   Canvas,
   ElementRegistry,
   ListenerKind,
@@ -27,7 +31,6 @@ import type {
 } from '@/bpmn/modeler-types'
 import { assignmentRuleApi } from '@/features/assignment-rule/api'
 import { createBlankBpmn, validateBpmnXml } from '@/utils/bpmn'
-import { formatDateTime } from '@/utils/format'
 import { definitionApi } from '../api'
 import type { ActiveProcessVersion, ProcessDefinition } from '../types'
 
@@ -35,6 +38,12 @@ const DEFAULT_ASSIGNEE = '${assigneeService.getAssignee(execution)}'
 const DEFAULT_CANDIDATE_USERS = '${assigneeService.getCandidates(execution)}'
 const DEFAULT_CANDIDATE_GROUPS = '${assigneeService.getCandidateGroups(execution)}'
 const DEFAULT_COUNTERSIGN_COLLECTION = '${assigneeService.getAssigneeList(execution)}'
+const LISTENER_SECTIONS: Array<{ kind: ListenerKind; label: string; taskOnly?: boolean }> = [
+  { kind: 'executionStart', label: '启动监听器' },
+  { kind: 'executionEnd', label: '结束监听器' },
+  { kind: 'taskCreate', label: '任务创建监听器', taskOnly: true },
+  { kind: 'taskComplete', label: '任务完成监听器', taskOnly: true },
+]
 
 const route = useRoute()
 const router = useRouter()
@@ -46,10 +55,16 @@ const activeVersion = ref<ActiveProcessVersion>()
 const selectedVersion = ref<number>()
 const loading = ref(false)
 const saving = ref(false)
+const publishing = ref(false)
+const inheriting = ref(false)
 const dirty = ref(false)
 const importing = ref(false)
+const newProcessVisible = ref(false)
+const newProcessSaving = ref(false)
+const newProcessForm = reactive({ key: '', name: '' })
 const processForm = reactive({ key: '', name: '' })
 const selectedElement = ref<BpmnElement>()
+const selectedBusinessObject = shallowRef<ModdleElement>()
 const elementForm = reactive({ id: '', name: '', documentation: '', conditionExpression: '' })
 const approvalMode = ref<ApprovalMode>('')
 const listenerForm = reactive({ kind: 'executionStart' as ListenerKind, bean: '' })
@@ -60,7 +75,6 @@ const listeners = reactive<Record<ListenerKind, string[]>>({
   taskComplete: [],
 })
 
-const selectedBusinessObject = computed(() => selectedElement.value?.businessObject)
 const selectedType = computed(
   () => selectedBusinessObject.value?.$type || selectedElement.value?.type || '',
 )
@@ -70,12 +84,61 @@ const isSelectedActive = computed(() => activeVersion.value?.version === selecte
 const selectedDefinition = computed(() =>
   versions.value.find((item) => item.version === selectedVersion.value),
 )
-const versionLabel = computed(() =>
-  selectedVersion.value ? `v${selectedVersion.value}` : '未部署',
+const elementTypeLabel = computed(() => getElementTypeLabel(selectedType.value))
+const selectedSource = computed(() => selectedBusinessObject.value?.sourceRef?.id || '')
+const selectedTarget = computed(() => selectedBusinessObject.value?.targetRef?.id || '')
+const extensionAttributes = computed(() => {
+  const object = selectedBusinessObject.value
+  if (!object) return []
+  const attributes: Array<{ key: string; value: string }> = []
+  Object.entries(object.$attrs || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && String(value)) {
+      attributes.push({ key, value: String(value) })
+    }
+  })
+  for (const key of ['assignee', 'candidateUsers', 'candidateGroups']) {
+    const value = object[key]
+    if (value) attributes.push({ key: `flowable:${key}`, value: String(value) })
+  }
+  const loop = object.loopCharacteristics
+  for (const key of ['collection', 'elementVariable']) {
+    const value = loop?.[key]
+    if (value) attributes.push({ key: `flowable:${key}`, value: String(value) })
+  }
+  return attributes
+})
+const availableListenerSections = computed(() =>
+  LISTENER_SECTIONS.filter((section) => !section.taskOnly || isTask.value),
+)
+const listenerRows = computed(() =>
+  availableListenerSections.value.flatMap((section) =>
+    listeners[section.kind].map((listener, index) => ({
+      kind: section.kind,
+      label: section.label,
+      listener,
+      index,
+    })),
+  ),
 )
 
 function service<T>(name: string) {
   return modeler.value?.get(name) as T | undefined
+}
+
+function getElementTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    'bpmn:StartEvent': '开始事件',
+    'bpmn:EndEvent': '结束事件',
+    'bpmn:UserTask': '用户任务',
+    'bpmn:Task': '任务',
+    'bpmn:ServiceTask': '服务任务',
+    'bpmn:ExclusiveGateway': '排他网关',
+    'bpmn:ParallelGateway': '并行网关',
+    'bpmn:InclusiveGateway': '包容网关',
+    'bpmn:SequenceFlow': '连线',
+    'bpmn:SubProcess': '子流程',
+  }
+  return labels[type] || type || '-'
 }
 
 function readExpression(value?: ModdleElement | string) {
@@ -92,6 +155,7 @@ function normalizeListener(value: string) {
 function resetSelection(element?: BpmnElement) {
   selectedElement.value = element
   const object = element?.businessObject
+  selectedBusinessObject.value = object
   Object.assign(elementForm, {
     id: object?.id || element?.id || '',
     name: object?.name || '',
@@ -121,6 +185,7 @@ function resetSelection(element?: BpmnElement) {
     if (item.$type === 'flowable:TaskListener' && item.event === 'complete')
       listeners.taskComplete.push(value)
   }
+  triggerRef(selectedBusinessObject)
 }
 
 function sanitizeAttributes(object?: ModdleElement | string) {
@@ -130,7 +195,54 @@ function sanitizeAttributes(object?: ModdleElement | string) {
   }
 }
 
+function hasUserTaskAssignment(object?: ModdleElement) {
+  if (!object || object.$type !== 'bpmn:UserTask') return true
+  return Boolean(
+    object.assignee ||
+    object.candidateUsers ||
+    object.candidateGroups ||
+    object.loopCharacteristics,
+  )
+}
+
+function ensureDefaultUserTaskAssignment(element?: BpmnElement) {
+  const object = element?.businessObject
+  const modeling = service<Modeling>('modeling')
+  if (!element || !object || object.$type !== 'bpmn:UserTask' || !modeling) return false
+  if (hasUserTaskAssignment(object)) return false
+  sanitizeAttributes(object)
+  modeling.updateModdleProperties(element, object, {
+    candidateUsers: DEFAULT_CANDIDATE_USERS,
+    candidateGroups: DEFAULT_CANDIDATE_GROUPS,
+  })
+  return true
+}
+
+function ensureAllUserTaskAssignments() {
+  service<ElementRegistry>('elementRegistry')
+    ?.getAll()
+    .forEach((element) => ensureDefaultUserTaskAssignment(element))
+}
+
+function ensureUserTaskElement(element?: BpmnElement) {
+  const object = element?.businessObject
+  if (!element || !object) return undefined
+  if (object.$type === 'bpmn:UserTask') return element
+  if (object.$type !== 'bpmn:Task') return undefined
+  const nextElement = service<BpmnReplace>('bpmnReplace')?.replaceElement(element, {
+    type: 'bpmn:UserTask',
+  })
+  if (!nextElement) return undefined
+  service<Modeling>('modeling')?.updateProperties(nextElement, {
+    id: object.id,
+    name: object.name || '',
+  })
+  selectedElement.value = nextElement
+  return nextElement
+}
+
 function sanitizeModel() {
+  ensureAllUserTaskAssignments()
   service<ElementRegistry>('elementRegistry')
     ?.getAll()
     .forEach((element) => {
@@ -240,6 +352,7 @@ async function saveVersion() {
 
 async function publishVersion() {
   if (!selectedVersion.value) return
+  publishing.value = true
   try {
     activeVersion.value = await definitionApi.activate({
       processDefinitionKey: processForm.key,
@@ -248,6 +361,8 @@ async function publishVersion() {
     ElMessage.success(`已发布 v${selectedVersion.value}`)
   } catch (error) {
     ElMessage.error(getErrorMessage(error))
+  } finally {
+    publishing.value = false
   }
 }
 
@@ -258,6 +373,7 @@ async function inheritRules() {
     confirmButtonText: '继承',
     cancelButtonText: '取消',
   })
+  inheriting.value = true
   try {
     const result = await assignmentRuleApi.inherit(definition.processDefinitionId)
     const skipped = result.skippedReasons.length
@@ -266,6 +382,8 @@ async function inheritRules() {
     ElMessage.success(`已复制 ${result.copiedCount} 条，跳过 ${result.skippedCount} 条${skipped}`)
   } catch (error) {
     ElMessage.error(getErrorMessage(error))
+  } finally {
+    inheriting.value = false
   }
 }
 
@@ -280,13 +398,79 @@ async function deleteVersion() {
   try {
     await definitionApi.deleteVersion(processForm.key, version)
     ElMessage.success(`v${version} 已删除`)
-    await loadVersions(processForm.key)
+    const remainingVersions = await definitionApi.listVersions(processForm.key)
+    if (remainingVersions.length === 0) {
+      dirty.value = false
+      await router.push('/process-definitions')
+      return
+    }
+    versions.value = remainingVersions.sort((a, b) => b.version - a.version)
+    await openVersion(versions.value[0]!.version)
   } catch (error) {
     ElMessage.error(getErrorMessage(error))
   }
 }
 
-function applyBaseProperties() {
+async function deleteDefinition() {
+  if (!processForm.key) return
+  await ElMessageBox.confirm(
+    `将删除“${processForm.name || processForm.key}”的全部版本、部署数据及关联配置。此操作不可恢复。`,
+    '删除流程图',
+    { confirmButtonText: '删除流程图', cancelButtonText: '取消', type: 'error' },
+  )
+  try {
+    await definitionApi.deleteAll(processForm.key)
+    dirty.value = false
+    ElMessage.success(`已删除流程图：${processForm.key}`)
+    await router.push('/process-definitions')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+  }
+}
+
+async function openNewProcessDialog() {
+  if (dirty.value) {
+    try {
+      await ElMessageBox.confirm('当前修改尚未保存，新建流程会丢失这些修改。', '新建流程图', {
+        confirmButtonText: '继续新建',
+        cancelButtonText: '取消',
+        type: 'warning',
+      })
+    } catch {
+      return
+    }
+  }
+  Object.assign(newProcessForm, { key: '', name: '' })
+  newProcessVisible.value = true
+}
+
+async function createNewProcess() {
+  const key = newProcessForm.key.trim()
+  const name = newProcessForm.name.trim()
+  if (!key || !name) return ElMessage.error('流程定义 ID 和名称不能为空')
+  if (!/^[A-Za-z][A-Za-z0-9_-]{1,63}$/.test(key)) {
+    return ElMessage.error('流程定义 ID 应以字母开头，只能包含字母、数字、下划线和短横线')
+  }
+  newProcessSaving.value = true
+  try {
+    if (await definitionApi.exists(key)) return ElMessage.error(`流程定义 ID 已存在：${key}`)
+    processForm.key = key
+    processForm.name = name
+    versions.value = []
+    activeVersion.value = undefined
+    selectedVersion.value = undefined
+    await importXml(createBlankBpmn(key, name), true)
+    newProcessVisible.value = false
+    await router.replace({ name: 'process-designer', query: { key, name } })
+    ElMessage.success(`已创建空白流程：${name}`)
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+  } finally {
+    newProcessSaving.value = false
+  }
+}
+
+function applyBaseProperties(announce = true) {
   const element = selectedElement.value
   const object = element?.businessObject
   const modeling = service<Modeling>('modeling')
@@ -314,16 +498,17 @@ function applyBaseProperties() {
     : []
   modeling.updateModdleProperties(element, object, { documentation })
   dirty.value = true
-  ElMessage.success('元素属性已应用')
+  if (announce) ElMessage.success('元素属性已应用')
 }
 
 function applyMode(mode: ApprovalMode) {
   approvalMode.value = mode
-  const element = selectedElement.value
+  if (!mode) return
+  const element = ensureUserTaskElement(selectedElement.value)
   const object = element?.businessObject
   const modeling = service<Modeling>('modeling')
   const moddle = service<Moddle>('moddle')
-  if (!element || !object || !modeling || !moddle || object.$type !== 'bpmn:UserTask') return
+  if (!element || !object || !modeling || !moddle) return
   const properties: Record<string, unknown> = {
     assignee: undefined,
     candidateUsers: undefined,
@@ -347,6 +532,7 @@ function applyMode(mode: ApprovalMode) {
     })
   }
   modeling.updateModdleProperties(element, object, properties)
+  resetSelection(element)
   dirty.value = true
 }
 
@@ -436,11 +622,20 @@ onMounted(async () => {
   if (!canvasElement.value) return
   modeler.value = new BpmnModeler({
     container: canvasElement.value,
+    additionalModules: [workflowPaletteModule],
     moddleExtensions: { flowable: flowableModdle },
   })
   modeler.value.on('selection.changed', (event) => resetSelection(event.newSelection?.[0]))
   modeler.value.on('commandStack.changed', () => {
     if (!importing.value) dirty.value = true
+  })
+  modeler.value.on('shape.added', (event) => {
+    const element = event.element
+    window.setTimeout(() => {
+      if (ensureDefaultUserTaskAssignment(element) && selectedElement.value?.id === element?.id) {
+        resetSelection(element)
+      }
+    }, 0)
   })
   window.addEventListener('beforeunload', beforeUnload)
 
@@ -477,34 +672,32 @@ watch(selectedVersion, () => resetSelection())
 <template>
   <div class="designer-page" v-loading="loading">
     <header class="designer-toolbar">
-      <el-tooltip content="返回流程定义">
-        <button class="icon-button" type="button" @click="router.push('/process-definitions')">
-          <ArrowLeft :size="18" />
-        </button>
-      </el-tooltip>
-      <div class="designer-identity">
-        <el-input v-model="processForm.name" aria-label="流程名称" />
-        <span>{{ processForm.key }}</span>
-      </div>
-      <div class="designer-version">
-        <el-select
-          :model-value="selectedVersion"
-          placeholder="未部署"
-          :disabled="versions.length === 0"
-          @change="openVersion"
+      <div class="designer-heading">
+        <button
+          class="designer-back-button"
+          type="button"
+          @click="router.push('/process-definitions')"
         >
-          <el-option
-            v-for="item in versions"
-            :key="item.version"
-            :label="`v${item.version}`"
-            :value="item.version"
-          />
-        </el-select>
-        <el-tag :type="isSelectedActive ? 'success' : 'info'" effect="plain">
-          {{ isSelectedActive ? '当前发布' : versionLabel }}
-        </el-tag>
+          <ArrowLeft :size="17" /><span>返回</span>
+        </button>
+        <span class="designer-heading-divider" />
+        <div>
+          <span class="designer-breadcrumb">流程定义 / 编辑</span>
+          <div class="designer-title-row">
+            <strong>{{ processForm.name || processForm.key || '未命名流程' }}</strong>
+            <span v-if="dirty" class="dirty-badge">未保存修改</span>
+          </div>
+        </div>
       </div>
-      <div class="toolbar-spacer" />
+      <div class="designer-toolbar-actions">
+        <el-button @click="fileInput?.click()"><FileUp :size="16" />导入</el-button>
+        <el-button @click="download"><Download :size="16" />导出</el-button>
+        <span class="toolbar-action-divider" />
+        <el-button @click="openNewProcessDialog"><Plus :size="16" />新建流程图</el-button>
+        <el-button type="primary" :loading="saving" @click="saveVersion">
+          <Save :size="16" />保存新版本
+        </el-button>
+      </div>
       <input
         ref="fileInput"
         type="file"
@@ -512,99 +705,230 @@ watch(selectedVersion, () => resetSelection())
         hidden
         @change="upload(($event.target as HTMLInputElement).files?.[0])"
       />
-      <el-button @click="fileInput?.click()"><FileUp :size="16" />导入</el-button>
-      <el-button @click="download"><Download :size="16" />导出 XML</el-button>
-      <el-dropdown v-if="selectedVersion">
-        <el-button>版本操作</el-button>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item :disabled="isSelectedActive" @click="publishVersion"
-              ><CheckCircle2 :size="15" />发布此版本</el-dropdown-item
-            >
-            <el-dropdown-item @click="inheritRules"
-              ><GitPullRequestArrow :size="15" />继承派单规则</el-dropdown-item
-            >
-            <el-dropdown-item divided @click="deleteVersion"
-              ><Trash2 :size="15" />删除此版本</el-dropdown-item
-            >
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
-      <el-button type="primary" :loading="saving" @click="saveVersion"
-        ><Save :size="16" />保存新版本</el-button
-      >
     </header>
 
     <div class="designer-workspace">
       <div ref="canvasElement" class="bpmn-canvas" />
       <aside class="properties-panel">
-        <template v-if="selectedElement">
-          <div class="properties-heading">
+        <section class="inspector-card">
+          <div class="inspector-heading">
             <div>
-              <strong>{{ elementForm.name || elementForm.id }}</strong
-              ><span>{{ selectedType }}</span>
+              <h2>流程概览</h2>
+              <p>基本标识只读，创建时确定</p>
             </div>
           </div>
           <el-form label-position="top" size="small">
-            <el-form-item label="元素 ID"><el-input v-model="elementForm.id" /></el-form-item>
-            <el-form-item label="名称"><el-input v-model="elementForm.name" /></el-form-item>
-            <el-form-item v-if="isSequenceFlow" label="条件表达式">
-              <el-input
-                v-model="elementForm.conditionExpression"
-                placeholder="${approved == true}"
-              />
+            <el-form-item label="流程定义 ID">
+              <el-input :model-value="processForm.key" readonly />
             </el-form-item>
-            <el-form-item label="文档说明"
-              ><el-input v-model="elementForm.documentation" type="textarea" :rows="3"
-            /></el-form-item>
-            <el-button class="full-button" @click="applyBaseProperties">应用基础属性</el-button>
+            <el-form-item label="流程定义名称">
+              <el-input :model-value="processForm.name" aria-label="流程名称" readonly />
+            </el-form-item>
           </el-form>
+        </section>
 
-          <section v-if="selectedType === 'bpmn:UserTask'" class="property-section">
-            <h3>任务模式</h3>
-            <el-radio-group v-model="approvalMode" @change="applyMode">
-              <el-radio-button value="single">单人</el-radio-button>
-              <el-radio-button value="candidate">候选</el-radio-button>
-              <el-radio-button value="parallel">会签</el-radio-button>
-            </el-radio-group>
-          </section>
-
-          <section class="property-section">
-            <h3>监听器</h3>
-            <el-select v-model="listenerForm.kind" class="full-control">
-              <el-option label="执行启动" value="executionStart" />
-              <el-option label="执行结束" value="executionEnd" />
-              <el-option v-if="isTask" label="任务创建" value="taskCreate" />
-              <el-option v-if="isTask" label="任务完成" value="taskComplete" />
-            </el-select>
-            <div class="listener-input">
-              <el-input
-                v-model="listenerForm.bean"
-                placeholder="listenerBean"
-                @keyup.enter="addListener"
-              /><el-button @click="addListener">添加</el-button>
+        <section class="inspector-card">
+          <div class="inspector-heading">
+            <div>
+              <h2>版本管理</h2>
+              <p>保存生成新版本，发布决定运行版本</p>
             </div>
-            <div class="listener-list">
-              <template v-for="(items, kind) in listeners" :key="kind">
-                <div v-for="(item, index) in items" :key="`${kind}-${item}`" class="listener-row">
-                  <span
-                    ><small>{{ kind }}</small
-                    ><code>{{ '${' + item + '}' }}</code></span
+          </div>
+          <div class="version-status-row">
+            <span>当前已发布</span>
+            <el-tag :type="activeVersion ? 'success' : 'info'" effect="plain">
+              <CheckCircle2 v-if="activeVersion" :size="13" />
+              {{ activeVersion ? `v${activeVersion.version}` : '未发布' }}
+            </el-tag>
+          </div>
+          <el-select
+            :model-value="selectedVersion"
+            placeholder="暂无版本"
+            :disabled="versions.length === 0 || loading"
+            @change="openVersion"
+          >
+            <el-option
+              v-for="item in versions"
+              :key="item.version"
+              :label="`v${item.version} · ${item.deploymentId}`"
+              :value="item.version"
+            />
+          </el-select>
+          <el-button
+            type="primary"
+            :disabled="!selectedVersion || isSelectedActive"
+            :loading="publishing"
+            @click="publishVersion"
+          >
+            {{ isSelectedActive ? '当前版本已发布' : '发布当前版本' }}
+          </el-button>
+          <el-button :disabled="!selectedDefinition" :loading="inheriting" @click="inheritRules">
+            <Copy :size="15" />继承配置
+          </el-button>
+          <div class="danger-zone">
+            <span>危险操作</span>
+            <el-button type="danger" plain :disabled="!selectedVersion" @click="deleteVersion">
+              <Trash2 :size="15" />删除当前版本
+            </el-button>
+            <el-button type="danger" plain :disabled="!versions.length" @click="deleteDefinition">
+              <Trash2 :size="15" />删除流程图
+            </el-button>
+          </div>
+        </section>
+
+        <section class="inspector-card element-card">
+          <div class="inspector-heading">
+            <div>
+              <h2>元素配置</h2>
+              <p>选中画布中的节点、网关或连线后编辑</p>
+            </div>
+          </div>
+          <template v-if="selectedElement">
+            <div class="property-block">
+              <strong>基础信息</strong>
+              <el-form label-position="top" size="small">
+                <el-form-item label="元素 ID">
+                  <el-input v-model="elementForm.id" @blur="applyBaseProperties(false)" />
+                </el-form-item>
+                <el-form-item label="元素名称">
+                  <el-input v-model="elementForm.name" @blur="applyBaseProperties(false)" />
+                </el-form-item>
+                <el-form-item label="文档说明">
+                  <el-input
+                    v-model="elementForm.documentation"
+                    type="textarea"
+                    :rows="3"
+                    @blur="applyBaseProperties(false)"
+                  />
+                </el-form-item>
+              </el-form>
+            </div>
+
+            <div v-if="isTask || isSequenceFlow" class="property-block">
+              <strong>流转规则</strong>
+              <el-form label-position="top" size="small">
+                <el-form-item v-if="isTask" label="环节类型">
+                  <el-select
+                    v-model="approvalMode"
+                    placeholder="请选择环节类型"
+                    @change="applyMode"
                   >
-                  <el-button link type="danger" @click="removeListener(kind as ListenerKind, index)"
-                    >删除</el-button
-                  >
+                    <el-option label="单人环节" value="single" />
+                    <el-option label="抢签环节" value="candidate" />
+                    <el-option label="会签环节" value="parallel" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item v-if="isSequenceFlow" label="连线条件">
+                  <el-input
+                    v-model="elementForm.conditionExpression"
+                    type="textarea"
+                    :rows="3"
+                    placeholder="${operationType == 'agree'}"
+                    @blur="applyBaseProperties(false)"
+                  />
+                </el-form-item>
+              </el-form>
+            </div>
+
+            <div class="property-block technical-info">
+              <strong>技术信息</strong>
+              <dl>
+                <dt>类型</dt>
+                <dd>{{ elementTypeLabel }}</dd>
+                <template v-if="selectedSource || selectedTarget">
+                  <dt>来源</dt>
+                  <dd>{{ selectedSource || '-' }}</dd>
+                  <dt>目标</dt>
+                  <dd>{{ selectedTarget || '-' }}</dd>
+                </template>
+                <template v-if="elementForm.conditionExpression">
+                  <dt>条件</dt>
+                  <dd>
+                    <code>{{ elementForm.conditionExpression }}</code>
+                  </dd>
+                </template>
+                <template v-if="elementForm.documentation">
+                  <dt>说明</dt>
+                  <dd>{{ elementForm.documentation }}</dd>
+                </template>
+              </dl>
+              <div v-if="extensionAttributes.length" class="extension-attributes">
+                <p v-for="attribute in extensionAttributes" :key="attribute.key">
+                  <span>{{ attribute.key }}</span
+                  ><code>{{ attribute.value }}</code>
+                </p>
+              </div>
+            </div>
+
+            <div class="property-block listener-editor">
+              <strong>监听器</strong>
+              <el-select v-model="listenerForm.kind">
+                <el-option
+                  v-for="section in availableListenerSections"
+                  :key="section.kind"
+                  :label="section.label"
+                  :value="section.kind"
+                />
+              </el-select>
+              <div class="listener-input">
+                <el-input
+                  v-model="listenerForm.bean"
+                  placeholder="监听器 Bean 名称"
+                  @keyup.enter="addListener"
+                />
+                <el-button @click="addListener">添加</el-button>
+              </div>
+              <div class="listener-table">
+                <div class="listener-table-head">
+                  <span>序号</span><span>事件类型</span><span>监听器 Bean</span><span>操作</span>
                 </div>
-              </template>
+                <div v-if="listenerRows.length === 0" class="listener-empty-row">暂无数据</div>
+                <template v-else>
+                  <div
+                    v-for="(row, index) in listenerRows"
+                    :key="`${row.kind}-${row.listener}-${row.index}`"
+                    class="listener-table-row"
+                  >
+                    <span>{{ index + 1 }}</span>
+                    <span>{{ row.label }}</span>
+                    <code>{{ row.listener }}</code>
+                    <button
+                      class="listener-remove"
+                      type="button"
+                      aria-label="删除监听器"
+                      @click="removeListener(row.kind, row.index)"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </template>
+              </div>
             </div>
-          </section>
-        </template>
-        <div v-else class="property-empty">选择画布中的元素以编辑属性</div>
-        <footer v-if="selectedDefinition" class="properties-footer">
-          <span>{{ selectedDefinition.processDefinitionId }}</span>
-          <span>部署时间 {{ formatDateTime(activeVersion?.activatedAt) }}</span>
-        </footer>
+          </template>
+          <p v-else class="property-empty">点击画布中的任务、网关、事件或连线查看信息</p>
+        </section>
       </aside>
     </div>
+
+    <el-dialog v-model="newProcessVisible" title="新建流程图" width="480px" destroy-on-close>
+      <el-form label-position="top" @submit.prevent="createNewProcess">
+        <el-form-item label="流程定义 ID" required>
+          <el-input
+            v-model="newProcessForm.key"
+            maxlength="64"
+            placeholder="applyApprovalProcess"
+          />
+        </el-form-item>
+        <el-form-item label="流程定义名称" required>
+          <el-input v-model="newProcessForm.name" maxlength="128" placeholder="申请审批流程" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="newProcessVisible = false">取消</el-button>
+        <el-button type="primary" :loading="newProcessSaving" @click="createNewProcess">
+          创建空白画布
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

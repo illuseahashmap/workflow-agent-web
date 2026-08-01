@@ -28,6 +28,10 @@ export interface BpmnElement {
   businessObject?: ModdleElement
 }
 
+export interface BpmnReplace {
+  replaceElement(element: BpmnElement, properties: { type: string }): BpmnElement
+}
+
 export interface BpmnEvent {
   newSelection?: BpmnElement[]
   element?: BpmnElement

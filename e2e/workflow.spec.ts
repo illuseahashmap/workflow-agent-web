@@ -72,15 +72,15 @@ test.beforeEach(async ({ page }) => {
 
 test('manages process definitions from the workspace', async ({ page }) => {
   await page.goto('/process-definitions')
-  await expect(page.getByRole('heading', { name: '流程定义' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '流程定义', exact: true })).toBeVisible()
   await expect(page.getByText('费用审批')).toBeVisible()
-  await expect(page.getByText('expense_approval')).toBeVisible()
-  await expect(page.getByRole('button', { name: '新建流程' })).toBeVisible()
+  await expect(page.getByRole('row', { name: /expense_approval/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: '新建流程' }).first()).toBeVisible()
 })
 
 test('creates a plain XML workflow in the BPMN designer', async ({ page }) => {
   await page.goto('/process-definitions')
-  await page.getByRole('button', { name: '新建流程' }).click()
+  await page.getByRole('button', { name: '新建流程' }).first().click()
   const dialog = page.getByRole('dialog', { name: '新建流程' })
   await dialog.getByLabel('流程标识').fill('leave_approval')
   await dialog.getByLabel('流程名称').fill('请假审批')
@@ -89,6 +89,20 @@ test('creates a plain XML workflow in the BPMN designer', async ({ page }) => {
   await expect(page).toHaveURL(/process-definitions\/designer/)
   await expect(page.locator('.bpmn-canvas .djs-container')).toBeVisible()
   await expect(page.getByLabel('流程名称')).toHaveValue('请假审批')
+  await expect(page.getByText('流程概览', { exact: true })).toBeVisible()
+  await expect(page.getByText('版本管理', { exact: true })).toBeVisible()
+  await expect(page.getByText('元素配置', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: '新建流程图' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '保存新版本' })).toBeVisible()
+  const userTaskPaletteEntry = page.locator('.djs-palette .bpmn-icon-user-task')
+  await expect(userTaskPaletteEntry).toHaveAttribute('title', '创建用户任务')
+  await userTaskPaletteEntry.click()
+  await page.locator('.bpmn-canvas').click({ position: { x: 460, y: 260 } })
+  await expect(page.getByText('用户任务', { exact: true })).toBeVisible()
+  await expect(page.getByText('flowable:candidateUsers', { exact: true })).toBeVisible()
+  await expect(
+    page.getByText('${assigneeService.getCandidates(execution)}', { exact: true }),
+  ).toBeVisible()
   await page.screenshot({ path: 'test-results/process-designer-desktop.png', fullPage: true })
 })
 
@@ -107,7 +121,7 @@ test('uses the compact navigation on mobile', async ({ page }) => {
   await page.getByRole('button', { name: '打开导航' }).click()
   await expect(page.getByRole('dialog').getByRole('link', { name: '流程实例' })).toBeVisible()
   await page.getByRole('dialog').getByRole('link', { name: '流程实例' }).click()
-  await expect(page.getByRole('heading', { name: '流程实例' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '流程实例', exact: true })).toBeVisible()
   await expect(page.getByRole('dialog')).toBeHidden()
   await page.screenshot({ path: 'test-results/process-instances-mobile.png', fullPage: true })
 })
