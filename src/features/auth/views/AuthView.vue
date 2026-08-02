@@ -54,7 +54,8 @@ const registerRules: FormRules = {
 }
 
 async function enterWorkspace() {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/process-definitions'
+  const redirect =
+    typeof route.query.redirect === 'string' ? route.query.redirect : '/process-definitions'
   await router.replace(redirect)
 }
 
@@ -123,12 +124,22 @@ async function submitRegister() {
         <header class="auth-card-header">
           <span>{{ mode === 'login' ? '欢迎回来' : '创建工作账号' }}</span>
           <h2>{{ mode === 'login' ? '登录 Workflow Agent' : '注册新账号' }}</h2>
-          <p>{{ mode === 'login' ? '输入账号信息以继续进入工作台。' : '注册完成后将自动登录并进入工作台。' }}</p>
+          <p>
+            {{
+              mode === 'login'
+                ? '输入账号信息以继续进入工作台。'
+                : '注册完成后将自动登录并进入工作台。'
+            }}
+          </p>
         </header>
 
         <div class="auth-switch" role="tablist" aria-label="登录或注册">
-          <button type="button" :class="{ active: mode === 'login' }" @click="mode = 'login'">登录</button>
-          <button type="button" :class="{ active: mode === 'register' }" @click="mode = 'register'">注册</button>
+          <button type="button" :class="{ active: mode === 'login' }" @click="mode = 'login'">
+            登录
+          </button>
+          <button type="button" :class="{ active: mode === 'register' }" @click="mode = 'register'">
+            注册
+          </button>
         </div>
 
         <el-form
@@ -141,7 +152,12 @@ async function submitRegister() {
           @submit.prevent="submitLogin"
         >
           <el-form-item label="用户名" prop="username">
-            <el-input v-model="loginForm.username" size="large" autocomplete="username" placeholder="请输入用户名">
+            <el-input
+              v-model="loginForm.username"
+              size="large"
+              autocomplete="username"
+              placeholder="请输入用户名"
+            >
               <template #prefix><UserRound :size="18" /></template>
             </el-input>
           </el-form-item>
@@ -158,7 +174,13 @@ async function submitRegister() {
               <template #prefix><LockKeyhole :size="18" /></template>
             </el-input>
           </el-form-item>
-          <el-button type="primary" size="large" native-type="submit" :loading="submitting" class="auth-submit">
+          <el-button
+            type="primary"
+            size="large"
+            native-type="submit"
+            :loading="submitting"
+            class="auth-submit"
+          >
             登录工作台 <ArrowRight v-if="!submitting" :size="17" />
           </el-button>
         </el-form>
@@ -181,7 +203,12 @@ async function submitRegister() {
           />
           <div class="auth-form-grid">
             <el-form-item label="用户名" prop="username">
-              <el-input v-model="registerForm.username" size="large" autocomplete="username" placeholder="英文用户名">
+              <el-input
+                v-model="registerForm.username"
+                size="large"
+                autocomplete="username"
+                placeholder="英文用户名"
+              >
                 <template #prefix><UserRound :size="18" /></template>
               </el-input>
             </el-form-item>
@@ -216,7 +243,13 @@ async function submitRegister() {
               </el-input>
             </el-form-item>
           </div>
-          <el-button type="primary" size="large" native-type="submit" :loading="submitting" class="auth-submit">
+          <el-button
+            type="primary"
+            size="large"
+            native-type="submit"
+            :loading="submitting"
+            class="auth-submit"
+          >
             注册并进入 <ArrowRight v-if="!submitting" :size="17" />
           </el-button>
         </el-form>

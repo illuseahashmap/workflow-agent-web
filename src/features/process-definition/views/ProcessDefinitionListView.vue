@@ -111,33 +111,35 @@ async function remove(key: string, name: string) {
 
 <template>
   <div class="definition-page page-stack">
-    <section class="definition-header">
-      <div class="definition-header-copy">
-        <span><Boxes :size="15" />流程管理</span>
-        <h2>流程定义</h2>
-        <p>管理 BPMN 模型、版本发布状态和流程设计。</p>
+    <section class="page-hero compact-hero">
+      <div>
+        <span class="eyebrow">Process Definition</span>
+        <h2>流程定义中心</h2>
+        <p>集中管理 BPMN 模型、流程版本、发布状态和流程设计入口。</p>
       </div>
-      <el-button v-if="canWriteDefinitions" type="primary" @click="createVisible = true">
-        <Plus :size="17" />新建流程
-      </el-button>
+      <div v-if="canWriteDefinitions" class="hero-actions">
+        <el-button type="primary" @click="createVisible = true">
+          <Plus :size="17" />新建流程
+        </el-button>
+      </div>
     </section>
 
-    <section class="definition-summary-bar">
-      <article class="definition-stat">
+    <section class="metric-grid">
+      <article class="metric-card">
         <span><Boxes :size="18" /></span>
         <div>
           <strong>{{ total }}</strong>
           <small>流程定义总数</small>
         </div>
       </article>
-      <article class="definition-stat success">
+      <article class="metric-card success">
         <span><CheckCircle2 :size="18" /></span>
         <div>
           <strong>{{ publishedCount }}</strong>
           <small>当前页已发布</small>
         </div>
       </article>
-      <article class="definition-stat warning">
+      <article class="metric-card warning">
         <span><Clock3 :size="18" /></span>
         <div>
           <strong>{{ draftCount }}</strong>
@@ -147,7 +149,7 @@ async function remove(key: string, name: string) {
     </section>
 
     <section class="page-actions compact-filter definition-filter">
-      <el-form class="filter-form" inline @submit.prevent="search">
+      <el-form class="filter-form filter-form--definitions" inline @submit.prevent="search">
         <el-form-item label="流程标识">
           <el-input
             v-model="query.processDefinitionKey"
@@ -159,13 +161,13 @@ async function remove(key: string, name: string) {
           <el-input v-model="query.processDefinitionName" clearable placeholder="输入流程名称" />
         </el-form-item>
         <el-form-item label="发布状态">
-          <el-select v-model="query.publishStatus" style="width: 132px">
+          <el-select v-model="query.publishStatus">
             <el-option label="全部" value="all" />
             <el-option label="已发布" value="published" />
             <el-option label="未发布" value="unpublished" />
           </el-select>
         </el-form-item>
-        <el-form-item>
+        <el-form-item class="filter-form__actions">
           <div class="filter-actions">
             <el-button type="primary" native-type="submit"><Search :size="16" />查询</el-button>
             <el-button @click="reset"><RefreshCw :size="16" />重置</el-button>

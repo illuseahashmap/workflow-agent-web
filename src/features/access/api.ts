@@ -15,7 +15,6 @@ export const accessApi = {
       params: { enabled },
     }),
   roles: () => http.get<never, TenantRole[]>(`${ROOT}/roles`),
-  saveRole: (payload: SaveRoleCommand) =>
-    http.post<never, TenantRole>(`${ROOT}/roles`, payload),
+  saveRole: (payload: SaveRoleCommand) => http.post<never, TenantRole>(`${ROOT}/roles`, payload),
   permissions: () => http.get<never, PermissionItem[]>(`${ROOT}/permissions`),
 }

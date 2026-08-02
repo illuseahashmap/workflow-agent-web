@@ -153,33 +153,30 @@ async function toggle(item: WorkflowTenant) {
     </section>
 
     <section class="page-actions compact-filter">
-      <el-form class="filter-form" inline @submit.prevent="search"
+      <el-form class="filter-form filter-form--tenants" inline @submit.prevent="search"
         ><el-form-item label="关键词"
           ><el-input
             v-model="query.keyword"
             clearable
             placeholder="租户标识、编码或名称" /></el-form-item
         ><el-form-item label="状态"
-          ><el-select v-model="query.enabled" clearable style="width: 120px"
+          ><el-select v-model="query.enabled" clearable
             ><el-option label="启用" :value="true" /><el-option
               label="禁用"
               :value="false" /></el-select></el-form-item
-        ><el-form-item
+        ><el-form-item class="filter-form__actions"
           ><el-button type="primary" native-type="submit"><Search :size="16" />查询</el-button
           ><el-button @click="reset"><RefreshCw :size="16" />重置</el-button></el-form-item
         ></el-form
       >
-      <div class="action-buttons">
+      <div class="action-buttons page-primary-actions">
         <el-button :loading="enabledTenantsQuery.isFetching.value" @click="refreshEnabledTenants"
           ><RefreshCw :size="16" />刷新可用租户</el-button
         ><el-button type="primary" @click="create"><Plus :size="17" />新增租户</el-button>
       </div>
     </section>
     <section class="table-panel">
-      <el-table
-        v-loading="tenantsQuery.isFetching.value"
-        :data="records"
-        height="100%"
+      <el-table v-loading="tenantsQuery.isFetching.value" :data="records" height="100%"
         ><el-table-column prop="tenantName" label="租户名称" min-width="180" /><el-table-column
           prop="tenantId"
           label="租户标识"

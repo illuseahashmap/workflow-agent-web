@@ -36,7 +36,9 @@ const instancesQuery = useQuery({
 
 const records = computed(() => instancesQuery.data.value?.records ?? [])
 const total = computed(() => instancesQuery.data.value?.total ?? 0)
-const runningCount = computed(() => records.value.filter((item) => item.status === 'RUNNING').length)
+const runningCount = computed(
+  () => records.value.filter((item) => item.status === 'RUNNING').length,
+)
 const finishedCount = computed(() => Math.max(records.value.length - runningCount.value, 0))
 
 const terminateMutation = useMutation({
@@ -118,7 +120,7 @@ async function terminate(id: string) {
     </section>
 
     <section class="page-actions compact-filter filter-only">
-      <el-form class="filter-form" inline @submit.prevent="search">
+      <el-form class="filter-form filter-form--instances" inline @submit.prevent="search">
         <el-form-item label="流程标识"
           ><el-input v-model="query.processDefinitionKey" clearable
         /></el-form-item>
@@ -132,13 +134,13 @@ async function terminate(id: string) {
           ><el-input v-model="query.businessKey" clearable
         /></el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="query.status" style="width: 120px"
+          <el-select v-model="query.status"
             ><el-option label="全部" value="all" /><el-option
               label="运行中"
               value="running" /><el-option label="已结束" value="finished"
           /></el-select>
         </el-form-item>
-        <el-form-item
+        <el-form-item class="filter-form__actions"
           ><el-button type="primary" native-type="submit"><Search :size="16" />查询</el-button
           ><el-button @click="reset"><RefreshCw :size="16" />重置</el-button></el-form-item
         >

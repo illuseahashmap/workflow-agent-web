@@ -1,11 +1,7 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import * as authApi from '@/features/auth/api'
-import {
-  clearAuthSession,
-  readAuthSession,
-  writeAuthSession,
-} from '@/features/auth/storage'
+import { clearAuthSession, readAuthSession, writeAuthSession } from '@/features/auth/storage'
 import type {
   AuthSession,
   AuthUser,

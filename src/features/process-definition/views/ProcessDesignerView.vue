@@ -37,7 +37,6 @@ import type { ActiveProcessVersion, ProcessDefinition } from '../types'
 
 const DEFAULT_ASSIGNEE = '${assigneeService.getAssignee(execution)}'
 const DEFAULT_CANDIDATE_USERS = '${assigneeService.getCandidates(execution)}'
-const DEFAULT_CANDIDATE_GROUPS = '${assigneeService.getCandidateGroups(execution)}'
 const DEFAULT_COUNTERSIGN_COLLECTION = '${assigneeService.getAssigneeList(execution)}'
 const HIDDEN_TECHNICAL_ATTRIBUTES = new Set([
   'flowable:assignee',
@@ -219,7 +218,6 @@ function ensureDefaultUserTaskAssignment(element?: BpmnElement) {
   sanitizeAttributes(object)
   modeling.updateModdleProperties(element, object, {
     candidateUsers: DEFAULT_CANDIDATE_USERS,
-    candidateGroups: DEFAULT_CANDIDATE_GROUPS,
   })
   return true
 }
@@ -578,7 +576,6 @@ function applyMode(mode: ApprovalMode) {
   if (mode === 'single') properties.assignee = DEFAULT_ASSIGNEE
   if (mode === 'candidate') {
     properties.candidateUsers = DEFAULT_CANDIDATE_USERS
-    properties.candidateGroups = DEFAULT_CANDIDATE_GROUPS
   }
   if (mode === 'parallel') {
     properties.assignee = '${assignee}'

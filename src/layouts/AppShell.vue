@@ -13,7 +13,6 @@ import {
   Menu,
   Route,
   ScrollText,
-  UserRound,
   UsersRound,
   Workflow,
   X,
@@ -250,9 +249,13 @@ const navigation = computed(() => [
             </button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item disabled
-                  ><UserRound :size="15" />{{ authStore.user?.username }}</el-dropdown-item
-                >
+                <el-dropdown-item class="user-account-summary" disabled>
+                  <span class="user-dropdown-avatar">{{ userInitial }}</span>
+                  <span class="user-dropdown-copy">
+                    <strong>{{ displayName }}</strong>
+                    <small>{{ authStore.user?.username }}</small>
+                  </span>
+                </el-dropdown-item>
                 <el-dropdown-item divided command="logout"
                   ><LogOut :size="15" />退出登录</el-dropdown-item
                 >

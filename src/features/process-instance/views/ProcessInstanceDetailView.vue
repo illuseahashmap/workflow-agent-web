@@ -140,7 +140,11 @@ function openTransfer(task: TaskItem) {
       }}</el-tag>
       <div class="toolbar-spacer" />
       <el-button @click="refresh"><RefreshCw :size="16" />刷新</el-button>
-      <el-button v-if="canOperateInstances && instance?.status === 'RUNNING'" type="danger" plain @click="terminate"
+      <el-button
+        v-if="canOperateInstances && instance?.status === 'RUNNING'"
+        type="danger"
+        plain
+        @click="terminate"
         ><Ban :size="16" />终止流程</el-button
       >
     </header>

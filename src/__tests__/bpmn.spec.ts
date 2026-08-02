@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createBlankBpmn, resolveTaskMode, validateBpmnXml } from '@/utils/bpmn'
+import { createBlankBpmn, listUserTasks, resolveTaskMode, validateBpmnXml } from '@/utils/bpmn'
 
 describe('BPMN utilities', () => {
   it('creates an executable plain XML process', () => {
@@ -33,5 +33,22 @@ describe('BPMN utilities', () => {
       </definitions>`
 
     expect(resolveTaskMode(xml, taskId)).toBe(expected)
+  })
+
+  it('lists user tasks with stable labels and assignment modes', () => {
+    const xml = `<?xml version="1.0"?>
+      <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn">
+        <process id="approval" isExecutable="true">
+          <userTask id="submitTask" name="提交申请" flowable:assignee="demo" />
+          <userTask id="approveTask" name="部门审批" flowable:candidateUsers="manager" />
+          <userTask id="archiveTask"><multiInstanceLoopCharacteristics /></userTask>
+        </process>
+      </definitions>`
+
+    expect(listUserTasks(xml)).toEqual([
+      { id: 'submitTask', name: '提交申请', mode: 'single' },
+      { id: 'approveTask', name: '部门审批', mode: 'candidate' },
+      { id: 'archiveTask', name: 'archiveTask', mode: 'parallel' },
+    ])
   })
 })

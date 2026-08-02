@@ -13,8 +13,7 @@ const ROOT = '/workflow/management/process'
 export const definitionApi = {
   page: (params: DefinitionPageQuery) =>
     http.get<never, PageResult<ProcessDefinitionSummary>>(`${ROOT}/definitions/page`, { params }),
-  listProcesses: () =>
-    http.get<never, ProcessDefinition[]>(`${ROOT}/definitions`),
+  listProcesses: () => http.get<never, ProcessDefinition[]>(`${ROOT}/definitions`),
   listVersions: (processDefinitionKey: string) =>
     http.get<never, ProcessDefinition[]>(`${ROOT}/definitions`, {
       params: { processDefinitionKey },

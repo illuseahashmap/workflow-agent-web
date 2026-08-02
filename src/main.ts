@@ -35,6 +35,7 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
 import App from './App.vue'
 import router from './router'
 import './styles/main.css'
+import './styles/design-system.css'
 
 const app = createApp(App)
 const pinia = createPinia()

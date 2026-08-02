@@ -111,11 +111,13 @@ function firstAuthorizedRoute(session: ReturnType<typeof readAuthSession>) {
     administrator ||
     permissions.includes('workflow:definition:read') ||
     permissions.includes('workflow:definition:write')
-  ) return { name: 'process-definitions' }
+  )
+    return { name: 'process-definitions' }
   if (
     permissions.includes('workflow:instance:read') ||
     permissions.includes('workflow:instance:operate')
-  ) return { name: 'process-instances' }
+  )
+    return { name: 'process-instances' }
   if (permissions.includes('assignment:manage')) return { name: 'assignment-rules' }
   if (permissions.includes('member:manage') || permissions.includes('role:manage')) {
     return { name: 'access-management' }

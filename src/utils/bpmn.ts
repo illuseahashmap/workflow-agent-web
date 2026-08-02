@@ -39,13 +39,13 @@ export function validateBpmnXml(xml: string) {
 
 export type BpmnTaskMode = 'single' | 'candidate' | 'parallel'
 
-export function resolveTaskMode(xml: string, taskDefinitionKey: string): BpmnTaskMode | undefined {
-  const document = validateBpmnXml(xml)
-  const task = Array.from(document.getElementsByTagName('*')).find(
-    (element) =>
-      element.localName === 'userTask' && element.getAttribute('id') === taskDefinitionKey,
-  )
-  if (!task) return undefined
+export interface BpmnUserTask {
+  id: string
+  name: string
+  mode: BpmnTaskMode
+}
+
+function resolveTaskElementMode(task: Element): BpmnTaskMode {
   const hasMultiInstance = Array.from(task.children).some(
     (element) => element.localName === 'multiInstanceLoopCharacteristics',
   )
@@ -59,4 +59,28 @@ export function resolveTaskMode(xml: string, taskDefinitionKey: string): BpmnTas
     return 'candidate'
   }
   return 'single'
+}
+
+export function listUserTasks(xml: string): BpmnUserTask[] {
+  const document = validateBpmnXml(xml)
+  return Array.from(document.getElementsByTagName('*'))
+    .filter((element) => element.localName === 'userTask' && element.hasAttribute('id'))
+    .map((task) => {
+      const id = task.getAttribute('id')!
+      return {
+        id,
+        name: task.getAttribute('name')?.trim() || id,
+        mode: resolveTaskElementMode(task),
+      }
+    })
+}
+
+export function resolveTaskMode(xml: string, taskDefinitionKey: string): BpmnTaskMode | undefined {
+  const document = validateBpmnXml(xml)
+  const task = Array.from(document.getElementsByTagName('*')).find(
+    (element) =>
+      element.localName === 'userTask' && element.getAttribute('id') === taskDefinitionKey,
+  )
+  if (!task) return undefined
+  return resolveTaskElementMode(task)
 }

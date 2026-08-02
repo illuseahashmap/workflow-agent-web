@@ -371,101 +371,6 @@ select {
   gap: 16px;
 }
 
-.definition-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 20px 24px;
-  border: 1px solid rgba(219, 228, 240, 0.92);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: var(--shadow-card);
-}
-
-.definition-header-copy > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #2563eb;
-  font-size: 11px;
-  font-weight: 750;
-}
-
-.definition-header h2 {
-  margin: 4px 0 0;
-  color: #0f172a;
-  font-size: 22px;
-  line-height: 1.2;
-}
-
-.definition-header p {
-  margin: 5px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.definition-summary-bar {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  padding: 13px 0;
-  border: 1px solid rgba(219, 228, 240, 0.92);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow: var(--shadow-card);
-}
-
-.definition-stat {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 3px 22px;
-  border-right: 1px solid var(--border);
-}
-
-.definition-stat:last-child {
-  border-right: 0;
-}
-
-.definition-stat > span {
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 10px;
-  color: #2563eb;
-  background: #eff6ff;
-}
-
-.definition-stat.success > span {
-  color: #059669;
-  background: #ecfdf5;
-}
-
-.definition-stat.warning > span {
-  color: #d97706;
-  background: #fffbeb;
-}
-
-.definition-stat strong,
-.definition-stat small {
-  display: block;
-}
-
-.definition-stat strong {
-  color: #0f172a;
-  font-size: 18px;
-  line-height: 1;
-}
-
-.definition-stat small {
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
 .page-hero {
   position: relative;
   overflow: hidden;
@@ -1589,26 +1494,6 @@ select {
 
   .definition-page {
     grid-template-rows: auto auto auto minmax(360px, 1fr);
-  }
-
-  .definition-header {
-    align-items: flex-start;
-    padding: 16px;
-  }
-
-  .definition-summary-bar {
-    grid-template-columns: minmax(0, 1fr);
-    padding: 0 14px;
-  }
-
-  .definition-stat {
-    padding: 12px 2px;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .definition-stat:last-child {
-    border-bottom: 0;
   }
 
   .definition-filter .filter-form {
