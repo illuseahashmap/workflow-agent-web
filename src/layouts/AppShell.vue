@@ -103,10 +103,20 @@ async function handleTenantChange(tenantCode: string) {
   }
 }
 
+async function handleMobileTenantChange(tenantCode: string) {
+  await handleTenantChange(tenantCode)
+  appStore.closeMobileNavigation()
+}
+
 async function handleUserCommand(command: string) {
   if (command !== 'logout') return
   authStore.logout()
   await router.replace({ name: 'auth' })
+}
+
+async function handleMobileLogout() {
+  appStore.closeMobileNavigation()
+  await handleUserCommand('logout')
 }
 
 const navigation = computed(() =>
@@ -186,6 +196,38 @@ const navigation = computed(() =>
           <span>{{ item.label }}</span>
         </RouterLink>
       </nav>
+      <div class="mobile-session">
+        <div class="mobile-session__tenant">
+          <span>当前租户</span>
+          <el-select
+            v-model="selectedTenant"
+            class="mobile-tenant-switcher"
+            popper-class="tenant-switcher-dropdown"
+            :loading="switchingTenant"
+            aria-label="移动端切换租户"
+            @change="handleMobileTenantChange"
+          >
+            <template #prefix><Building2 :size="16" /></template>
+            <el-option
+              v-for="tenant in authStore.tenants"
+              :key="tenant.tenantCode"
+              :label="tenant.tenantName"
+              :value="tenant.tenantCode"
+              :disabled="!tenant.enabled"
+            />
+          </el-select>
+        </div>
+        <div class="mobile-session__account">
+          <span class="user-avatar">{{ userInitial }}</span>
+          <span class="user-menu-copy">
+            <strong>{{ displayName }}</strong>
+            <small>{{ authStore.user?.username }}</small>
+          </span>
+          <el-button text type="danger" aria-label="退出登录" @click="handleMobileLogout">
+            <LogOut :size="16" />退出
+          </el-button>
+        </div>
+      </div>
     </el-drawer>
 
     <div class="workspace">

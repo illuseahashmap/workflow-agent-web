@@ -1,6 +1,16 @@
 import { apiClient } from '@/api/http'
 import type { PageResult } from '@/types/api'
-import type { ProcessDiagramData, ProcessInstanceDetail, ProcessInstanceSummary } from './types'
+import type {
+  ProcessDiagramData,
+  ProcessInstanceDetail,
+  ProcessInstanceSummary,
+  CompleteTaskRequest,
+  CompleteTaskResult,
+  ParticipantRequirement,
+  RejectTaskRequest,
+  StartProcessRequest,
+  StartProcessResult,
+} from './types'
 
 const ROOT = '/workflow/management/process'
 
@@ -15,6 +25,14 @@ export interface InstancePageQuery {
 }
 
 export const processInstanceApi = {
+  start: (payload: StartProcessRequest) =>
+    apiClient.post<StartProcessResult>('/workflow/process/start', payload),
+  startParticipantRequirements: (payload: {
+    processDefinitionKey: string
+    processDefinitionId?: string
+    variables: Record<string, unknown>
+  }) =>
+    apiClient.post<ParticipantRequirement[]>('/workflow/process/participant-requirements', payload),
   page: (params: InstancePageQuery) =>
     apiClient.get<PageResult<ProcessInstanceSummary>>(`${ROOT}/instances/page`, { params }),
   detail: (processInstanceId: string) =>
@@ -27,9 +45,20 @@ export const processInstanceApi = {
     }),
   terminate: (processInstanceId: string, reason: string) =>
     apiClient.post<void>(`${ROOT}/instance/terminate`, { processInstanceId, reason }),
+  approve: (payload: CompleteTaskRequest) =>
+    apiClient.post<CompleteTaskResult>('/workflow/task/approve', payload),
+  taskParticipantRequirements: (payload: {
+    taskId: string
+    action: 'APPROVE' | 'REJECT'
+    targetActivityId?: string
+    variables: Record<string, unknown>
+  }) =>
+    apiClient.post<ParticipantRequirement[]>('/workflow/task/participant-requirements', payload),
+  reject: (payload: RejectTaskRequest) =>
+    apiClient.post<CompleteTaskResult>('/workflow/task/reject', payload),
   transfer: (payload: {
     taskId: string
-    currentAssignee: string
+    currentAssignee?: string
     currentCandidateGroups: string[]
     targetAssignee?: string
     targetCandidateUsers: string[]

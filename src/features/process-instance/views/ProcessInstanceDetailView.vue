@@ -3,7 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Ban, RefreshCw, Send } from '@lucide/vue'
+import { ArrowLeft, Ban, Check, RefreshCw, RotateCcw, Send } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
 import { canOperateInstances as isInstanceOperable } from '@/features/auth/authorization'
@@ -18,8 +18,9 @@ import {
   splitValues,
 } from '@/utils/format'
 import ProcessDiagram from '../components/ProcessDiagram.vue'
+import ParticipantAssignmentEditor from '../components/ParticipantAssignmentEditor.vue'
 import { processInstanceApi } from '../api'
-import type { TaskItem } from '../types'
+import type { ParticipantAssignment, ParticipantRequirement, TaskItem } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,7 +33,12 @@ const activeTab = ref('diagram')
 const taskPage = reactive({ pageNum: 1, pageSize: 10 })
 const variablePage = reactive({ pageNum: 1, pageSize: 10 })
 const transferVisible = ref(false)
+const decisionVisible = ref(false)
+const decisionType = ref<'approve' | 'reject'>('approve')
 const selectedTask = ref<TaskItem>()
+const decisionForm = reactive({ comment: '' })
+const decisionRequirements = ref<ParticipantRequirement[]>([])
+const decisionAssignments = ref<ParticipantAssignment[]>([])
 const transferForm = reactive({
   targetAssignee: '',
   targetCandidateUsers: '',
@@ -69,16 +75,16 @@ const terminateMutation = useMutation({
 const transferMutation = useMutation({
   mutationFn: () => {
     const task = selectedTask.value
-    if (!task?.assignee) throw new Error('候选任务需要接入当前用户身份后才能安全转办')
-    if (
-      !transferForm.targetAssignee.trim() &&
-      !transferForm.targetCandidateUsers.trim() &&
-      !transferForm.targetCandidateGroups.trim()
-    )
-      throw new Error('至少填写一种转办目标')
+    if (!task || !canActOnTask(task)) throw new Error('当前用户不能操作该任务')
+    const targetCount = [
+      transferForm.targetAssignee,
+      transferForm.targetCandidateUsers,
+      transferForm.targetCandidateGroups,
+    ].filter((value) => value.trim()).length
+    if (targetCount !== 1) throw new Error('转办目标必须且只能填写一种')
     return processInstanceApi.transfer({
       taskId: task.taskId,
-      currentAssignee: task.assignee,
+      currentAssignee: task.assignee || undefined,
       currentCandidateGroups: task.candidateGroups || [],
       targetAssignee: transferForm.targetAssignee.trim() || undefined,
       targetCandidateUsers: splitValues(transferForm.targetCandidateUsers),
@@ -90,6 +96,49 @@ const transferMutation = useMutation({
     transferVisible.value = false
     ElMessage.success('任务已转办')
     await refresh()
+  },
+  onError: (error) => ElMessage.error(getErrorMessage(error)),
+})
+const decisionMutation = useMutation({
+  mutationFn: () => {
+    const task = selectedTask.value
+    if (!task || !canActOnTask(task)) throw new Error('当前用户不能操作该任务')
+    const base = {
+      taskId: task.taskId,
+      currentAssignee: task.assignee || undefined,
+      currentCandidateGroups: task.candidateGroups || [],
+      comment: decisionForm.comment.trim() || undefined,
+      variables: {},
+      participantAssignments: decisionAssignments.value,
+    }
+    return decisionType.value === 'approve'
+      ? processInstanceApi.approve(base)
+      : processInstanceApi.reject({
+          ...base,
+          targetAssignees: [],
+          targetCandidateGroups: [],
+        })
+  },
+  onSuccess: async () => {
+    decisionVisible.value = false
+    ElMessage.success(decisionType.value === 'approve' ? '任务已同意' : '任务已退回')
+    await refresh()
+  },
+  onError: (error) => ElMessage.error(getErrorMessage(error)),
+})
+const decisionRequirementsMutation = useMutation({
+  mutationFn: () => {
+    const task = selectedTask.value
+    if (!task) throw new Error('请选择任务')
+    return processInstanceApi.taskParticipantRequirements({
+      taskId: task.taskId,
+      action: decisionType.value === 'approve' ? 'APPROVE' : 'REJECT',
+      variables: {},
+    })
+  },
+  onSuccess: (requirements) => {
+    decisionRequirements.value = requirements
+    decisionAssignments.value = []
   },
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
@@ -117,6 +166,40 @@ function openTransfer(task: TaskItem) {
     comment: '',
   })
   transferVisible.value = true
+}
+function isActiveTask(task: TaskItem) {
+  return ['ACTIVE', 'RUNNING'].includes(task.status)
+}
+function canActOnTask(task: TaskItem) {
+  const username = authStore.user?.username
+  return Boolean(
+    canOperateInstances.value &&
+    username &&
+    (task.assignee === username || task.candidateUsers?.includes(username)),
+  )
+}
+function openDecision(task: TaskItem, type: 'approve' | 'reject') {
+  selectedTask.value = task
+  decisionType.value = type
+  decisionForm.comment = ''
+  decisionRequirements.value = []
+  decisionAssignments.value = []
+  decisionVisible.value = true
+  decisionRequirementsMutation.mutate()
+}
+function confirmDecision() {
+  const complete = decisionRequirements.value.every((requirement) => {
+    if (!requirement.required) return true
+    const users = decisionAssignments.value.find(
+      (item) => item.activityId === requirement.activityId,
+    )?.usernames
+    return requirement.multiple ? Boolean(users?.length) : users?.length === 1
+  })
+  if (!complete) {
+    ElMessage.warning('请为所有待派单环节选择参与人')
+    return
+  }
+  decisionMutation.mutate()
 }
 </script>
 
@@ -172,7 +255,7 @@ function openTransfer(task: TaskItem) {
     <section class="detail-content">
       <el-tabs v-model="activeTab">
         <el-tab-pane label="流程跟踪" name="diagram"
-          ><ProcessDiagram :data="diagramQuery.data.value"
+          ><ProcessDiagram v-if="activeTab === 'diagram'" :data="diagramQuery.data.value"
         /></el-tab-pane>
         <el-tab-pane :label="`任务 (${detailQuery.data.value?.tasks.length || 0})`" name="tasks">
           <el-table :data="visibleTasks" height="470"
@@ -196,20 +279,37 @@ function openTransfer(task: TaskItem) {
               ><template #default="{ row }">{{
                 formatDuration(row.durationInMillis)
               }}</template></el-table-column
-            ><el-table-column v-if="canOperateInstances" label="操作" width="100" fixed="right"
-              ><template #default="{ row }"
-                ><el-tooltip :disabled="Boolean(row.assignee)" content="候选任务需接入当前用户身份"
-                  ><span
-                    ><el-button
+            ><el-table-column v-if="canOperateInstances" label="操作" width="250" fixed="right"
+              ><template #default="{ row }">
+                <el-tooltip
+                  :disabled="canActOnTask(row)"
+                  content="仅当前处理人或候选人可以操作任务"
+                >
+                  <span class="row-actions">
+                    <el-button
+                      link
+                      type="success"
+                      :disabled="!isActiveTask(row) || !canActOnTask(row)"
+                      @click="openDecision(row, 'approve')"
+                      ><Check :size="15" />同意</el-button
+                    >
+                    <el-button
+                      link
+                      type="warning"
+                      :disabled="!isActiveTask(row) || !canActOnTask(row)"
+                      @click="openDecision(row, 'reject')"
+                      ><RotateCcw :size="15" />退回</el-button
+                    >
+                    <el-button
                       link
                       type="primary"
-                      :disabled="row.status !== 'RUNNING' || !row.assignee"
+                      :disabled="!isActiveTask(row) || !canActOnTask(row)"
                       @click="openTransfer(row)"
                       ><Send :size="15" />转办</el-button
-                    ></span
-                  ></el-tooltip
-                ></template
-              ></el-table-column
+                    >
+                  </span>
+                </el-tooltip>
+              </template></el-table-column
             ></el-table
           >
           <el-pagination
@@ -254,8 +354,55 @@ function openTransfer(task: TaskItem) {
       </el-tabs>
     </section>
 
-    <el-dialog v-model="transferVisible" title="转办任务" width="560px">
-      <el-alert type="info" :closable="false" title="处理人、候选用户和候选组至少填写一项" />
+    <el-dialog
+      v-model="decisionVisible"
+      :title="decisionType === 'approve' ? '同意任务' : '退回任务'"
+      width="min(720px, calc(100vw - 32px))"
+      destroy-on-close
+    >
+      <el-alert
+        v-if="decisionType === 'reject'"
+        type="warning"
+        :closable="false"
+        title="任务将退回到流程中的首个人工环节。"
+      />
+      <el-form class="dialog-form" label-position="top">
+        <el-form-item label="处理意见">
+          <el-input
+            v-model="decisionForm.comment"
+            type="textarea"
+            :rows="4"
+            maxlength="500"
+            show-word-limit
+            placeholder="选填"
+          />
+        </el-form-item>
+      </el-form>
+      <div v-loading="decisionRequirementsMutation.isPending.value">
+        <ParticipantAssignmentEditor
+          v-model="decisionAssignments"
+          :requirements="decisionRequirements"
+        />
+      </div>
+      <template #footer>
+        <el-button @click="decisionVisible = false">取消</el-button>
+        <el-button
+          :type="decisionType === 'approve' ? 'success' : 'warning'"
+          :disabled="decisionRequirementsMutation.isPending.value"
+          :loading="decisionMutation.isPending.value"
+          @click="confirmDecision"
+        >
+          {{ decisionType === 'approve' ? '确认同意' : '确认退回' }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="transferVisible" title="转办任务" width="min(560px, calc(100vw - 32px))">
+      <el-alert
+        type="info"
+        :closable="false"
+        title="处理人、候选用户和候选组必须且只能填写一项。"
+      />
       <el-form class="dialog-form" label-position="top">
         <el-form-item label="目标处理人"
           ><el-input v-model="transferForm.targetAssignee" placeholder="用户账号"

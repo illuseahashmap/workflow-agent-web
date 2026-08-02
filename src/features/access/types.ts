@@ -8,6 +8,12 @@ export interface TenantMember {
   joinedAt?: string
 }
 
+export interface DirectoryUser {
+  userId: string
+  username: string
+  displayName: string
+}
+
 export interface TenantRole {
   roleCode: string
   roleName: string

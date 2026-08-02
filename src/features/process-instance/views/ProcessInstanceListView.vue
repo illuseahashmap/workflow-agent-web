@@ -3,7 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Ban, Eye, RefreshCw, Search } from '@lucide/vue'
+import { Ban, Eye, Play, RefreshCw, Search } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
 import MetricCard from '@/components/MetricCard.vue'
@@ -13,6 +13,8 @@ import { useAuthStore } from '@/stores/auth'
 import { promptRequired } from '@/utils/confirmation'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import { processInstanceApi } from '../api'
+import StartProcessDialog from '../components/StartProcessDialog.vue'
+import type { StartProcessResult } from '../types'
 
 const router = useRouter()
 const queryClient = useQueryClient()
@@ -29,6 +31,7 @@ const query = reactive({
   pageSize: 20,
 })
 const applied = ref({ ...query })
+const startVisible = ref(false)
 
 const instancesQuery = useQuery({
   queryKey: computed(() => queryKeys.processInstancePage(tenantCode.value, applied.value)),
@@ -85,6 +88,10 @@ async function terminate(id: string) {
   if (!reason) return
   terminateMutation.mutate({ id, reason })
 }
+
+function handleStarted(result: StartProcessResult) {
+  void router.push({ name: 'process-instance-detail', params: { id: result.processInstanceId } })
+}
 </script>
 
 <template>
@@ -93,7 +100,13 @@ async function terminate(id: string) {
       eyebrow="Process Instance"
       title="流程实例看板"
       description="追踪流程运行状态、当前任务、业务标识和执行耗时，快速定位需要人工处理的流程实例。"
-    />
+    >
+      <template v-if="canOperateInstances" #actions>
+        <el-button type="primary" @click="startVisible = true">
+          <Play :size="16" />发起流程
+        </el-button>
+      </template>
+    </PageHeader>
 
     <section class="metric-grid">
       <MetricCard :value="total" label="实例总数"><template #icon>Σ</template></MetricCard>
@@ -209,5 +222,7 @@ async function terminate(id: string) {
         @change="changePage"
       />
     </section>
+
+    <StartProcessDialog v-model="startVisible" @started="handleStarted" />
   </div>
 </template>

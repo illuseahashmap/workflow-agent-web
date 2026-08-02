@@ -1,9 +1,18 @@
 import { apiClient } from '@/api/http'
-import type { PermissionItem, SaveRoleCommand, TenantMember, TenantRole } from './types'
+import type { PageResult } from '@/types/api'
+import type {
+  DirectoryUser,
+  PermissionItem,
+  SaveRoleCommand,
+  TenantMember,
+  TenantRole,
+} from './types'
 
 const ROOT = '/auth/access'
 
 export const accessApi = {
+  directoryUsers: (params: { keyword?: string; pageNum: number; pageSize: number }) =>
+    apiClient.get<PageResult<DirectoryUser>>('/auth/directory/users', { params }),
   members: (keyword?: string) =>
     apiClient.get<TenantMember[]>(`${ROOT}/members`, { params: { keyword } }),
   addMember: (username: string, roleCodes: string[]) =>

@@ -12,7 +12,17 @@ import {
 } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, CheckCircle2, Copy, Download, FileUp, Plus, Save, Trash2 } from '@lucide/vue'
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Copy,
+  Download,
+  FileUp,
+  MoreHorizontal,
+  Plus,
+  Save,
+  Trash2,
+} from '@lucide/vue'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { getErrorMessage } from '@/api/http'
 import flowableModdle from '@/bpmn/flowableModdle'
@@ -676,6 +686,14 @@ async function download() {
   URL.revokeObjectURL(url)
 }
 
+type DesignerToolbarCommand = 'import' | 'export' | 'new-process'
+
+function handleToolbarCommand(command: DesignerToolbarCommand) {
+  if (command === 'import') fileInput.value?.click()
+  else if (command === 'export') void download()
+  else void openNewProcessDialog()
+}
+
 function beforeUnload(event: BeforeUnloadEvent) {
   if (!dirty.value) return
   event.preventDefault()
@@ -756,12 +774,36 @@ watch(selectedVersion, () => resetSelection())
         </div>
       </div>
       <div class="designer-toolbar-actions">
-        <el-button @click="fileInput?.click()"><FileUp :size="16" />导入</el-button>
-        <el-button @click="download"><Download :size="16" />导出</el-button>
-        <span class="toolbar-action-divider" />
-        <el-button @click="openNewProcessDialog"><Plus :size="16" />新建流程图</el-button>
-        <el-button type="primary" :loading="saving" @click="saveVersion">
-          <Save :size="16" />保存新版本
+        <div class="designer-toolbar-secondary">
+          <el-button @click="fileInput?.click()"><FileUp :size="16" />导入</el-button>
+          <el-button @click="download"><Download :size="16" />导出</el-button>
+          <span class="toolbar-action-divider" />
+          <el-button @click="openNewProcessDialog"><Plus :size="16" />新建流程图</el-button>
+        </div>
+        <el-dropdown class="designer-more-actions" trigger="click" @command="handleToolbarCommand">
+          <el-button aria-label="更多流程图操作">
+            <MoreHorizontal :size="17" /><span class="designer-action-label">更多</span>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="import"><FileUp :size="15" />导入流程图</el-dropdown-item>
+              <el-dropdown-item command="export"
+                ><Download :size="15" />导出流程图</el-dropdown-item
+              >
+              <el-dropdown-item divided command="new-process">
+                <Plus :size="15" />新建流程图
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-button
+          class="designer-save-button"
+          type="primary"
+          aria-label="保存新版本"
+          :loading="saving"
+          @click="saveVersion"
+        >
+          <Save :size="16" /><span class="designer-action-label">保存新版本</span>
         </el-button>
       </div>
       <input
@@ -889,7 +931,7 @@ watch(selectedVersion, () => resetSelection())
                     @change="applyMode"
                   >
                     <el-option label="单人环节" value="single" />
-                    <el-option label="抢签环节" value="candidate" />
+                    <el-option label="候选人环节" value="candidate" />
                     <el-option label="会签环节" value="parallel" />
                   </el-select>
                 </el-form-item>

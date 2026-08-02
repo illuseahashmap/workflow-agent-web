@@ -13,8 +13,9 @@ import { useAuthStore } from '@/stores/auth'
 import { listUserTasks, resolveTaskMode } from '@/utils/bpmn'
 import { confirmAction } from '@/utils/confirmation'
 import type { BpmnTaskMode, BpmnUserTask } from '@/utils/bpmn'
-import { formatDateTime, formatVersion, joinValues, splitValues } from '@/utils/format'
+import { formatDateTime, formatVersion, joinValues } from '@/utils/format'
 import { assignmentRuleApi } from '../api'
+import RuleUserPickerField from '../components/RuleUserPickerField.vue'
 import type {
   AssignmentRule,
   AssignmentRuleCommand,
@@ -47,11 +48,11 @@ const form = reactive({
   taskDefinitionKey: '',
   priority: 100,
   assignmentType: 'ASSIGNEE' as AssignmentType,
-  assignees: '',
-  candidateUsers: '',
-  countersignUsers: '',
+  assignees: [] as string[],
+  candidateUsers: [] as string[],
+  countersignUsers: [] as string[],
   emptyUserStrategy: 'AUTO_REJECT' as EmptyUserStrategy,
-  fallbackAssignee: '',
+  fallbackAssignees: [] as string[],
   enabled: true,
   description: '',
   conditions: [] as Array<{ variableName: string; operator: RuleOperator; variableValue: string }>,
@@ -74,6 +75,14 @@ const processCatalogQuery = useQuery({
   queryKey: computed(() => queryKeys.processDefinitionCatalog(tenantCode.value)),
   queryFn: () => definitionApi.listProcesses(),
 })
+const processOptions = computed(() => {
+  const byKey = new Map<string, ProcessDefinition>()
+  ;(processCatalogQuery.data.value ?? []).forEach((item) => {
+    const current = byKey.get(item.processDefinitionKey)
+    if (!current || item.version > current.version) byKey.set(item.processDefinitionKey, item)
+  })
+  return [...byKey.values()]
+})
 const versionsQuery = useQuery({
   queryKey: computed(() =>
     queryKeys.processDefinitionVersions(tenantCode.value, form.processDefinitionKey),
@@ -81,6 +90,11 @@ const versionsQuery = useQuery({
   queryFn: () => definitionApi.listVersions(form.processDefinitionKey),
   enabled: computed(() => Boolean(form.processDefinitionKey)),
 })
+const versionsLoading = computed(
+  () =>
+    Boolean(form.processDefinitionKey) &&
+    (versionsQuery.isPending.value || versionsQuery.isFetching.value),
+)
 const selectedProcessDefinition = computed(() =>
   versionsQuery.data.value?.find((item) => item.processDefinitionId === form.processDefinitionId),
 )
@@ -105,6 +119,11 @@ const availableUserTasks = computed(() => {
   const bpmnXml = definitionDetailQuery.data.value?.bpmnXml
   return bpmnXml ? listUserTasks(bpmnXml) : []
 })
+const tasksLoading = computed(
+  () =>
+    Boolean(form.processDefinitionId) &&
+    (definitionDetailQuery.isPending.value || definitionDetailQuery.isFetching.value),
+)
 
 const saveMutation = useMutation({
   mutationFn: async () => {
@@ -139,12 +158,12 @@ function buildCommand(): AssignmentRuleCommand {
     taskDefinitionKey: form.taskDefinitionKey.trim(),
     priority: Number(form.priority),
     assignmentType: form.assignmentType,
-    assignees: splitValues(form.assignees),
-    candidateUsers: splitValues(form.candidateUsers),
+    assignees: form.assignees,
+    candidateUsers: form.candidateUsers,
     candidateGroups: [],
-    countersignUsers: splitValues(form.countersignUsers),
+    countersignUsers: form.countersignUsers,
     emptyUserStrategy: form.emptyUserStrategy,
-    fallbackAssignee: form.fallbackAssignee.trim() || undefined,
+    fallbackAssignee: form.fallbackAssignees[0],
     enabled: form.enabled,
     description: form.description.trim() || undefined,
     conditions: form.conditions
@@ -173,9 +192,7 @@ function validateCommand(command: AssignmentRuleCommand, definition: ProcessDefi
     parallel: ['COUNTERSIGN_USERS'],
   }
   if (!allowed[mode]!.includes(command.assignmentType))
-    throw new Error(
-      `当前节点是${{ single: '单人', candidate: '候选', parallel: '会签' }[mode]}模式，派单类型不匹配`,
-    )
+    throw new Error(`当前节点是${taskModeLabel(mode)}，派单类型不匹配`)
   if (command.assignmentType === 'ASSIGNEE' && command.assignees.length !== 1)
     throw new Error('请填写一个处理人账号')
   if (command.assignmentType === 'CANDIDATE_USERS' && !command.candidateUsers.length)
@@ -196,11 +213,11 @@ function resetForm() {
     taskDefinitionKey: '',
     priority: 100,
     assignmentType: 'ASSIGNEE',
-    assignees: '',
-    candidateUsers: '',
-    countersignUsers: '',
+    assignees: [],
+    candidateUsers: [],
+    countersignUsers: [],
     emptyUserStrategy: 'AUTO_REJECT',
-    fallbackAssignee: '',
+    fallbackAssignees: [],
     enabled: true,
     description: '',
     conditions: [],
@@ -218,11 +235,11 @@ function openEdit(rule: AssignmentRule) {
     taskDefinitionKey: rule.taskDefinitionKey,
     priority: rule.priority,
     assignmentType: normalizeAssignmentType(rule.assignmentType),
-    assignees: joinValues(targetValues(rule, 'ASSIGNEE')),
-    candidateUsers: joinValues(targetValues(rule, 'CANDIDATE_USER')),
-    countersignUsers: joinValues(targetValues(rule, 'COUNTERSIGN_USER')),
+    assignees: targetValues(rule, 'ASSIGNEE'),
+    candidateUsers: targetValues(rule, 'CANDIDATE_USER'),
+    countersignUsers: targetValues(rule, 'COUNTERSIGN_USER'),
     emptyUserStrategy: rule.emptyUserStrategy,
-    fallbackAssignee: targetValues(rule, 'FALLBACK_ASSIGNEE')[0] || '',
+    fallbackAssignees: targetValues(rule, 'FALLBACK_ASSIGNEE').slice(0, 1),
     enabled: rule.enabled,
     description: rule.description || '',
     conditions: rule.conditions.map((item) => ({
@@ -244,9 +261,9 @@ function changeTaskDefinition(taskDefinitionKey: string) {
   const task = availableUserTasks.value.find((item) => item.id === taskDefinitionKey)
   if (!task) return
   form.assignmentType = defaultAssignmentTypeByMode[task.mode]
-  form.assignees = ''
-  form.candidateUsers = ''
-  form.countersignUsers = ''
+  form.assignees = []
+  form.candidateUsers = []
+  form.countersignUsers = []
 }
 function search() {
   query.pageNum = 1
@@ -332,7 +349,7 @@ function taskLabel(task: BpmnUserTask) {
   return `${task.name} / ${task.id} · ${taskModeLabel(task.mode)}`
 }
 function taskModeLabel(mode: BpmnTaskMode) {
-  return { single: '单人', candidate: '候选', parallel: '会签' }[mode]
+  return { single: '单人环节', candidate: '候选人环节', parallel: '会签环节' }[mode]
 }
 function assignmentTypeLabel(type: AssignmentType) {
   return {
@@ -486,10 +503,13 @@ function assignmentTargetsText(rule: AssignmentRule) {
               :class="{ 'has-value': Boolean(form.processDefinitionKey) }"
               filterable
               :loading="processCatalogQuery.isFetching.value"
-              :disabled="Boolean(editingId)"
+              :disabled="Boolean(editingId) || processCatalogQuery.isFetching.value"
+              loading-text="正在加载流程"
+              no-data-text="当前租户暂无流程定义"
+              placeholder="请选择流程"
               @change="changeProcessDefinition"
               ><el-option
-                v-for="item in processCatalogQuery.data.value ?? []"
+                v-for="item in processOptions"
                 :key="item.processDefinitionKey"
                 :label="processLabel(item)"
                 :value="item.processDefinitionKey" /></el-select></el-form-item
@@ -499,9 +519,11 @@ function assignmentTargetsText(rule: AssignmentRule) {
               class="assignment-rule-select"
               :class="{ 'has-value': Boolean(form.processDefinitionId) }"
               filterable
-              :loading="versionsQuery.isFetching.value"
-              :disabled="Boolean(editingId) || !form.processDefinitionKey"
-              placeholder="请选择需要维护的版本"
+              :loading="versionsLoading"
+              :disabled="Boolean(editingId) || !form.processDefinitionKey || versionsLoading"
+              loading-text="正在加载流程版本"
+              no-data-text="该流程暂无可维护版本"
+              :placeholder="versionsLoading ? '正在加载流程版本' : '请选择需要维护的版本'"
               @change="changeProcessVersion"
               ><el-option
                 v-for="item in versionsQuery.data.value ?? []"
@@ -514,13 +536,10 @@ function assignmentTargetsText(rule: AssignmentRule) {
               class="assignment-rule-select"
               :class="{ 'has-value': Boolean(form.taskDefinitionKey) }"
               filterable
-              :loading="definitionDetailQuery.isFetching.value"
-              :disabled="
-                Boolean(editingId) ||
-                !form.processDefinitionId ||
-                definitionDetailQuery.isFetching.value
-              "
-              placeholder="请选择该版本的任务节点"
+              :loading="tasksLoading"
+              :disabled="Boolean(editingId) || !form.processDefinitionId || tasksLoading"
+              loading-text="正在解析任务节点"
+              :placeholder="tasksLoading ? '正在解析任务节点' : '请选择该版本的任务节点'"
               no-data-text="该版本没有可配置的用户任务"
               @change="changeTaskDefinition"
               ><el-option
@@ -555,17 +574,29 @@ function assignmentTargetsText(rule: AssignmentRule) {
           v-if="form.taskDefinitionKey && form.assignmentType === 'ASSIGNEE'"
           label="处理人"
           required
-          ><el-input v-model="form.assignees" placeholder="请输入处理人账号" /></el-form-item
+          ><RuleUserPickerField
+            v-model="form.assignees"
+            title="选择处理人"
+            :multiple="false"
+            empty-text="尚未选择处理人" /></el-form-item
         ><el-form-item
           v-if="form.taskDefinitionKey && form.assignmentType === 'CANDIDATE_USERS'"
           label="候选人"
           required
-          ><el-input v-model="form.candidateUsers" placeholder="多个账号用逗号分隔" /></el-form-item
+          ><RuleUserPickerField
+            v-model="form.candidateUsers"
+            title="选择候选人"
+            multiple
+            empty-text="尚未选择候选人" /></el-form-item
         ><el-form-item
           v-if="form.taskDefinitionKey && form.assignmentType === 'COUNTERSIGN_USERS'"
           label="会签人"
           required
-          ><el-input v-model="form.countersignUsers" placeholder="多个账号用逗号分隔"
+          ><RuleUserPickerField
+            v-model="form.countersignUsers"
+            title="选择会签人"
+            multiple
+            empty-text="尚未选择会签人"
         /></el-form-item>
         <div class="subsection-heading">
           <h3>匹配条件</h3>
@@ -613,9 +644,11 @@ function assignmentTargetsText(rule: AssignmentRule) {
                 label="自动驳回"
                 value="AUTO_REJECT" /></el-select></el-form-item
           ><el-form-item v-if="form.emptyUserStrategy === 'TO_ASSIGNEE'" label="兜底处理人" required
-            ><el-input
-              v-model="form.fallbackAssignee"
-              placeholder="请输入兜底处理人账号" /></el-form-item
+            ><RuleUserPickerField
+              v-model="form.fallbackAssignees"
+              title="选择兜底处理人"
+              :multiple="false"
+              empty-text="尚未选择兜底处理人" /></el-form-item
           ><el-form-item label="启用"><el-switch v-model="form.enabled" /></el-form-item>
         </div>
         <el-form-item label="说明">

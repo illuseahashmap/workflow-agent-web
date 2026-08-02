@@ -70,3 +70,62 @@ export interface ProcessDiagramData {
   highlightedFlows: string[]
   activityDetails: Record<string, ActivityDetail>
 }
+
+export interface StartProcessRequest {
+  processDefinitionKey: string
+  processDefinitionId?: string
+  businessKey?: string
+  variables: Record<string, unknown>
+  participantAssignments: ParticipantAssignment[]
+}
+
+export type ParticipantAssignmentType =
+  'ASSIGNEE' | 'CANDIDATE_USERS' | 'CANDIDATE_GROUPS' | 'COUNTERSIGN_USERS' | 'MIXED'
+
+export interface ParticipantRequirement {
+  activityId: string
+  activityName: string
+  assignmentType: ParticipantAssignmentType
+  multiple: boolean
+  required: boolean
+}
+
+export interface ParticipantAssignment {
+  activityId: string
+  usernames: string[]
+}
+
+export interface RuntimeTask extends TaskItem {
+  processInstanceId: string
+  processDefinitionId: string
+}
+
+export interface StartProcessResult {
+  processInstanceId: string
+  processDefinitionId: string
+  processDefinitionKey: string
+  businessKey?: string
+  activeTasks: RuntimeTask[]
+}
+
+export interface CompleteTaskRequest {
+  taskId: string
+  currentAssignee?: string
+  currentCandidateGroups: string[]
+  comment?: string
+  variables: Record<string, unknown>
+  participantAssignments: ParticipantAssignment[]
+}
+
+export interface RejectTaskRequest extends CompleteTaskRequest {
+  targetActivityId?: string
+  targetAssignees: string[]
+  targetCandidateGroups: string[]
+}
+
+export interface CompleteTaskResult {
+  completedTaskId: string
+  processInstanceId: string
+  processEnded: boolean
+  nextTasks: RuntimeTask[]
+}

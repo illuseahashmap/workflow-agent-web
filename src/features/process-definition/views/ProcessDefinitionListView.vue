@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock3,
   FilePlus2,
+  Play,
   Plus,
   RefreshCw,
   Search,
@@ -18,7 +19,12 @@ import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import { canWriteDefinitions as isDefinitionWritable } from '@/features/auth/authorization'
+import {
+  canOperateInstances as isInstanceOperable,
+  canWriteDefinitions as isDefinitionWritable,
+} from '@/features/auth/authorization'
+import StartProcessDialog from '@/features/process-instance/components/StartProcessDialog.vue'
+import type { StartProcessResult } from '@/features/process-instance/types'
 import { useAuthStore } from '@/stores/auth'
 import { createBlankBpmn } from '@/utils/bpmn'
 import { confirmAction } from '@/utils/confirmation'
@@ -32,6 +38,7 @@ const queryClient = useQueryClient()
 const authStore = useAuthStore()
 const tenantCode = computed(() => authStore.user?.tenantCode || '')
 const canWriteDefinitions = computed(() => isDefinitionWritable(authStore.user))
+const canOperateInstances = computed(() => isInstanceOperable(authStore.user))
 const query = reactive({
   processDefinitionKey: '',
   processDefinitionName: '',
@@ -41,6 +48,8 @@ const query = reactive({
 })
 const applied = ref({ ...query })
 const createVisible = ref(false)
+const startVisible = ref(false)
+const startProcessDefinitionKey = ref<string>()
 const createForm = reactive({ processDefinitionKey: '', processDefinitionName: '' })
 
 const definitionsQuery = useQuery({
@@ -110,6 +119,15 @@ async function remove(key: string, name: string) {
   if (!confirmed) return
   deleteMutation.mutate(key)
 }
+
+function openStart(processDefinitionKey?: string) {
+  startProcessDefinitionKey.value = processDefinitionKey
+  startVisible.value = true
+}
+
+function handleStarted(result: StartProcessResult) {
+  void router.push({ name: 'process-instance-detail', params: { id: result.processInstanceId } })
+}
 </script>
 
 <template>
@@ -119,9 +137,12 @@ async function remove(key: string, name: string) {
       title="流程定义中心"
       description="集中管理 BPMN 模型、流程版本、发布状态和流程设计入口。"
     >
-      <template v-if="canWriteDefinitions" #actions>
-        <el-button type="primary" @click="createVisible = true">
+      <template v-if="canWriteDefinitions || canOperateInstances" #actions>
+        <el-button v-if="canWriteDefinitions" @click="createVisible = true">
           <Plus :size="17" />新建流程
+        </el-button>
+        <el-button v-if="canOperateInstances" type="primary" @click="openStart()">
+          <Play :size="16" />发起流程
         </el-button>
       </template>
     </PageHeader>
@@ -214,10 +235,19 @@ async function remove(key: string, name: string) {
         <el-table-column label="最新部署时间" width="180">
           <template #default="{ row }">{{ formatDateTime(row.latestDeployTime) }}</template>
         </el-table-column>
-        <el-table-column v-if="canWriteDefinitions" label="操作" width="180">
+        <el-table-column v-if="canWriteDefinitions || canOperateInstances" label="操作" width="240">
           <template #default="{ row }">
             <div class="row-actions">
               <el-button
+                v-if="canOperateInstances && row.activeVersion"
+                link
+                type="success"
+                @click="openStart(row.processDefinitionKey)"
+              >
+                <Play :size="14" />发起
+              </el-button>
+              <el-button
+                v-if="canWriteDefinitions"
                 link
                 type="primary"
                 @click="
@@ -230,6 +260,7 @@ async function remove(key: string, name: string) {
                 <SquarePen :size="14" />设计
               </el-button>
               <el-button
+                v-if="canWriteDefinitions"
                 link
                 type="danger"
                 @click="remove(row.processDefinitionKey, row.processDefinitionName)"
@@ -289,5 +320,11 @@ async function remove(key: string, name: string) {
         </el-button>
       </template>
     </el-dialog>
+
+    <StartProcessDialog
+      v-model="startVisible"
+      :initial-process-definition-key="startProcessDefinitionKey"
+      @started="handleStarted"
+    />
   </div>
 </template>
