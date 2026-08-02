@@ -2,13 +2,39 @@ import type { AuthSession } from './types'
 
 const AUTH_STORAGE_KEY = 'workflow-agent.auth-session'
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function isValidAuthSession(value: unknown): value is AuthSession {
+  if (!value || typeof value !== 'object') return false
+  const session = value as Partial<AuthSession>
+  const expiresAt =
+    typeof session.expiresAt === 'string' ? Date.parse(session.expiresAt) : Number.NaN
+  return (
+    typeof session.userId === 'string' &&
+    typeof session.username === 'string' &&
+    (session.displayName === null || typeof session.displayName === 'string') &&
+    typeof session.tenantCode === 'string' &&
+    typeof session.accessToken === 'string' &&
+    session.accessToken.length > 0 &&
+    typeof session.tokenType === 'string' &&
+    typeof session.expiresIn === 'number' &&
+    Number.isFinite(session.expiresIn) &&
+    Number.isFinite(expiresAt) &&
+    expiresAt > Date.now() &&
+    isStringArray(session.roles) &&
+    isStringArray(session.permissions)
+  )
+}
+
 export function readAuthSession(): AuthSession | null {
   const serialized = localStorage.getItem(AUTH_STORAGE_KEY)
   if (!serialized) return null
 
   try {
-    const session = JSON.parse(serialized) as AuthSession
-    if (!session.accessToken || Date.parse(session.expiresAt) <= Date.now()) {
+    const session: unknown = JSON.parse(serialized)
+    if (!isValidAuthSession(session)) {
       clearAuthSession()
       return null
     }

@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { Plus, RefreshCw, Search } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
+import { queryKeys } from '@/api/queryKeys'
+import MetricCard from '@/components/MetricCard.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime } from '@/utils/format'
 import { tenantApi } from '../api'
 import type { TenantCommand, WorkflowTenant } from '../types'
@@ -26,18 +30,13 @@ const form = reactive<TenantCommand>({
   enabled: true,
 })
 const tenantsQuery = useQuery({
-  queryKey: computed(() => ['tenants', applied.value]),
+  queryKey: computed(() => queryKeys.tenantPage(applied.value)),
   queryFn: () => tenantApi.page(applied.value),
 })
 const records = computed(() => tenantsQuery.data.value?.records ?? [])
 const total = computed(() => tenantsQuery.data.value?.total ?? 0)
 const enabledCount = computed(() => records.value.filter((item) => item.enabled).length)
 const disabledCount = computed(() => Math.max(records.value.length - enabledCount.value, 0))
-const enabledTenantsQuery = useQuery({
-  queryKey: ['enabled-tenants'],
-  queryFn: tenantApi.enabled,
-  enabled: false,
-})
 const saveMutation = useMutation({
   mutationFn: async () => {
     if (!form.tenantId.trim() || !form.tenantCode.trim() || !form.tenantName.trim())
@@ -55,8 +54,7 @@ const saveMutation = useMutation({
   onSuccess: async () => {
     dialogVisible.value = false
     ElMessage.success(editingId.value ? '租户已修改' : '租户已创建')
-    await queryClient.invalidateQueries({ queryKey: ['tenants'] })
-    await queryClient.invalidateQueries({ queryKey: ['enabled-tenants'] })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.tenants() })
   },
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
@@ -72,11 +70,6 @@ function changePage(pageNum: number, pageSize: number) {
   query.pageNum = pageNum
   query.pageSize = pageSize
   applied.value = { ...query }
-}
-async function refreshEnabledTenants() {
-  const result = await enabledTenantsQuery.refetch()
-  if (result.error) return ElMessage.error(getErrorMessage(result.error))
-  ElMessage.success(`已刷新 ${result.data?.length ?? 0} 个可用租户`)
 }
 function create() {
   editingId.value = undefined
@@ -102,16 +95,16 @@ function edit(item: WorkflowTenant) {
 }
 async function toggle(item: WorkflowTenant) {
   const next = !item.enabled
-  await ElMessageBox.confirm(
+  const confirmed = await confirmAction(
     `${next ? '启用' : '禁用'}租户“${item.tenantName}”可能影响该租户下的流程访问，是否继续？`,
     `${next ? '启用' : '禁用'}租户`,
     { confirmButtonText: next ? '启用' : '禁用', cancelButtonText: '取消', type: 'warning' },
   )
+  if (!confirmed) return
   try {
     await tenantApi.updateEnabled(item.id, next)
     ElMessage.success(next ? '租户已启用' : '租户已禁用')
-    await queryClient.invalidateQueries({ queryKey: ['tenants'] })
-    await queryClient.invalidateQueries({ queryKey: ['enabled-tenants'] })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.tenants() })
   } catch (error) {
     ElMessage.error(getErrorMessage(error))
   }
@@ -119,37 +112,21 @@ async function toggle(item: WorkflowTenant) {
 </script>
 
 <template>
-  <div class="definition-page page-stack">
-    <section class="page-hero compact-hero">
-      <div>
-        <span class="eyebrow">Tenant</span>
-        <h2>租户管理中心</h2>
-        <p>维护工作流租户、租户编码和启停状态，为流程定义与实例提供隔离边界。</p>
-      </div>
-    </section>
+  <div class="management-page page-stack">
+    <PageHeader
+      eyebrow="Tenant"
+      title="租户管理中心"
+      description="维护工作流租户、租户编码和启停状态，为流程定义与实例提供隔离边界。"
+    />
 
     <section class="metric-grid">
-      <article class="metric-card">
-        <span>Σ</span>
-        <div>
-          <strong>{{ total }}</strong>
-          <small>租户总数</small>
-        </div>
-      </article>
-      <article class="metric-card success">
-        <span>✓</span>
-        <div>
-          <strong>{{ enabledCount }}</strong>
-          <small>当前页启用</small>
-        </div>
-      </article>
-      <article class="metric-card warning">
-        <span>–</span>
-        <div>
-          <strong>{{ disabledCount }}</strong>
-          <small>当前页禁用</small>
-        </div>
-      </article>
+      <MetricCard :value="total" label="租户总数"><template #icon>Σ</template></MetricCard>
+      <MetricCard :value="enabledCount" label="当前页启用" tone="success">
+        <template #icon>✓</template>
+      </MetricCard>
+      <MetricCard :value="disabledCount" label="当前页禁用" tone="warning">
+        <template #icon>–</template>
+      </MetricCard>
     </section>
 
     <section class="page-actions compact-filter">
@@ -170,9 +147,7 @@ async function toggle(item: WorkflowTenant) {
         ></el-form
       >
       <div class="action-buttons page-primary-actions">
-        <el-button :loading="enabledTenantsQuery.isFetching.value" @click="refreshEnabledTenants"
-          ><RefreshCw :size="16" />刷新可用租户</el-button
-        ><el-button type="primary" @click="create"><Plus :size="17" />新增租户</el-button>
+        <el-button type="primary" @click="create"><Plus :size="17" />新增租户</el-button>
       </div>
     </section>
     <section class="table-panel">

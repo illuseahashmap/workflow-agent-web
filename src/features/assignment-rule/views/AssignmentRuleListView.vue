@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { Plus, RefreshCw, Search, Trash2 } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
+import { queryKeys } from '@/api/queryKeys'
+import MetricCard from '@/components/MetricCard.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import { definitionApi } from '@/features/process-definition/api'
 import type { ProcessDefinition } from '@/features/process-definition/types'
+import { useAuthStore } from '@/stores/auth'
 import { listUserTasks, resolveTaskMode } from '@/utils/bpmn'
+import { confirmAction } from '@/utils/confirmation'
 import type { BpmnTaskMode, BpmnUserTask } from '@/utils/bpmn'
 import { formatDateTime, formatVersion, joinValues, splitValues } from '@/utils/format'
 import { assignmentRuleApi } from '../api'
@@ -17,8 +22,11 @@ import type {
   EmptyUserStrategy,
   RuleOperator,
 } from '../types'
+import '../styles.css'
 
 const queryClient = useQueryClient()
+const authStore = useAuthStore()
+const tenantCode = computed(() => authStore.user?.tenantCode || '')
 const query = reactive({
   pageNum: 1,
   pageSize: 20,
@@ -55,7 +63,7 @@ const defaultAssignmentTypeByMode: Record<BpmnTaskMode, AssignmentType> = {
 }
 
 const rulesQuery = useQuery({
-  queryKey: computed(() => ['assignment-rules', applied.value]),
+  queryKey: computed(() => queryKeys.assignmentRulePage(tenantCode.value, applied.value)),
   queryFn: () => assignmentRuleApi.page(applied.value),
 })
 const records = computed(() => rulesQuery.data.value?.records ?? [])
@@ -63,11 +71,13 @@ const total = computed(() => rulesQuery.data.value?.total ?? 0)
 const enabledCount = computed(() => records.value.filter((item) => item.enabled).length)
 const disabledCount = computed(() => Math.max(records.value.length - enabledCount.value, 0))
 const processCatalogQuery = useQuery({
-  queryKey: ['process-definition-catalog'],
+  queryKey: computed(() => queryKeys.processDefinitionCatalog(tenantCode.value)),
   queryFn: () => definitionApi.listProcesses(),
 })
 const versionsQuery = useQuery({
-  queryKey: computed(() => ['process-definition-versions', form.processDefinitionKey]),
+  queryKey: computed(() =>
+    queryKeys.processDefinitionVersions(tenantCode.value, form.processDefinitionKey),
+  ),
   queryFn: () => definitionApi.listVersions(form.processDefinitionKey),
   enabled: computed(() => Boolean(form.processDefinitionKey)),
 })
@@ -75,11 +85,13 @@ const selectedProcessDefinition = computed(() =>
   versionsQuery.data.value?.find((item) => item.processDefinitionId === form.processDefinitionId),
 )
 const definitionDetailQuery = useQuery({
-  queryKey: computed(() => [
-    'process-definition-detail',
-    form.processDefinitionKey,
-    selectedProcessDefinition.value?.version,
-  ]),
+  queryKey: computed(() =>
+    queryKeys.processDefinitionDetail(
+      tenantCode.value,
+      form.processDefinitionKey,
+      selectedProcessDefinition.value?.version,
+    ),
+  ),
   queryFn: () =>
     definitionApi.detail(form.processDefinitionKey, selectedProcessDefinition.value!.version),
   enabled: computed(
@@ -110,7 +122,7 @@ const saveMutation = useMutation({
   onSuccess: async () => {
     dialogVisible.value = false
     ElMessage.success(editingId.value ? '派单规则已修改' : '派单规则已新增')
-    await queryClient.invalidateQueries({ queryKey: ['assignment-rules'] })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.assignmentRules(tenantCode.value) })
   },
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
@@ -262,15 +274,20 @@ function addCondition() {
   form.conditions.push({ variableName: '', operator: 'EQ', variableValue: '' })
 }
 async function remove(rule: AssignmentRule) {
-  await ElMessageBox.confirm(`确认删除 ${rule.taskDefinitionKey} 的派单规则？`, '删除派单规则', {
-    type: 'warning',
-    confirmButtonText: '删除',
-    cancelButtonText: '取消',
-  })
+  const confirmed = await confirmAction(
+    `确认删除 ${rule.taskDefinitionKey} 的派单规则？`,
+    '删除派单规则',
+    {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    },
+  )
+  if (!confirmed) return
   try {
     await assignmentRuleApi.delete(rule.id)
     ElMessage.success('派单规则已删除')
-    await queryClient.invalidateQueries({ queryKey: ['assignment-rules'] })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.assignmentRules(tenantCode.value) })
   } catch (error) {
     ElMessage.error(getErrorMessage(error))
   }
@@ -299,7 +316,7 @@ async function toggleEnabled(rule: AssignmentRule) {
   try {
     await assignmentRuleApi.update(rule.id, command)
     ElMessage.success(command.enabled ? '规则已启用' : '规则已停用')
-    await queryClient.invalidateQueries({ queryKey: ['assignment-rules'] })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.assignmentRules(tenantCode.value) })
   } catch (error) {
     ElMessage.error(getErrorMessage(error))
   }
@@ -349,39 +366,21 @@ function assignmentTargetsText(rule: AssignmentRule) {
 </script>
 
 <template>
-  <div class="definition-page page-stack">
-    <section class="page-hero compact-hero">
-      <div>
-        <span class="eyebrow">Assignment Rule</span>
-        <h2>派单规则中心</h2>
-        <p>
-          按流程版本和 UserTask 节点维护派单策略，统一管理处理人、候选人、会签与空人员兜底规则。
-        </p>
-      </div>
-    </section>
+  <div class="management-page page-stack">
+    <PageHeader
+      eyebrow="Assignment Rule"
+      title="派单规则中心"
+      description="按流程版本和 UserTask 节点维护派单策略，统一管理处理人、候选人、会签与空人员兜底规则。"
+    />
 
     <section class="metric-grid">
-      <article class="metric-card">
-        <span>Σ</span>
-        <div>
-          <strong>{{ total }}</strong>
-          <small>规则总数</small>
-        </div>
-      </article>
-      <article class="metric-card success">
-        <span>✓</span>
-        <div>
-          <strong>{{ enabledCount }}</strong>
-          <small>当前页启用</small>
-        </div>
-      </article>
-      <article class="metric-card warning">
-        <span>–</span>
-        <div>
-          <strong>{{ disabledCount }}</strong>
-          <small>当前页停用</small>
-        </div>
-      </article>
+      <MetricCard :value="total" label="规则总数"><template #icon>Σ</template></MetricCard>
+      <MetricCard :value="enabledCount" label="当前页启用" tone="success">
+        <template #icon>✓</template>
+      </MetricCard>
+      <MetricCard :value="disabledCount" label="当前页停用" tone="warning">
+        <template #icon>–</template>
+      </MetricCard>
     </section>
 
     <section class="page-actions compact-filter">

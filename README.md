@@ -44,4 +44,9 @@ corepack pnpm test:e2e --project=chromium
 
 ## Security boundary
 
-The browser application must not store a workflow service-client secret or generate `X-Workflow-Token`. Browser authentication will be added after the backend exposes a user-authentication contract or a dedicated BFF is introduced.
+The browser uses the user access token returned by the authentication API. It never stores a
+workflow service-client secret and never generates `X-Workflow-Token`; service authentication
+belongs to trusted backend-to-backend integrations only.
+
+Tenant-sensitive server state is cached with the active tenant code in its query key. Switching
+tenants therefore creates a separate client-side cache boundary before data is refetched.

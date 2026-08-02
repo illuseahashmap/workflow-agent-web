@@ -4,22 +4,29 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { ElMessage } from 'element-plus'
 import { Plus, RefreshCw, Search, ShieldCheck, UsersRound } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
+import { queryKeys } from '@/api/queryKeys'
+import PageHeader from '@/components/PageHeader.vue'
+import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime, joinValues } from '@/utils/format'
 import { accessApi } from '../api'
 import type { SaveRoleCommand, TenantMember, TenantRole } from '../types'
+import '../styles.css'
 
 const authStore = useAuthStore()
 const queryClient = useQueryClient()
 const tenantCode = computed(() => authStore.user?.tenantCode || '')
-const isAccessAdministrator = computed(
-  () => authStore.user?.roles.includes('PLATFORM_ADMIN') ?? false,
+const canManageMembers = computed(() =>
+  hasAccess(authStore.user, {
+    requiredAnyRoles: [APP_ROLE.platformAdministrator],
+    requiredAnyPermissions: [APP_PERMISSION.memberManage],
+  }),
 )
-const canManageMembers = computed(
-  () => isAccessAdministrator.value || authStore.user?.permissions.includes('member:manage'),
-)
-const canManageRoles = computed(
-  () => isAccessAdministrator.value || authStore.user?.permissions.includes('role:manage'),
+const canManageRoles = computed(() =>
+  hasAccess(authStore.user, {
+    requiredAnyRoles: [APP_ROLE.platformAdministrator],
+    requiredAnyPermissions: [APP_PERMISSION.roleManage],
+  }),
 )
 const activeTab = ref(canManageMembers.value ? 'members' : 'roles')
 const memberKeyword = ref('')
@@ -38,17 +45,17 @@ const roleForm = reactive<SaveRoleCommand>({
 })
 
 const membersQuery = useQuery({
-  queryKey: computed(() => ['tenant-members', tenantCode.value, appliedKeyword.value]),
+  queryKey: computed(() => queryKeys.tenantMemberList(tenantCode.value, appliedKeyword.value)),
   queryFn: () => accessApi.members(appliedKeyword.value || undefined),
   enabled: canManageMembers,
 })
 const rolesQuery = useQuery({
-  queryKey: computed(() => ['tenant-roles', tenantCode.value]),
+  queryKey: computed(() => queryKeys.tenantRoles(tenantCode.value)),
   queryFn: accessApi.roles,
   enabled: computed(() => canManageMembers.value || canManageRoles.value),
 })
 const permissionsQuery = useQuery({
-  queryKey: ['auth-permissions'],
+  queryKey: queryKeys.permissions(),
   queryFn: accessApi.permissions,
   enabled: canManageRoles,
 })
@@ -62,13 +69,14 @@ const memberDialogTitle = computed(() =>
 
 async function refreshAccessData() {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: ['tenant-members'] }),
-    queryClient.invalidateQueries({ queryKey: ['tenant-roles'] }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.tenantMembers(tenantCode.value) }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.tenantRoles(tenantCode.value) }),
   ])
 }
 
 const saveMemberMutation = useMutation({
   mutationFn: async () => {
+    if (memberForm.roleCodes.length === 0) throw new Error('请至少选择一个角色')
     if (editingMember.value) {
       await accessApi.updateMemberRoles(editingMember.value.userId, memberForm.roleCodes)
       return
@@ -90,6 +98,9 @@ const saveRoleMutation = useMutation({
   mutationFn: () => {
     if (!roleForm.roleCode.trim() || !roleForm.roleName.trim()) {
       throw new Error('角色编码和名称不能为空')
+    }
+    if (!/^[A-Za-z][A-Za-z0-9_]{1,63}$/.test(roleForm.roleCode.trim())) {
+      throw new Error('角色编码应以字母开头，只能包含字母、数字和下划线')
     }
     return accessApi.saveRole({
       ...roleForm,
@@ -163,15 +174,16 @@ function editRole(role: TenantRole) {
 </script>
 
 <template>
-  <div class="definition-page page-stack access-page">
-    <section class="page-hero compact-hero">
-      <div>
-        <span class="eyebrow">Access Control</span>
-        <h2>成员与角色</h2>
-        <p>管理当前租户的成员关系、业务角色和权限范围。所有修改仅作用于当前租户。</p>
-      </div>
-      <el-tag type="primary" effect="plain">{{ tenantCode }}</el-tag>
-    </section>
+  <div class="management-page page-stack access-page">
+    <PageHeader
+      eyebrow="Access Control"
+      title="成员与角色"
+      description="管理当前租户的成员关系、业务角色和权限范围。所有修改仅作用于当前租户。"
+    >
+      <template #actions
+        ><el-tag type="primary" effect="plain">{{ tenantCode }}</el-tag></template
+      >
+    </PageHeader>
 
     <section class="access-workspace">
       <el-tabs v-model="activeTab">

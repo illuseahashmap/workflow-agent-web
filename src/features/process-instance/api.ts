@@ -1,4 +1,4 @@
-import { http } from '@/api/http'
+import { apiClient } from '@/api/http'
 import type { PageResult } from '@/types/api'
 import type { ProcessDiagramData, ProcessInstanceDetail, ProcessInstanceSummary } from './types'
 
@@ -16,17 +16,17 @@ export interface InstancePageQuery {
 
 export const processInstanceApi = {
   page: (params: InstancePageQuery) =>
-    http.get<never, PageResult<ProcessInstanceSummary>>(`${ROOT}/instances/page`, { params }),
+    apiClient.get<PageResult<ProcessInstanceSummary>>(`${ROOT}/instances/page`, { params }),
   detail: (processInstanceId: string) =>
-    http.get<never, ProcessInstanceDetail>(`${ROOT}/instance/detail`, {
+    apiClient.get<ProcessInstanceDetail>(`${ROOT}/instance/detail`, {
       params: { processInstanceId },
     }),
   diagram: (processInstanceId: string) =>
-    http.get<never, ProcessDiagramData>(`${ROOT}/diagram-data`, {
+    apiClient.get<ProcessDiagramData>(`${ROOT}/diagram-data`, {
       params: { processInstanceId },
     }),
   terminate: (processInstanceId: string, reason: string) =>
-    http.post<never, void>(`${ROOT}/instance/terminate`, { processInstanceId, reason }),
+    apiClient.post<void>(`${ROOT}/instance/terminate`, { processInstanceId, reason }),
   transfer: (payload: {
     taskId: string
     currentAssignee: string
@@ -35,5 +35,5 @@ export const processInstanceApi = {
     targetCandidateUsers: string[]
     targetCandidateGroups: string[]
     comment?: string
-  }) => http.post<never, void>('/workflow/task/transfer', payload),
+  }) => apiClient.post<void>('/workflow/task/transfer', payload),
 }

@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import type { ApiResponse } from '@/types/api'
 import { clearAuthSession, getAccessToken } from '@/features/auth/storage'
 
@@ -14,7 +14,7 @@ export class ApiError extends Error {
   }
 }
 
-export const http = axios.create({
+const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 15_000,
   withCredentials: true,
@@ -25,42 +25,52 @@ export const http = axios.create({
 
 http.interceptors.request.use((config) => {
   const accessToken = getAccessToken()
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`
-  }
+  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`
   return config
 })
 
-http.interceptors.response.use(
-  (response) => {
-    const body = response.data as ApiResponse<unknown>
-    if (body && typeof body === 'object' && 'code' in body) {
-      if (body.code !== 'SUCCESS') {
-        throw new ApiError(body.message || '操作失败', body.code, response.status)
-      }
-      return body.data as typeof response
-    }
-    return body as typeof response
+http.interceptors.response.use(undefined, (error: AxiosError<ApiResponse<unknown>>) => {
+  const body = error.response?.data
+  const traceId = error.response?.headers['x-trace-id'] as string | undefined
+  if (error.response?.status === 401) {
+    clearAuthSession()
+    window.dispatchEvent(new CustomEvent('workflow-auth:unauthorized'))
+  }
+  const message =
+    body?.message ||
+    (error.response?.status === 401
+      ? '登录状态已失效'
+      : error.response?.status === 403
+        ? '没有权限执行此操作'
+        : error.message || '网络请求失败')
+  return Promise.reject(
+    new ApiError(message, body?.code || 'HTTP_ERROR', error.response?.status, traceId),
+  )
+})
+
+async function unwrap<T>(request: Promise<AxiosResponse<ApiResponse<T>>>) {
+  const response = await request
+  const body = response.data
+  if (!body || typeof body !== 'object' || typeof body.code !== 'string') {
+    throw new ApiError('服务响应格式不正确', 'INVALID_RESPONSE', response.status)
+  }
+  if (body.code !== 'SUCCESS') {
+    throw new ApiError(body.message || '操作失败', body.code, response.status)
+  }
+  return body.data
+}
+
+export const apiClient = {
+  get<T>(url: string, config?: AxiosRequestConfig) {
+    return unwrap(http.get<ApiResponse<T>>(url, config))
   },
-  (error: AxiosError<ApiResponse<unknown>>) => {
-    const body = error.response?.data
-    const traceId = error.response?.headers['x-trace-id'] as string | undefined
-    if (error.response?.status === 401) {
-      clearAuthSession()
-      window.dispatchEvent(new CustomEvent('workflow-auth:unauthorized'))
-    }
-    const message =
-      body?.message ||
-      (error.response?.status === 401
-        ? '登录状态已失效'
-        : error.response?.status === 403
-          ? '没有权限执行此操作'
-          : error.message || '网络请求失败')
-    return Promise.reject(
-      new ApiError(message, body?.code || 'HTTP_ERROR', error.response?.status, traceId),
-    )
+  post<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return unwrap(http.post<ApiResponse<T>>(url, data, config))
   },
-)
+  delete<T>(url: string, config?: AxiosRequestConfig) {
+    return unwrap(http.delete<ApiResponse<T>>(url, config))
+  },
+}
 
 export function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : '操作失败'

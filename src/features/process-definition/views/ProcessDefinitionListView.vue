@@ -2,7 +2,7 @@
 import { computed, reactive, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import {
   Boxes,
   CheckCircle2,
@@ -15,21 +15,23 @@ import {
   Trash2,
 } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
+import { queryKeys } from '@/api/queryKeys'
+import MetricCard from '@/components/MetricCard.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import { canWriteDefinitions as isDefinitionWritable } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
 import { createBlankBpmn } from '@/utils/bpmn'
+import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
 import { definitionApi } from '../api'
+import { normalizeProcessIdentity } from '../domain'
 import type { PublishStatus } from '../types'
 
 const router = useRouter()
 const queryClient = useQueryClient()
 const authStore = useAuthStore()
-const canWriteDefinitions = computed(
-  () =>
-    authStore.user?.roles.includes('PLATFORM_ADMIN') ||
-    authStore.user?.roles.includes('TENANT_ADMIN') ||
-    authStore.user?.permissions.includes('workflow:definition:write'),
-)
+const tenantCode = computed(() => authStore.user?.tenantCode || '')
+const canWriteDefinitions = computed(() => isDefinitionWritable(authStore.user))
 const query = reactive({
   processDefinitionKey: '',
   processDefinitionName: '',
@@ -42,7 +44,7 @@ const createVisible = ref(false)
 const createForm = reactive({ processDefinitionKey: '', processDefinitionName: '' })
 
 const definitionsQuery = useQuery({
-  queryKey: computed(() => ['process-definitions', applied.value]),
+  queryKey: computed(() => queryKeys.processDefinitionPage(tenantCode.value, applied.value)),
   queryFn: () => definitionApi.page(applied.value),
 })
 
@@ -55,19 +57,19 @@ const deleteMutation = useMutation({
   mutationFn: definitionApi.deleteAll,
   onSuccess: async () => {
     ElMessage.success('流程定义已删除')
-    await queryClient.invalidateQueries({ queryKey: ['process-definitions'] })
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.processDefinitions(tenantCode.value),
+    })
   },
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
 
 const createMutation = useMutation({
   mutationFn: async () => {
-    const key = createForm.processDefinitionKey.trim()
-    const name = createForm.processDefinitionName.trim()
-    if (!key || !name) throw new Error('流程标识和流程名称不能为空')
-    if (!/^[A-Za-z][A-Za-z0-9_-]{1,63}$/.test(key)) {
-      throw new Error('流程标识应以字母开头，只能包含字母、数字、下划线和短横线')
-    }
+    const { key, name } = normalizeProcessIdentity(
+      createForm.processDefinitionKey,
+      createForm.processDefinitionName,
+    )
     if (await definitionApi.exists(key)) throw new Error(`流程标识已存在：${key}`)
     return { key, name, xml: createBlankBpmn(key, name) }
   },
@@ -100,52 +102,40 @@ function changePage(pageNum: number, pageSize: number) {
 }
 
 async function remove(key: string, name: string) {
-  await ElMessageBox.confirm(
+  const confirmed = await confirmAction(
     `将删除“${name}”的全部版本及部署数据。运行中实例可能阻止删除，是否继续？`,
     '删除流程定义',
     { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
   )
+  if (!confirmed) return
   deleteMutation.mutate(key)
 }
 </script>
 
 <template>
-  <div class="definition-page page-stack">
-    <section class="page-hero compact-hero">
-      <div>
-        <span class="eyebrow">Process Definition</span>
-        <h2>流程定义中心</h2>
-        <p>集中管理 BPMN 模型、流程版本、发布状态和流程设计入口。</p>
-      </div>
-      <div v-if="canWriteDefinitions" class="hero-actions">
+  <div class="management-page page-stack">
+    <PageHeader
+      eyebrow="Process Definition"
+      title="流程定义中心"
+      description="集中管理 BPMN 模型、流程版本、发布状态和流程设计入口。"
+    >
+      <template v-if="canWriteDefinitions" #actions>
         <el-button type="primary" @click="createVisible = true">
           <Plus :size="17" />新建流程
         </el-button>
-      </div>
-    </section>
+      </template>
+    </PageHeader>
 
     <section class="metric-grid">
-      <article class="metric-card">
-        <span><Boxes :size="18" /></span>
-        <div>
-          <strong>{{ total }}</strong>
-          <small>流程定义总数</small>
-        </div>
-      </article>
-      <article class="metric-card success">
-        <span><CheckCircle2 :size="18" /></span>
-        <div>
-          <strong>{{ publishedCount }}</strong>
-          <small>当前页已发布</small>
-        </div>
-      </article>
-      <article class="metric-card warning">
-        <span><Clock3 :size="18" /></span>
-        <div>
-          <strong>{{ draftCount }}</strong>
-          <small>当前页未发布</small>
-        </div>
-      </article>
+      <MetricCard :value="total" label="流程定义总数">
+        <template #icon><Boxes :size="18" /></template>
+      </MetricCard>
+      <MetricCard :value="publishedCount" label="当前页已发布" tone="success">
+        <template #icon><CheckCircle2 :size="18" /></template>
+      </MetricCard>
+      <MetricCard :value="draftCount" label="当前页未发布" tone="warning">
+        <template #icon><Clock3 :size="18" /></template>
+      </MetricCard>
     </section>
 
     <section class="page-actions compact-filter definition-filter">
@@ -228,9 +218,8 @@ async function remove(key: string, name: string) {
           <template #default="{ row }">
             <div class="row-actions">
               <el-button
-                size="small"
+                link
                 type="primary"
-                plain
                 @click="
                   router.push({
                     name: 'process-designer',
@@ -241,9 +230,8 @@ async function remove(key: string, name: string) {
                 <SquarePen :size="14" />设计
               </el-button>
               <el-button
-                size="small"
+                link
                 type="danger"
-                plain
                 @click="remove(row.processDefinitionKey, row.processDefinitionName)"
               >
                 <Trash2 :size="14" />删除

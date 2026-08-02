@@ -5,6 +5,7 @@ import { ElMessage, type FormInstance, type FormItemRule, type FormRules } from 
 import { ArrowRight, CheckCircle2, KeyRound, LockKeyhole, UserRound, Workflow } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
+import { resolvePostAuthRedirect } from '../redirect'
 
 type AuthMode = 'login' | 'register'
 
@@ -54,9 +55,7 @@ const registerRules: FormRules = {
 }
 
 async function enterWorkspace() {
-  const redirect =
-    typeof route.query.redirect === 'string' ? route.query.redirect : '/process-definitions'
-  await router.replace(redirect)
+  await router.replace(resolvePostAuthRedirect(route.query.redirect))
 }
 
 async function submitLogin() {
@@ -134,10 +133,22 @@ async function submitRegister() {
         </header>
 
         <div class="auth-switch" role="tablist" aria-label="登录或注册">
-          <button type="button" :class="{ active: mode === 'login' }" @click="mode = 'login'">
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="mode === 'login'"
+            :class="{ active: mode === 'login' }"
+            @click="mode = 'login'"
+          >
             登录
           </button>
-          <button type="button" :class="{ active: mode === 'register' }" @click="mode = 'register'">
+          <button
+            type="button"
+            role="tab"
+            :aria-selected="mode === 'register'"
+            :class="{ active: mode === 'register' }"
+            @click="mode = 'register'"
+          >
             注册
           </button>
         </div>
@@ -207,7 +218,7 @@ async function submitRegister() {
                 v-model="registerForm.username"
                 size="large"
                 autocomplete="username"
-                placeholder="英文用户名"
+                placeholder="3–64 个字符"
               >
                 <template #prefix><UserRound :size="18" /></template>
               </el-input>

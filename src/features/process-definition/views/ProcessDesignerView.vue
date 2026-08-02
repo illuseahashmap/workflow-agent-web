@@ -11,7 +11,7 @@ import {
   watch,
 } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { ArrowLeft, CheckCircle2, Copy, Download, FileUp, Plus, Save, Trash2 } from '@lucide/vue'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { getErrorMessage } from '@/api/http'
@@ -31,8 +31,10 @@ import type {
 } from '@/bpmn/modeler-types'
 import { assignmentRuleApi } from '@/features/assignment-rule/api'
 import { createBlankBpmn, validateBpmnXml } from '@/utils/bpmn'
+import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
 import { definitionApi } from '../api'
+import { normalizeProcessIdentity } from '../domain'
 import type { ActiveProcessVersion, ProcessDefinition } from '../types'
 
 const DEFAULT_ASSIGNEE = '${assigneeService.getAssignee(execution)}'
@@ -303,15 +305,12 @@ async function loadVersions(key: string, preferredVersion?: number) {
 
 async function openVersion(version: number) {
   if (dirty.value) {
-    try {
-      await ElMessageBox.confirm('当前修改尚未保存，切换版本会丢失修改。', '切换版本', {
-        confirmButtonText: '继续切换',
-        cancelButtonText: '取消',
-        type: 'warning',
-      })
-    } catch {
-      return
-    }
+    const confirmed = await confirmAction('当前修改尚未保存，切换版本会丢失修改。', '切换版本', {
+      confirmButtonText: '继续切换',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    if (!confirmed) return
   }
   loading.value = true
   try {
@@ -373,10 +372,15 @@ async function publishVersion() {
 async function inheritRules() {
   const definition = selectedDefinition.value
   if (!definition) return
-  await ElMessageBox.confirm('将从最近有配置的历史版本继承派单规则，是否继续？', '继承派单规则', {
-    confirmButtonText: '继承',
-    cancelButtonText: '取消',
-  })
+  const confirmed = await confirmAction(
+    '将从最近有配置的历史版本继承派单规则，是否继续？',
+    '继承派单规则',
+    {
+      confirmButtonText: '继承',
+      cancelButtonText: '取消',
+    },
+  )
+  if (!confirmed) return
   inheriting.value = true
   try {
     const result = await assignmentRuleApi.inherit(definition.processDefinitionId)
@@ -394,7 +398,7 @@ async function inheritRules() {
 async function deleteVersion() {
   if (!selectedVersion.value) return
   const version = selectedVersion.value
-  await ElMessageBox.confirm(
+  const confirmed = await confirmAction(
     `确认删除 ${processForm.key} ${formatVersion(version)}？`,
     '删除版本',
     {
@@ -403,6 +407,7 @@ async function deleteVersion() {
       type: 'warning',
     },
   )
+  if (!confirmed) return
   try {
     await definitionApi.deleteVersion(processForm.key, version)
     ElMessage.success(`${formatVersion(version)} 已删除`)
@@ -421,11 +426,12 @@ async function deleteVersion() {
 
 async function deleteDefinition() {
   if (!processForm.key) return
-  await ElMessageBox.confirm(
+  const confirmed = await confirmAction(
     `将删除“${processForm.name || processForm.key}”的全部版本、部署数据及关联配置。此操作不可恢复。`,
     '删除流程图',
     { confirmButtonText: '删除流程图', cancelButtonText: '取消', type: 'error' },
   )
+  if (!confirmed) return
   try {
     await definitionApi.deleteAll(processForm.key)
     dirty.value = false
@@ -438,27 +444,30 @@ async function deleteDefinition() {
 
 async function openNewProcessDialog() {
   if (dirty.value) {
-    try {
-      await ElMessageBox.confirm('当前修改尚未保存，新建流程会丢失这些修改。', '新建流程图', {
+    const confirmed = await confirmAction(
+      '当前修改尚未保存，新建流程会丢失这些修改。',
+      '新建流程图',
+      {
         confirmButtonText: '继续新建',
         cancelButtonText: '取消',
         type: 'warning',
-      })
-    } catch {
-      return
-    }
+      },
+    )
+    if (!confirmed) return
   }
   Object.assign(newProcessForm, { key: '', name: '' })
   newProcessVisible.value = true
 }
 
 async function createNewProcess() {
-  const key = newProcessForm.key.trim()
-  const name = newProcessForm.name.trim()
-  if (!key || !name) return ElMessage.error('流程定义 ID 和名称不能为空')
-  if (!/^[A-Za-z][A-Za-z0-9_-]{1,63}$/.test(key)) {
-    return ElMessage.error('流程定义 ID 应以字母开头，只能包含字母、数字、下划线和短横线')
+  let identity
+  try {
+    identity = normalizeProcessIdentity(newProcessForm.key, newProcessForm.name)
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+    return
   }
+  const { key, name } = identity
   newProcessSaving.value = true
   try {
     if (await definitionApi.exists(key)) return ElMessage.error(`流程定义 ID 已存在：${key}`)

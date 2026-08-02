@@ -2,10 +2,13 @@
 import { computed, reactive, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { ArrowLeft, Ban, RefreshCw, Send } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
+import { queryKeys } from '@/api/queryKeys'
+import { canOperateInstances as isInstanceOperable } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
+import { promptRequired } from '@/utils/confirmation'
 import {
   displayValue,
   formatDateTime,
@@ -22,12 +25,8 @@ const route = useRoute()
 const router = useRouter()
 const queryClient = useQueryClient()
 const authStore = useAuthStore()
-const canOperateInstances = computed(
-  () =>
-    authStore.user?.roles.includes('PLATFORM_ADMIN') ||
-    authStore.user?.roles.includes('TENANT_ADMIN') ||
-    authStore.user?.permissions.includes('workflow:instance:operate'),
-)
+const tenantCode = computed(() => authStore.user?.tenantCode || '')
+const canOperateInstances = computed(() => isInstanceOperable(authStore.user))
 const id = computed(() => String(route.params.id))
 const activeTab = ref('diagram')
 const taskPage = reactive({ pageNum: 1, pageSize: 10 })
@@ -42,11 +41,11 @@ const transferForm = reactive({
 })
 
 const detailQuery = useQuery({
-  queryKey: computed(() => ['process-instance-detail', id.value]),
+  queryKey: computed(() => queryKeys.processInstanceDetail(tenantCode.value, id.value)),
   queryFn: () => processInstanceApi.detail(id.value),
 })
 const diagramQuery = useQuery({
-  queryKey: computed(() => ['process-instance-diagram', id.value]),
+  queryKey: computed(() => queryKeys.processInstanceDiagram(tenantCode.value, id.value)),
   queryFn: () => processInstanceApi.diagram(id.value),
 })
 const instance = computed(() => detailQuery.data.value?.instance)
@@ -97,16 +96,17 @@ const transferMutation = useMutation({
 
 async function refresh() {
   await Promise.all([detailQuery.refetch(), diagramQuery.refetch()])
-  await queryClient.invalidateQueries({ queryKey: ['process-instances'] })
+  await queryClient.invalidateQueries({ queryKey: queryKeys.processInstances(tenantCode.value) })
 }
 async function terminate() {
-  const result = await ElMessageBox.prompt('请输入终止原因。该操作无法撤销。', '终止流程实例', {
+  const reason = await promptRequired('请输入终止原因。该操作无法撤销。', '终止流程实例', {
     confirmButtonText: '终止',
     cancelButtonText: '取消',
     inputPattern: /\S+/,
     inputErrorMessage: '终止原因不能为空',
   })
-  terminateMutation.mutate(result.value.trim())
+  if (!reason) return
+  terminateMutation.mutate(reason)
 }
 function openTransfer(task: TaskItem) {
   selectedTask.value = task

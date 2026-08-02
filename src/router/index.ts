@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppShell from '@/layouts/AppShell.vue'
 import { readAuthSession } from '@/features/auth/storage'
+import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -26,8 +27,9 @@ const router = createRouter({
             import('@/features/process-definition/views/ProcessDefinitionListView.vue'),
           meta: {
             title: '流程定义',
-            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
-            requiredAnyPermissions: ['workflow:definition:read', 'workflow:definition:write'],
+            requiredAnyRoles: [APP_ROLE.platformAdministrator, APP_ROLE.tenantAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.definitionRead, APP_PERMISSION.definitionWrite],
+            navigation: { label: '流程定义', icon: 'definitions', order: 10 },
           },
         },
         {
@@ -37,8 +39,8 @@ const router = createRouter({
           meta: {
             title: '流程设计器',
             immersive: true,
-            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
-            requiredAnyPermissions: ['workflow:definition:write'],
+            requiredAnyRoles: [APP_ROLE.platformAdministrator, APP_ROLE.tenantAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.definitionWrite],
           },
         },
         {
@@ -47,8 +49,9 @@ const router = createRouter({
           component: () => import('@/features/process-instance/views/ProcessInstanceListView.vue'),
           meta: {
             title: '流程实例',
-            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
-            requiredAnyPermissions: ['workflow:instance:read', 'workflow:instance:operate'],
+            requiredAnyRoles: [APP_ROLE.platformAdministrator, APP_ROLE.tenantAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.instanceRead, APP_PERMISSION.instanceOperate],
+            navigation: { label: '流程实例', icon: 'instances', order: 20 },
           },
         },
         {
@@ -58,8 +61,8 @@ const router = createRouter({
             import('@/features/process-instance/views/ProcessInstanceDetailView.vue'),
           meta: {
             title: '流程实例详情',
-            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
-            requiredAnyPermissions: ['workflow:instance:read', 'workflow:instance:operate'],
+            requiredAnyRoles: [APP_ROLE.platformAdministrator, APP_ROLE.tenantAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.instanceRead, APP_PERMISSION.instanceOperate],
           },
         },
         {
@@ -68,8 +71,9 @@ const router = createRouter({
           component: () => import('@/features/assignment-rule/views/AssignmentRuleListView.vue'),
           meta: {
             title: '派单规则',
-            requiredAnyRoles: ['PLATFORM_ADMIN', 'TENANT_ADMIN'],
-            requiredAnyPermissions: ['assignment:manage'],
+            requiredAnyRoles: [APP_ROLE.platformAdministrator, APP_ROLE.tenantAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.assignmentManage],
+            navigation: { label: '派单规则', icon: 'assignments', order: 30 },
           },
         },
         {
@@ -78,8 +82,9 @@ const router = createRouter({
           component: () => import('@/features/access/views/AccessManagementView.vue'),
           meta: {
             title: '成员与角色',
-            requiredAnyRoles: ['PLATFORM_ADMIN'],
-            requiredAnyPermissions: ['member:manage', 'role:manage'],
+            requiredAnyRoles: [APP_ROLE.platformAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.memberManage, APP_PERMISSION.roleManage],
+            navigation: { label: '成员与角色', icon: 'access', order: 40 },
           },
         },
         {
@@ -88,8 +93,9 @@ const router = createRouter({
           component: () => import('@/features/tenant/views/TenantListView.vue'),
           meta: {
             title: '租户管理',
-            requiredAnyRoles: ['PLATFORM_ADMIN'],
-            requiredAnyPermissions: ['tenant:manage'],
+            requiredAnyRoles: [APP_ROLE.platformAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.tenantManage],
+            navigation: { label: '租户管理', icon: 'tenants', order: 50 },
           },
         },
       ],
@@ -104,27 +110,11 @@ const router = createRouter({
 })
 
 function firstAuthorizedRoute(session: ReturnType<typeof readAuthSession>) {
-  const roles = session?.roles ?? []
-  const permissions = session?.permissions ?? []
-  const administrator = roles.includes('PLATFORM_ADMIN') || roles.includes('TENANT_ADMIN')
-  if (
-    administrator ||
-    permissions.includes('workflow:definition:read') ||
-    permissions.includes('workflow:definition:write')
-  )
-    return { name: 'process-definitions' }
-  if (
-    permissions.includes('workflow:instance:read') ||
-    permissions.includes('workflow:instance:operate')
-  )
-    return { name: 'process-instances' }
-  if (permissions.includes('assignment:manage')) return { name: 'assignment-rules' }
-  if (permissions.includes('member:manage') || permissions.includes('role:manage')) {
-    return { name: 'access-management' }
-  }
-  if (roles.includes('PLATFORM_ADMIN') || permissions.includes('tenant:manage')) {
-    return { name: 'tenants' }
-  }
+  const firstRoute = router
+    .getRoutes()
+    .filter((route) => route.name && route.meta.navigation && hasAccess(session, route.meta))
+    .sort((left, right) => left.meta.navigation!.order - right.meta.navigation!.order)[0]
+  if (firstRoute) return { name: firstRoute.name }
   return { name: 'not-found' }
 }
 
@@ -139,14 +129,7 @@ router.beforeEach((to) => {
   if (to.name === 'auth' && authenticated) {
     return firstAuthorizedRoute(session)
   }
-  const requiredRoles = (to.meta.requiredAnyRoles as string[] | undefined) ?? []
-  const requiredPermissions = (to.meta.requiredAnyPermissions as string[] | undefined) ?? []
-  if (
-    authenticated &&
-    (requiredRoles.length || requiredPermissions.length) &&
-    !requiredRoles.some((role) => session?.roles.includes(role)) &&
-    !requiredPermissions.some((permission) => session?.permissions.includes(permission))
-  ) {
+  if (authenticated && !hasAccess(session, to.meta)) {
     return firstAuthorizedRoute(session)
   }
 })

@@ -10,11 +10,15 @@ interface ImportMeta {
 }
 
 declare module 'bpmn-js/lib/Modeler' {
-  const Modeler: new (options: Record<string, unknown>) => import('./src/bpmn/modeler-types').BpmnModelerInstance
+  const Modeler: new (
+    options: Record<string, unknown>,
+  ) => import('./src/bpmn/modeler-types').BpmnModelerInstance
   export default Modeler
 }
 
 declare module 'bpmn-js/lib/NavigatedViewer' {
-  const Viewer: new (options: Record<string, unknown>) => import('./src/bpmn/modeler-types').BpmnModelerInstance
+  const Viewer: new (
+    options: Record<string, unknown>,
+  ) => import('./src/bpmn/modeler-types').BpmnModelerInstance
   export default Viewer
 }

@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import { VueQueryPlugin } from '@tanstack/vue-query'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import {
   ElAlert,
   ElButton,
@@ -34,15 +34,30 @@ import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
 
 import App from './App.vue'
 import router from './router'
+import { ApiError } from './api/http'
 import './styles/main.css'
 import './styles/design-system.css'
 
 const app = createApp(App)
 const pinia = createPinia()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 15_000,
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && error.status && error.status < 500) return false
+        return failureCount < 1
+      },
+    },
+    mutations: {
+      retry: false,
+    },
+  },
+})
 
 app.use(pinia)
 app.use(router)
-app.use(VueQueryPlugin)
+app.use(VueQueryPlugin, { queryClient })
 const elementComponents = [
   ElAlert,
   ElButton,

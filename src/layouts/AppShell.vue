@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
-import { ElDrawer, ElMessage, ElTooltip } from 'element-plus'
-import 'element-plus/es/components/drawer/style/css'
-import 'element-plus/es/components/tooltip/style/css'
+import { ElMessage } from 'element-plus'
 import {
   Building2,
   ChevronDown,
@@ -19,6 +17,9 @@ import {
 } from '@lucide/vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+import { queryKeys } from '@/api/queryKeys'
+import { hasAccess } from '@/features/auth/authorization'
+import type { NavigationIcon } from '@/router/meta'
 
 const route = useRoute()
 const router = useRouter()
@@ -35,33 +36,13 @@ const selectedTenant = ref(authStore.user?.tenantCode || '')
 const switchingTenant = ref(false)
 let authorizationRefreshTimer: ReturnType<typeof setInterval> | undefined
 let refreshingAuthorization = false
-const isPlatformAdministrator = computed(
-  () => authStore.user?.roles.includes('PLATFORM_ADMIN') ?? false,
-)
-const canReadDefinitions = computed(
-  () =>
-    isPlatformAdministrator.value ||
-    authStore.user?.permissions.includes('workflow:definition:read') ||
-    authStore.user?.permissions.includes('workflow:definition:write'),
-)
-const canReadInstances = computed(
-  () =>
-    isPlatformAdministrator.value ||
-    authStore.user?.permissions.includes('workflow:instance:read') ||
-    authStore.user?.permissions.includes('workflow:instance:operate'),
-)
-const canManageAssignments = computed(
-  () => isPlatformAdministrator.value || authStore.user?.permissions.includes('assignment:manage'),
-)
-const canManageTenants = computed(
-  () => isPlatformAdministrator.value || authStore.user?.permissions.includes('tenant:manage'),
-)
-const canManageAccess = computed(
-  () =>
-    isPlatformAdministrator.value ||
-    authStore.user?.permissions.includes('member:manage') ||
-    authStore.user?.permissions.includes('role:manage'),
-)
+const navigationIcons: Record<NavigationIcon, Component> = {
+  definitions: ScrollText,
+  instances: GitBranch,
+  assignments: Route,
+  access: UsersRound,
+  tenants: Building2,
+}
 
 watch(
   () => authStore.user?.tenantCode,
@@ -103,10 +84,14 @@ onBeforeUnmount(() => {
 
 async function handleTenantChange(tenantCode: string) {
   if (!tenantCode || tenantCode === authStore.user?.tenantCode) return
+  const previousTenantCode = authStore.user?.tenantCode
   switchingTenant.value = true
   try {
     await authStore.switchTenant(tenantCode)
-    await queryClient.invalidateQueries()
+    if (previousTenantCode) {
+      queryClient.removeQueries({ queryKey: queryKeys.tenant(previousTenantCode) })
+    }
+    await queryClient.invalidateQueries({ queryKey: queryKeys.tenant(tenantCode) })
     ElMessage.success(
       `已切换到 ${authStore.tenants.find((item) => item.tenantCode === tenantCode)?.tenantName || tenantCode}`,
     )
@@ -124,19 +109,17 @@ async function handleUserCommand(command: string) {
   await router.replace({ name: 'auth' })
 }
 
-const navigation = computed(() => [
-  ...(canReadDefinitions.value
-    ? [{ label: '流程定义', to: '/process-definitions', icon: ScrollText }]
-    : []),
-  ...(canReadInstances.value
-    ? [{ label: '流程实例', to: '/process-instances', icon: GitBranch }]
-    : []),
-  ...(canManageAssignments.value
-    ? [{ label: '派单规则', to: '/assignment-rules', icon: Route }]
-    : []),
-  ...(canManageAccess.value ? [{ label: '成员与角色', to: '/access', icon: UsersRound }] : []),
-  ...(canManageTenants.value ? [{ label: '租户管理', to: '/tenants', icon: Building2 }] : []),
-])
+const navigation = computed(() =>
+  router
+    .getRoutes()
+    .filter((item) => item.name && item.meta.navigation && hasAccess(authStore.user, item.meta))
+    .sort((left, right) => left.meta.navigation!.order - right.meta.navigation!.order)
+    .map((item) => ({
+      label: item.meta.navigation!.label,
+      to: { name: item.name! },
+      icon: navigationIcons[item.meta.navigation!.icon],
+    })),
+)
 </script>
 
 <template>
@@ -151,7 +134,12 @@ const navigation = computed(() => [
       </div>
 
       <nav class="navigation">
-        <RouterLink v-for="item in navigation" :key="item.to" :to="item.to" class="nav-item">
+        <RouterLink
+          v-for="item in navigation"
+          :key="String(item.to.name)"
+          :to="item.to"
+          class="nav-item"
+        >
           <component :is="item.icon" :size="18" />
           <span>{{ item.label }}</span>
         </RouterLink>
@@ -189,7 +177,7 @@ const navigation = computed(() => [
       <nav class="navigation navigation-mobile">
         <RouterLink
           v-for="item in navigation"
-          :key="item.to"
+          :key="String(item.to.name)"
           :to="item.to"
           class="nav-item"
           @click="appStore.closeMobileNavigation"
@@ -239,7 +227,7 @@ const navigation = computed(() => [
             popper-class="user-account-dropdown"
             @command="handleUserCommand"
           >
-            <button class="user-menu" type="button">
+            <button class="user-menu" type="button" aria-label="打开账号菜单">
               <span class="user-avatar">{{ userInitial }}</span>
               <span class="user-menu-copy">
                 <strong>{{ displayName }}</strong>

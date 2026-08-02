@@ -70,55 +70,6 @@
   -webkit-text-fill-color: #475569;
 }
 
-.assignment-type-indicator {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 36px;
-  padding: 0 12px;
-  color: #1d4ed8;
-  background: #f3f7ff;
-  border: 1px solid #c7d8f7;
-  border-radius: 10px;
-}
-
-.assignment-type-indicator__dot {
-  width: 7px;
-  height: 7px;
-  margin-right: 8px;
-  background: #3b82f6;
-  border-radius: 50%;
-}
-
-.assignment-type-indicator strong {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.assignment-type-indicator__hint {
-  margin-left: auto;
-  font-size: 11px;
-  color: #64748b;
-}
-
-.assignment-type-indicator.is-empty {
-  color: #64748b;
-  background: #f8fafc;
-  border-color: #dbe3ee;
-}
-
-.assignment-type-indicator.is-empty .assignment-type-indicator__dot {
-  background: #94a3b8;
-}
-
-.assignment-rule-select.has-value .el-select__placeholder,
-.assignment-rule-select.has-value.is-disabled .el-select__placeholder {
-  color: #1e293b;
-  font-weight: 500;
-  -webkit-text-fill-color: #1e293b;
-}
-
 .el-input-number {
   width: 100%;
 }
@@ -369,51 +320,9 @@
   margin-left: auto;
 }
 
-.access-workspace {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.access-toolbar {
-  min-width: 0;
-  align-items: center;
-}
-
-.access-toolbar .filter-form--members {
-  width: min(100%, 510px);
-  flex: 0 1 510px;
-  grid-template-columns: minmax(220px, 1fr) max-content;
-}
-
-.access-table {
-  width: 100%;
-  max-width: 100%;
-}
-
 .table-pagination .el-select__wrapper {
   min-height: var(--control-height-small);
   border-radius: 9px;
-}
-
-.task-option {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.task-option span {
-  overflow: hidden;
-  color: #1e293b;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-option small {
-  flex: 0 0 auto;
-  color: #64748b;
-  font-size: 11px;
 }
 
 @media (max-width: 1180px) {
@@ -438,8 +347,7 @@
   .filter-form--definitions.el-form--inline,
   .filter-form--tenants.el-form--inline,
   .filter-form--assignment.el-form--inline,
-  .filter-form--instances.el-form--inline,
-  .access-toolbar .filter-form--members {
+  .filter-form--instances.el-form--inline {
     width: 100%;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -460,12 +368,6 @@
     flex: 1;
   }
 
-  .access-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .access-toolbar > .el-button,
   .page-primary-action,
   .page-primary-actions {
     width: 100%;

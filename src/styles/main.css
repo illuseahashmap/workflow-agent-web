@@ -364,7 +364,7 @@ select {
   gap: 16px;
 }
 
-.definition-page {
+.management-page {
   height: auto;
   min-height: calc(100vh - 134px);
   grid-template-rows: auto auto auto minmax(420px, 1fr);
@@ -1492,7 +1492,7 @@ select {
     min-height: calc(100vh - 86px);
   }
 
-  .definition-page {
+  .management-page {
     grid-template-rows: auto auto auto minmax(360px, 1fr);
   }
 

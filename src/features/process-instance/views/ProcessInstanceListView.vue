@@ -2,22 +2,23 @@
 import { computed, reactive, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { Ban, Eye, RefreshCw, Search } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
+import { queryKeys } from '@/api/queryKeys'
+import MetricCard from '@/components/MetricCard.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import { canOperateInstances as isInstanceOperable } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
+import { promptRequired } from '@/utils/confirmation'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import { processInstanceApi } from '../api'
 
 const router = useRouter()
 const queryClient = useQueryClient()
 const authStore = useAuthStore()
-const canOperateInstances = computed(
-  () =>
-    authStore.user?.roles.includes('PLATFORM_ADMIN') ||
-    authStore.user?.roles.includes('TENANT_ADMIN') ||
-    authStore.user?.permissions.includes('workflow:instance:operate'),
-)
+const tenantCode = computed(() => authStore.user?.tenantCode || '')
+const canOperateInstances = computed(() => isInstanceOperable(authStore.user))
 const query = reactive({
   processDefinitionKey: '',
   processDefinitionName: '',
@@ -30,7 +31,7 @@ const query = reactive({
 const applied = ref({ ...query })
 
 const instancesQuery = useQuery({
-  queryKey: computed(() => ['process-instances', applied.value]),
+  queryKey: computed(() => queryKeys.processInstancePage(tenantCode.value, applied.value)),
   queryFn: () => processInstanceApi.page(applied.value),
 })
 
@@ -46,7 +47,7 @@ const terminateMutation = useMutation({
     processInstanceApi.terminate(id, reason),
   onSuccess: async () => {
     ElMessage.success('流程实例已终止')
-    await queryClient.invalidateQueries({ queryKey: ['process-instances'] })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.processInstances(tenantCode.value) })
   },
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
@@ -75,48 +76,33 @@ function changePage(pageNum: number, pageSize: number) {
 }
 
 async function terminate(id: string) {
-  const result = await ElMessageBox.prompt('请输入终止原因。该操作无法撤销。', '终止流程实例', {
+  const reason = await promptRequired('请输入终止原因。该操作无法撤销。', '终止流程实例', {
     confirmButtonText: '终止',
     cancelButtonText: '取消',
     inputPattern: /\S+/,
     inputErrorMessage: '终止原因不能为空',
   })
-  terminateMutation.mutate({ id, reason: result.value.trim() })
+  if (!reason) return
+  terminateMutation.mutate({ id, reason })
 }
 </script>
 
 <template>
-  <div class="definition-page page-stack">
-    <section class="page-hero compact-hero">
-      <div>
-        <span class="eyebrow">Process Instance</span>
-        <h2>流程实例看板</h2>
-        <p>追踪流程运行状态、当前任务、业务标识和执行耗时，快速定位需要人工处理的流程实例。</p>
-      </div>
-    </section>
+  <div class="management-page page-stack">
+    <PageHeader
+      eyebrow="Process Instance"
+      title="流程实例看板"
+      description="追踪流程运行状态、当前任务、业务标识和执行耗时，快速定位需要人工处理的流程实例。"
+    />
 
     <section class="metric-grid">
-      <article class="metric-card">
-        <span>Σ</span>
-        <div>
-          <strong>{{ total }}</strong>
-          <small>实例总数</small>
-        </div>
-      </article>
-      <article class="metric-card success">
-        <span>▶</span>
-        <div>
-          <strong>{{ runningCount }}</strong>
-          <small>当前页运行中</small>
-        </div>
-      </article>
-      <article class="metric-card warning">
-        <span>✓</span>
-        <div>
-          <strong>{{ finishedCount }}</strong>
-          <small>当前页已结束</small>
-        </div>
-      </article>
+      <MetricCard :value="total" label="实例总数"><template #icon>Σ</template></MetricCard>
+      <MetricCard :value="runningCount" label="当前页运行中" tone="success">
+        <template #icon>▶</template>
+      </MetricCard>
+      <MetricCard :value="finishedCount" label="当前页已结束" tone="warning">
+        <template #icon>✓</template>
+      </MetricCard>
     </section>
 
     <section class="page-actions compact-filter filter-only">
