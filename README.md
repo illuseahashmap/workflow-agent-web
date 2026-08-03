@@ -42,6 +42,10 @@ corepack pnpm build
 corepack pnpm test:e2e --project=chromium
 ```
 
+## Documentation
+
+- [Frontend architecture governance and roadmap](docs/quality/frontend-governance-and-roadmap.md)
+
 ## Security boundary
 
 The browser uses the user access token returned by the authentication API. It never stores a
