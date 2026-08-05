@@ -17,6 +17,14 @@ export function getCurrentUser() {
   return apiClient.get<AuthUser>('/auth/me')
 }
 
+export function updateProfile(displayName: string) {
+  return apiClient.patch<AuthUser>('/auth/me', { displayName })
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return apiClient.post<void>('/auth/me/password', { currentPassword, newPassword })
+}
+
 export function getTenants() {
   return apiClient.get<TenantOption[]>('/auth/tenants')
 }

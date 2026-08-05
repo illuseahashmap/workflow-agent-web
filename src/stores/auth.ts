@@ -45,6 +45,21 @@ export const useAuthStore = defineStore('auth', () => {
     return currentUser
   }
 
+  async function updateProfile(displayName: string) {
+    const currentUser = await authApi.updateProfile(displayName)
+    user.value = currentUser
+    if (session.value) {
+      session.value = { ...session.value, ...currentUser }
+      writeAuthSession(session.value)
+    }
+    return currentUser
+  }
+
+  async function changePassword(currentPassword: string, newPassword: string) {
+    await authApi.ensureCsrfToken()
+    await authApi.changePassword(currentPassword, newPassword)
+  }
+
   async function loadTenants() {
     if (!session.value) return []
     tenants.value = await authApi.getTenants()
@@ -78,6 +93,8 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     register,
     refreshCurrentUser,
+    updateProfile,
+    changePassword,
     loadTenants,
     switchTenant,
     logout,

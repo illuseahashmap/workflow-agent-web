@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch, type Component } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch, type Component } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -12,6 +12,8 @@ import {
   Route,
   ScrollText,
   UsersRound,
+  KeyRound,
+  UserRound,
   Workflow,
   X,
 } from '@lucide/vue'
@@ -34,6 +36,12 @@ const displayName = computed(
 const userInitial = computed(() => displayName.value.slice(0, 1).toUpperCase())
 const selectedTenant = ref(authStore.user?.tenantCode || '')
 const switchingTenant = ref(false)
+const profileVisible = ref(false)
+const passwordVisible = ref(false)
+const savingProfile = ref(false)
+const savingPassword = ref(false)
+const profileForm = reactive({ displayName: '' })
+const passwordForm = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
 let authorizationRefreshTimer: ReturnType<typeof setInterval> | undefined
 let refreshingAuthorization = false
 const navigationIcons: Record<NavigationIcon, Component> = {
@@ -109,9 +117,61 @@ async function handleMobileTenantChange(tenantCode: string) {
 }
 
 async function handleUserCommand(command: string) {
-  if (command !== 'logout') return
-  authStore.logout()
-  await router.replace({ name: 'auth' })
+  if (command === 'profile') {
+    profileForm.displayName = authStore.user?.displayName || ''
+    profileVisible.value = true
+    return
+  }
+  if (command === 'password') {
+    passwordForm.currentPassword = ''
+    passwordForm.newPassword = ''
+    passwordForm.confirmPassword = ''
+    passwordVisible.value = true
+    return
+  }
+  if (command === 'logout') {
+    await authStore.logout()
+    await router.replace({ name: 'auth' })
+  }
+}
+
+async function submitProfile() {
+  const displayName = profileForm.displayName.trim()
+  if (!displayName) {
+    ElMessage.warning('请输入昵称')
+    return
+  }
+  savingProfile.value = true
+  try {
+    await authStore.updateProfile(displayName)
+    profileVisible.value = false
+    ElMessage.success('个人信息已更新')
+  } catch {
+    ElMessage.error('个人信息更新失败')
+  } finally {
+    savingProfile.value = false
+  }
+}
+
+async function submitPassword() {
+  if (passwordForm.newPassword.length < 8) {
+    ElMessage.warning('新密码至少需要 8 个字符')
+    return
+  }
+  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+    ElMessage.warning('两次输入的新密码不一致')
+    return
+  }
+  savingPassword.value = true
+  try {
+    await authStore.changePassword(passwordForm.currentPassword, passwordForm.newPassword)
+    passwordVisible.value = false
+    ElMessage.success('密码修改成功')
+  } catch {
+    ElMessage.error('密码修改失败，请检查当前密码')
+  } finally {
+    savingPassword.value = false
+  }
 }
 
 async function handleMobileLogout() {
@@ -286,6 +346,12 @@ const navigation = computed(() =>
                     <small>{{ authStore.user?.username }}</small>
                   </span>
                 </el-dropdown-item>
+                <el-dropdown-item command="profile"
+                  ><UserRound :size="15" />个人资料</el-dropdown-item
+                >
+                <el-dropdown-item command="password"
+                  ><KeyRound :size="15" />修改密码</el-dropdown-item
+                >
                 <el-dropdown-item divided command="logout"
                   ><LogOut :size="15" />退出登录</el-dropdown-item
                 >
@@ -298,5 +364,59 @@ const navigation = computed(() =>
         <RouterView />
       </main>
     </div>
+
+    <el-dialog v-model="profileVisible" title="个人资料" width="min(480px, calc(100vw - 32px))">
+      <el-form label-position="top" @submit.prevent="submitProfile">
+        <el-form-item label="用户名">
+          <el-input :model-value="authStore.user?.username || ''" disabled />
+        </el-form-item>
+        <el-form-item label="昵称" required>
+          <el-input
+            v-model="profileForm.displayName"
+            maxlength="128"
+            show-word-limit
+            placeholder="请输入昵称"
+            @keyup.enter="submitProfile"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="profileVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingProfile" @click="submitProfile">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="passwordVisible" title="修改密码" width="min(480px, calc(100vw - 32px))">
+      <el-form label-position="top" @submit.prevent="submitPassword">
+        <el-form-item label="当前密码" required>
+          <el-input v-model="passwordForm.currentPassword" type="password" show-password />
+        </el-form-item>
+        <el-form-item label="新密码" required>
+          <el-input
+            v-model="passwordForm.newPassword"
+            type="password"
+            show-password
+            minlength="8"
+            maxlength="128"
+            placeholder="至少 8 个字符"
+          />
+        </el-form-item>
+        <el-form-item label="确认新密码" required>
+          <el-input
+            v-model="passwordForm.confirmPassword"
+            type="password"
+            show-password
+            maxlength="128"
+            @keyup.enter="submitPassword"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="passwordVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingPassword" @click="submitPassword"
+          >确认修改</el-button
+        >
+      </template>
+    </el-dialog>
   </div>
 </template>

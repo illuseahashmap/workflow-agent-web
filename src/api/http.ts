@@ -69,6 +69,9 @@ export const apiClient = {
   post<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return unwrap(http.post<ApiResponse<T>>(url, data, config))
   },
+  patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return unwrap(http.patch<ApiResponse<T>>(url, data, config))
+  },
   delete<T>(url: string, config?: AxiosRequestConfig) {
     return unwrap(http.delete<ApiResponse<T>>(url, config))
   },
