@@ -14,7 +14,7 @@ export const useAuthStore = defineStore('auth', () => {
   const session = ref<AuthSession | null>(readAuthSession())
   const user = ref<AuthUser | null>(session.value)
   const tenants = ref<TenantOption[]>([])
-  const isAuthenticated = computed(() => Boolean(session.value?.accessToken))
+  const isAuthenticated = computed(() => Boolean(session.value?.expiresAt))
 
   function saveSession(nextSession: AuthSession) {
     session.value = nextSession
@@ -56,11 +56,15 @@ export const useAuthStore = defineStore('auth', () => {
     return nextSession
   }
 
-  function logout() {
-    session.value = null
-    user.value = null
-    tenants.value = []
-    clearAuthSession()
+  async function logout() {
+    try {
+      await authApi.logout()
+    } finally {
+      session.value = null
+      user.value = null
+      tenants.value = []
+      clearAuthSession()
+    }
   }
 
   return {

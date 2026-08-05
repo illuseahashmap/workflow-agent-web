@@ -17,7 +17,6 @@ function isValidAuthSession(value: unknown): value is AuthSession {
     (session.displayName === null || typeof session.displayName === 'string') &&
     typeof session.tenantCode === 'string' &&
     typeof session.accessToken === 'string' &&
-    session.accessToken.length > 0 &&
     typeof session.tokenType === 'string' &&
     typeof session.expiresIn === 'number' &&
     Number.isFinite(session.expiresIn) &&
@@ -46,7 +45,10 @@ export function readAuthSession(): AuthSession | null {
 }
 
 export function writeAuthSession(session: AuthSession) {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session))
+  // The access token is issued as an HttpOnly cookie by the API. Persist only
+  // non-sensitive session metadata so a page reload can restore the UI state.
+  const { accessToken: _accessToken, ...sessionMetadata } = session
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ ...sessionMetadata, accessToken: '' }))
 }
 
 export function clearAuthSession() {
@@ -54,5 +56,7 @@ export function clearAuthSession() {
 }
 
 export function getAccessToken() {
-  return readAuthSession()?.accessToken ?? null
+  // Browser requests authenticate through the HttpOnly cookie. Never expose
+  // the bearer token to JavaScript or persist it in localStorage.
+  return null
 }

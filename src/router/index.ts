@@ -120,8 +120,8 @@ function firstAuthorizedRoute(session: ReturnType<typeof readAuthSession>) {
 
 router.beforeEach((to) => {
   const session = readAuthSession()
-  const { accessToken, expiresAt } = session ?? {}
-  const authenticated = Boolean(accessToken && expiresAt && Date.parse(expiresAt) > Date.now())
+  const { expiresAt } = session ?? {}
+  const authenticated = Boolean(expiresAt && Date.parse(expiresAt) > Date.now())
 
   if (!to.meta.public && !authenticated) {
     return { name: 'auth', query: { redirect: to.fullPath } }

@@ -21,7 +21,8 @@
     "lint:eslint:fix": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli \"src/**/*.{ts,vue,css}\" \"e2e/**/*.ts\" \"*.{ts,json,md}\"",
     "format:check": "prettier --check --experimental-cli \"src/**/*.{ts,vue,css}\" \"e2e/**/*.ts\" \"*.{ts,json,md}\"",
-    "check": "run-s format:check lint type-check test:unit:run build-only"
+    "test:e2e:ci": "playwright test --project=chromium",
+    "check": "run-s format:check lint type-check test:unit:run build-only test:e2e:ci"
   },
   "dependencies": {
     "@lucide/vue": "^1.28.0",

@@ -20,3 +20,7 @@ export function getTenants() {
 export function switchTenant(tenantCode: string) {
   return apiClient.post<AuthSession>('/auth/switch-tenant', { tenantCode })
 }
+
+export function logout() {
+  return apiClient.post<void>('/auth/logout')
+}

@@ -17,9 +17,9 @@ const validSession = {
 describe('authentication storage', () => {
   beforeEach(() => localStorage.clear())
 
-  it('round-trips a valid session', () => {
+  it('persists session metadata without the access token', () => {
     writeAuthSession(validSession)
-    expect(readAuthSession()).toEqual(validSession)
+    expect(readAuthSession()).toEqual({ ...validSession, accessToken: '' })
   })
 
   it('removes malformed or expired sessions', () => {
