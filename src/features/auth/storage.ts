@@ -16,7 +16,7 @@ function isValidAuthSession(value: unknown): value is AuthSession {
     typeof session.username === 'string' &&
     (session.displayName === null || typeof session.displayName === 'string') &&
     typeof session.tenantCode === 'string' &&
-    typeof session.accessToken === 'string' &&
+    (session.accessToken === undefined || typeof session.accessToken === 'string') &&
     typeof session.tokenType === 'string' &&
     typeof session.expiresIn === 'number' &&
     Number.isFinite(session.expiresIn) &&

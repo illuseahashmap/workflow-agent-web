@@ -9,7 +9,7 @@ export interface AuthUser {
 
 export interface AuthSession extends AuthUser {
   tokenType: string
-  accessToken: string
+  accessToken?: string
   expiresIn: number
   expiresAt: string
 }

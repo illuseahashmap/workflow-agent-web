@@ -23,12 +23,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(request: LoginRequest) {
+    await authApi.ensureCsrfToken()
     const nextSession = await authApi.login(request)
     saveSession(nextSession)
     return nextSession
   }
 
   async function register(request: RegisterRequest) {
+    await authApi.ensureCsrfToken()
     const nextSession = await authApi.register(request)
     saveSession(nextSession)
     return nextSession
@@ -58,6 +60,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout() {
     try {
+      await authApi.ensureCsrfToken()
       await authApi.logout()
     } finally {
       session.value = null

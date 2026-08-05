@@ -5,6 +5,10 @@ export function login(request: LoginRequest) {
   return apiClient.post<AuthSession>('/auth/login', request)
 }
 
+export function ensureCsrfToken() {
+  return apiClient.get<string>('/auth/csrf')
+}
+
 export function register(request: RegisterRequest) {
   return apiClient.post<AuthSession>('/auth/register', request)
 }
