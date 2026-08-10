@@ -5,8 +5,10 @@ import { ElMessage } from 'element-plus'
 import { Plus, RefreshCw, Search } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
+import ListEmptyState from '@/components/ListEmptyState.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime } from '@/utils/format'
 import { tenantApi } from '../api'
@@ -155,18 +157,20 @@ async function toggle(item: WorkflowTenant) {
         ><el-table-column prop="tenantName" label="租户名称" min-width="180" /><el-table-column
           prop="tenantId"
           label="租户标识"
-          min-width="180"
-        /><el-table-column prop="tenantCode" label="租户编码" min-width="150" /><el-table-column
+          min-width="180" /><el-table-column
+          prop="tenantCode"
+          label="租户编码"
+          min-width="150" /><el-table-column
           prop="description"
           label="说明"
           min-width="220"
-          show-overflow-tooltip
-        /><el-table-column label="状态" width="100"
+          show-overflow-tooltip /><el-table-column
+          label="状态"
+          width="110"
+          align="center"
+          header-align="center"
           ><template #default="{ row }"
-            ><el-tag :type="row.enabled ? 'success' : 'info'" effect="plain">{{
-              row.enabled ? '启用' : '禁用'
-            }}</el-tag></template
-          ></el-table-column
+            ><StatusBadge :status="row.enabled" /></template></el-table-column
         ><el-table-column label="更新时间" width="175"
           ><template #default="{ row }">{{
             formatDateTime(row.updatedAt)
@@ -178,8 +182,14 @@ async function toggle(item: WorkflowTenant) {
               row.enabled ? '禁用' : '启用'
             }}</el-button></template
           ></el-table-column
-        ><template #empty><div class="empty-copy">暂无租户数据</div></template></el-table
+        ><template #empty>
+          <ListEmptyState
+            title="暂无租户"
+            description="创建租户后，才能配置成员与租户级业务资源。"
+          /> </template></el-table
       ><el-pagination
+        v-accessible-label="'每页条数'"
+        aria-label="租户分页"
         class="table-pagination"
         v-model:current-page="query.pageNum"
         v-model:page-size="query.pageSize"

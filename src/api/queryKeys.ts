@@ -29,9 +29,26 @@ export const queryKeys = {
   tenantMembers: (tenantCode: string) => [...tenantScope(tenantCode), 'members'] as const,
   tenantMemberList: (tenantCode: string, keyword: string) =>
     [...queryKeys.tenantMembers(tenantCode), keyword] as const,
+  directoryUsers: (tenantCode: string, parameters: QueryParameters) =>
+    [...tenantScope(tenantCode), 'directory-users', 'page', parameters] as const,
   tenantRoles: (tenantCode: string) => [...tenantScope(tenantCode), 'roles'] as const,
   permissions: () => ['platform', 'permissions'] as const,
   tenants: () => ['platform', 'tenants'] as const,
   tenantPage: (parameters: QueryParameters) =>
     [...queryKeys.tenants(), 'page', parameters] as const,
+  agents: (tenantCode: string) => [...tenantScope(tenantCode), 'agents'] as const,
+  agentPage: (tenantCode: string, parameters: QueryParameters) =>
+    [...queryKeys.agents(tenantCode), 'page', parameters] as const,
+  agentVersions: (tenantCode: string, definitionId: number) =>
+    [...queryKeys.agents(tenantCode), 'versions', definitionId] as const,
+  agentProviders: (tenantCode: string) => [...tenantScope(tenantCode), 'agent-providers'] as const,
+  agentProviderPage: (tenantCode: string, parameters: QueryParameters) =>
+    [...queryKeys.agentProviders(tenantCode), 'page', parameters] as const,
+  enabledAgentProviders: (tenantCode: string) =>
+    [...queryKeys.agentProviders(tenantCode), 'enabled'] as const,
+  agentRuns: (tenantCode: string) => [...tenantScope(tenantCode), 'agent-runs'] as const,
+  agentRunPage: (tenantCode: string, parameters: QueryParameters) =>
+    [...queryKeys.agentRuns(tenantCode), 'page', parameters] as const,
+  agentRunDetail: (tenantCode: string, runId: number) =>
+    [...queryKeys.agentRuns(tenantCode), 'detail', runId] as const,
 }

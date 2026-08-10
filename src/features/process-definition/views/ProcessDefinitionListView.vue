@@ -17,14 +17,15 @@ import {
 } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
+import ListEmptyState from '@/components/ListEmptyState.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import TableTagCell from '@/components/TableTagCell.vue'
 import {
   canOperateInstances as isInstanceOperable,
   canWriteDefinitions as isDefinitionWritable,
 } from '@/features/auth/authorization'
-import StartProcessDialog from '@/features/process-instance/components/StartProcessDialog.vue'
-import type { StartProcessResult } from '@/features/process-instance/types'
+import { StartProcessDialog, type StartProcessResult } from '@/features/process-instance'
 import { useAuthStore } from '@/stores/auth'
 import { createBlankBpmn } from '@/utils/bpmn'
 import { confirmAction } from '@/utils/confirmation'
@@ -172,7 +173,11 @@ function handleStarted(result: StartProcessResult) {
           <el-input v-model="query.processDefinitionName" clearable placeholder="输入流程名称" />
         </el-form-item>
         <el-form-item label="发布状态">
-          <el-select v-model="query.publishStatus">
+          <el-select
+            v-model="query.publishStatus"
+            v-accessible-label="'发布状态'"
+            aria-label="发布状态"
+          >
             <el-option label="全部" value="all" />
             <el-option label="已发布" value="published" />
             <el-option label="未发布" value="unpublished" />
@@ -213,23 +218,27 @@ function handleStarted(result: StartProcessResult) {
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="已发布版本" width="140" align="center">
+        <el-table-column label="已发布版本" width="140" header-align="center">
           <template #default="{ row }">
-            <el-tag
-              class="version-tag"
-              :type="row.activeVersion ? 'success' : 'info'"
-              effect="light"
-              round
-            >
-              {{ row.activeVersion ? formatVersion(row.activeVersion) : '尚未发布' }}
-            </el-tag>
+            <TableTagCell>
+              <el-tag
+                class="version-tag"
+                :type="row.activeVersion ? 'success' : 'info'"
+                effect="light"
+                round
+              >
+                {{ row.activeVersion ? formatVersion(row.activeVersion) : '尚未发布' }}
+              </el-tag>
+            </TableTagCell>
           </template>
         </el-table-column>
-        <el-table-column label="最新版本" width="130" align="center">
+        <el-table-column label="最新版本" width="130" header-align="center">
           <template #default="{ row }">
-            <el-tag class="version-tag" type="warning" effect="light" round>
-              {{ formatVersion(row.latestVersion) }}
-            </el-tag>
+            <TableTagCell>
+              <el-tag class="version-tag" type="warning" effect="light" round>
+                {{ formatVersion(row.latestVersion) }}
+              </el-tag>
+            </TableTagCell>
           </template>
         </el-table-column>
         <el-table-column label="最新部署时间" width="180">
@@ -271,17 +280,20 @@ function handleStarted(result: StartProcessResult) {
           </template>
         </el-table-column>
         <template #empty>
-          <div class="empty-landing">
-            <span><FilePlus2 :size="32" /></span>
-            <strong>还没有流程定义</strong>
-            <p>创建第一个 BPMN 流程，完成建模后即可发布版本并发起流程实例。</p>
+          <ListEmptyState
+            title="还没有流程定义"
+            description="创建第一个 BPMN 流程，完成建模后即可发布版本并发起流程实例。"
+            :icon="FilePlus2"
+          >
             <el-button v-if="canWriteDefinitions" type="primary" @click="createVisible = true">
               <Plus :size="16" />新建流程
             </el-button>
-          </div>
+          </ListEmptyState>
         </template>
       </el-table>
       <el-pagination
+        v-accessible-label="'每页条数'"
+        aria-label="分页"
         class="table-pagination"
         v-model:current-page="query.pageNum"
         v-model:page-size="query.pageSize"

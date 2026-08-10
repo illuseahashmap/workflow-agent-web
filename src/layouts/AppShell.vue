@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   Building2,
+  Bot,
   ChevronDown,
   GitBranch,
   LogOut,
@@ -48,6 +49,7 @@ const navigationIcons: Record<NavigationIcon, Component> = {
   definitions: ScrollText,
   instances: GitBranch,
   assignments: Route,
+  agents: Bot,
   access: UsersRound,
   tenants: Building2,
 }

@@ -42,6 +42,14 @@ corepack pnpm build
 corepack pnpm test:e2e --project=chromium
 ```
 
+发布前使用完整质量门禁：
+
+```bash
+corepack pnpm verify
+```
+
+`verify` 会依次执行格式检查、Lint、类型检查、单元测试、生产构建和 Chromium E2E。
+
 ## Documentation
 
 - [Frontend architecture governance and roadmap](docs/quality/frontend-governance-and-roadmap.md)

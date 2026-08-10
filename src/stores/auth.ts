@@ -1,20 +1,23 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import * as authApi from '@/features/auth/api'
-import { clearAuthSession, readAuthSession, writeAuthSession } from '@/features/auth/storage'
+import * as authApi from '@/features/auth'
+import { clearAuthSession, readAuthSession, writeAuthSession } from '@/features/auth'
 import type {
   AuthSession,
   AuthUser,
   LoginRequest,
   RegisterRequest,
   TenantOption,
-} from '@/features/auth/types'
+} from '@/features/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const session = ref<AuthSession | null>(readAuthSession())
   const user = ref<AuthUser | null>(session.value)
   const tenants = ref<TenantOption[]>([])
-  const isAuthenticated = computed(() => Boolean(session.value?.expiresAt))
+  const isAuthenticated = computed(() => {
+    const expiresAt = session.value?.expiresAt
+    return Boolean(expiresAt && Date.parse(expiresAt) > Date.now())
+  })
 
   function saveSession(nextSession: AuthSession) {
     session.value = nextSession
@@ -70,15 +73,18 @@ export const useAuthStore = defineStore('auth', () => {
     return nextSession
   }
 
-  async function logout() {
-    try {
-      await authApi.logout()
-    } finally {
-      session.value = null
-      user.value = null
-      tenants.value = []
-      clearAuthSession()
+  async function logout(revokeRemoteSession = true) {
+    if (revokeRemoteSession) {
+      try {
+        await authApi.logout()
+      } catch {
+        // Local cleanup must still complete when the remote session is already invalid.
+      }
     }
+    session.value = null
+    user.value = null
+    tenants.value = []
+    clearAuthSession()
   }
 
   return {

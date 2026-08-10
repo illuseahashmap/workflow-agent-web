@@ -6,8 +6,10 @@ import { ElMessage } from 'element-plus'
 import { Ban, Eye, Play, RefreshCw, Search } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
+import ListEmptyState from '@/components/ListEmptyState.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import { canOperateInstances as isInstanceOperable } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
 import { promptRequired } from '@/utils/confirmation'
@@ -171,13 +173,10 @@ function handleStarted(result: StartProcessResult) {
           show-overflow-tooltip
         />
         <el-table-column prop="startUserId" label="发起人" width="120" show-overflow-tooltip />
-        <el-table-column label="状态" width="100"
+        <el-table-column label="状态" width="110" align="center" header-align="center"
           ><template #default="{ row }"
-            ><el-tag :type="row.status === 'RUNNING' ? 'success' : 'info'" effect="plain">{{
-              row.status === 'RUNNING' ? '运行中' : '已结束'
-            }}</el-tag></template
-          ></el-table-column
-        >
+            ><StatusBadge :status="row.status === 'RUNNING' ? 'RUNNING' : 'COMPLETED'" /></template
+        ></el-table-column>
         <el-table-column label="发起时间" min-width="175"
           ><template #default="{ row }">{{
             formatDateTime(row.startTime)
@@ -210,9 +209,16 @@ function handleStarted(result: StartProcessResult) {
             >
           </template></el-table-column
         >
-        <template #empty><div class="empty-copy">暂无符合条件的流程实例</div></template>
+        <template #empty>
+          <ListEmptyState
+            title="暂无流程实例"
+            description="调整筛选条件，或从已发布的流程定义发起一个新实例。"
+          />
+        </template>
       </el-table>
       <el-pagination
+        v-accessible-label="'每页条数'"
+        aria-label="流程实例分页"
         class="table-pagination"
         v-model:current-page="query.pageNum"
         v-model:page-size="query.pageSize"

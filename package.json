@@ -22,7 +22,8 @@
     "format": "prettier --write --experimental-cli \"src/**/*.{ts,vue,css}\" \"e2e/**/*.ts\" \"*.{ts,json,md}\"",
     "format:check": "prettier --check --experimental-cli \"src/**/*.{ts,vue,css}\" \"e2e/**/*.ts\" \"*.{ts,json,md}\"",
     "test:e2e:ci": "playwright test --project=chromium",
-    "check": "run-s format:check lint type-check test:unit:run build-only test:e2e:ci"
+    "check": "run-s format:check lint type-check test:unit:run build-only test:e2e:ci",
+    "verify": "pnpm check"
   },
   "dependencies": {
     "@lucide/vue": "^1.28.0",
@@ -36,6 +37,7 @@
     "vue-router": "^5.2.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@playwright/test": "^1.61.1",
     "@tsconfig/node24": "^24.0.4",
     "@types/jsdom": "^28.0.3",

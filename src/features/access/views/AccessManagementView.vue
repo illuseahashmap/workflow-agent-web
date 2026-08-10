@@ -5,7 +5,9 @@ import { ElMessage } from 'element-plus'
 import { Plus, RefreshCw, Search, ShieldCheck, UsersRound } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
+import ListEmptyState from '@/components/ListEmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime, joinValues } from '@/utils/format'
@@ -229,11 +231,9 @@ function editRole(role: TenantRole) {
             <el-table-column label="加入时间" width="165">
               <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
             </el-table-column>
-            <el-table-column label="状态" width="80">
+            <el-table-column label="状态" width="110" align="center" header-align="center">
               <template #default="{ row }">
-                <el-tag :type="row.enabled ? 'success' : 'info'" effect="plain">
-                  {{ row.enabled ? '启用' : '停用' }}
-                </el-tag>
+                <StatusBadge :status="row.enabled" />
               </template>
             </el-table-column>
             <el-table-column label="操作" width="148" fixed="right">
@@ -248,6 +248,12 @@ function editRole(role: TenantRole) {
                 </el-button>
               </template>
             </el-table-column>
+            <template #empty>
+              <ListEmptyState
+                title="暂无成员"
+                description="邀请或添加成员后，可在这里分配租户角色。"
+              />
+            </template>
           </el-table>
         </el-tab-pane>
 
@@ -290,11 +296,9 @@ function editRole(role: TenantRole) {
             <el-table-column label="权限数" width="88">
               <template #default="{ row }">{{ row.permissions.length }}</template>
             </el-table-column>
-            <el-table-column label="状态" width="80">
+            <el-table-column label="状态" width="110" align="center" header-align="center">
               <template #default="{ row }">
-                <el-tag :type="row.enabled ? 'success' : 'info'" effect="plain">
-                  {{ row.enabled ? '启用' : '停用' }}
-                </el-tag>
+                <StatusBadge :status="row.enabled" />
               </template>
             </el-table-column>
             <el-table-column label="操作" width="100" fixed="right">
@@ -305,6 +309,12 @@ function editRole(role: TenantRole) {
                 <span v-else class="muted-copy">不可编辑</span>
               </template>
             </el-table-column>
+            <template #empty>
+              <ListEmptyState
+                title="暂无角色"
+                description="创建角色并配置权限后，即可分配给租户成员。"
+              />
+            </template>
           </el-table>
         </el-tab-pane>
       </el-tabs>

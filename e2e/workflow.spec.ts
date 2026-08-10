@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 
 async function mockApi(page: Page) {
   await page.route(
@@ -15,6 +16,8 @@ async function mockApi(page: Page) {
           roles: ['PLATFORM_ADMIN'],
           permissions: [],
         }
+      } else if (url.pathname.endsWith('/auth/csrf')) {
+        data = 'e2e-csrf-token'
       } else if (url.pathname.endsWith('/auth/tenants')) {
         data = [
           {
@@ -95,6 +98,154 @@ async function mockApi(page: Page) {
             { userId: 'admin-id', username: 'admin', displayName: '平台管理员' },
             { userId: 'alice-id', username: 'alice', displayName: '试用用户' },
           ],
+        }
+      } else if (url.pathname.endsWith('/agent-providers/enabled')) {
+        data = [
+          {
+            id: 31,
+            code: 'mock_local',
+            name: '本地 Mock',
+            type: 'MOCK',
+            enabled: true,
+            credentialConfigured: false,
+          },
+        ]
+      } else if (url.pathname.endsWith('/agent-providers')) {
+        const empty = url.searchParams.get('keyword') === '__empty__'
+        data = {
+          total: empty ? 0 : 1,
+          pageNum: 1,
+          pageSize: 20,
+          records: empty
+            ? []
+            : [
+                {
+                  id: 31,
+                  code: 'mock_local',
+                  name: '本地 Mock',
+                  type: 'MOCK',
+                  enabled: true,
+                  credentialConfigured: false,
+                  createdAt: '2026-08-08T08:00:00+08:00',
+                  updatedAt: '2026-08-08T08:00:00+08:00',
+                },
+              ],
+        }
+      } else if (url.pathname.endsWith('/agents')) {
+        const empty = url.searchParams.get('keyword') === '__empty__'
+        data = {
+          total: empty ? 0 : 1,
+          pageNum: 1,
+          pageSize: 20,
+          records: empty
+            ? []
+            : [
+                {
+                  id: 41,
+                  code: 'expense_reviewer',
+                  name: '费用审核 Agent',
+                  description: '检查费用说明并给出结构化结论',
+                  enabled: true,
+                  latestVersion: 1,
+                  publishedVersion: 1,
+                  createdAt: '2026-08-08T08:00:00+08:00',
+                  updatedAt: '2026-08-08T08:00:00+08:00',
+                },
+              ],
+        }
+      } else if (url.pathname.endsWith('/agent-runs/manual-tests')) {
+        data = { runId: 91, status: 'QUEUED' }
+      } else if (url.pathname.endsWith('/agent-runs/91')) {
+        const run = {
+          id: 91,
+          agentCode: 'expense_reviewer',
+          agentName: '费用审核 Agent',
+          agentVersion: 1,
+          status: 'SUCCEEDED',
+          resultStatus: 'SUCCESS',
+          processInstanceId: 'instance-100',
+          activityId: 'agentReview',
+          deadlineAt: '2026-08-08T08:02:00+08:00',
+          startedAt: '2026-08-08T08:00:01+08:00',
+          completedAt: '2026-08-08T08:00:03+08:00',
+          createdAt: '2026-08-08T08:00:00+08:00',
+          updatedAt: '2026-08-08T08:00:03+08:00',
+        }
+        data = {
+          run,
+          payload: {
+            inputSnapshotJson: '{"input":"审核差旅费用"}',
+            outputSnapshotJson: '{"content":"建议通过"}',
+          },
+          attempts: [
+            {
+              id: 92,
+              attemptNo: 1,
+              status: 'SUCCEEDED',
+              startedAt: run.startedAt,
+              completedAt: run.completedAt,
+              createdAt: run.createdAt,
+              updatedAt: run.updatedAt,
+            },
+          ],
+          steps: [],
+          modelInvocations: [
+            {
+              id: 94,
+              attemptId: 92,
+              stepId: 95,
+              providerName: '本地 Mock',
+              requestedModel: 'mock-model',
+              actualModel: 'mock-model',
+              status: 'SUCCEEDED',
+              inputTokens: 0,
+              outputTokens: 0,
+              reasoningTokens: 0,
+              latencyMillis: 0,
+              createdAt: run.createdAt,
+              completedAt: run.completedAt,
+            },
+          ],
+          checkpoints: [],
+          stateHistory: [
+            {
+              id: 93,
+              attemptId: 92,
+              oldStatus: 'RUNNING',
+              newStatus: 'SUCCEEDED',
+              reasonCode: 'RESULT_ACCEPTED',
+              operatorType: 'WORKER',
+              operatorId: 'worker-1',
+              traceId: 'trace-91',
+              createdAt: run.completedAt,
+            },
+          ],
+        }
+      } else if (url.pathname.endsWith('/agent-runs')) {
+        const empty = url.searchParams.get('keyword') === '__empty__'
+        data = {
+          total: empty ? 0 : 1,
+          pageNum: 1,
+          pageSize: 20,
+          records: empty
+            ? []
+            : [
+                {
+                  id: 91,
+                  agentCode: 'expense_reviewer',
+                  agentName: '费用审核 Agent',
+                  agentVersion: 1,
+                  status: 'SUCCEEDED',
+                  resultStatus: 'SUCCESS',
+                  processInstanceId: 'instance-100',
+                  activityId: 'agentReview',
+                  deadlineAt: '2026-08-08T08:02:00+08:00',
+                  startedAt: '2026-08-08T08:00:01+08:00',
+                  completedAt: '2026-08-08T08:00:03+08:00',
+                  createdAt: '2026-08-08T08:00:00+08:00',
+                  updatedAt: '2026-08-08T08:00:03+08:00',
+                },
+              ],
         }
       } else if (url.pathname.endsWith('/task/approve')) {
         data = {
@@ -276,6 +427,15 @@ test.beforeEach(async ({ page }) => {
   await mockApi(page)
 })
 
+test('keeps the process definition workspace accessible', async ({ page }) => {
+  await page.goto('/process-definitions')
+  await expect(page.getByRole('main')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '流程定义', exact: true })).toBeVisible()
+  await expect(page.locator('.el-select__input[aria-label="发布状态"]')).toHaveCount(1)
+  const accessibilityScan = await new AxeBuilder({ page }).analyze()
+  expect(accessibilityScan.violations).toEqual([])
+})
+
 test('manages process definitions from the workspace', async ({ page }) => {
   await page.goto('/process-definitions')
   await expect(page.getByRole('heading', { name: '流程定义', exact: true })).toBeVisible()
@@ -392,6 +552,71 @@ test('navigates across instance, assignment and tenant domains', async ({ page }
   await expect(page.getByRole('button', { name: '新增规则' })).toBeVisible()
   await page.getByRole('link', { name: '租户管理' }).click()
   await expect(page.getByRole('row', { name: /默认租户/ })).toBeVisible()
+})
+
+test('manages Agent definitions and inspects the execution ledger', async ({ page }) => {
+  await page.goto('/agents')
+  await expect(page.getByRole('heading', { level: 1, name: 'Agent 中心' })).toBeVisible()
+  const definitionPanel = page.getByLabel('Agent 定义')
+  await expect(definitionPanel.getByText('费用审核 Agent')).toBeVisible()
+  await expect(definitionPanel.getByRole('row', { name: /费用审核 Agent.*第 1 版/ })).toBeVisible()
+
+  const manualRunRequest = page.waitForRequest((request) =>
+    request.url().endsWith('/agent-runs/manual-tests'),
+  )
+  await definitionPanel.getByRole('button', { name: '测试运行' }).click()
+  const manualRunDialog = page.getByRole('dialog', { name: /测试运行.*费用审核 Agent/ })
+  await manualRunDialog.getByLabel('测试输入').fill('审核差旅费用')
+  await manualRunDialog.getByRole('button', { name: '开始测试' }).click()
+  expect((await manualRunRequest).postDataJSON()).toEqual({
+    definitionId: 41,
+    input: '审核差旅费用',
+  })
+  const manualRunDrawer = page.getByRole('dialog', { name: '运行详情 #91' })
+  await expect(manualRunDrawer.getByText('建议通过').first()).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await page.getByRole('tab', { name: 'Provider 配置' }).click()
+  await expect(
+    page.getByLabel('Provider 配置').getByRole('row', { name: /本地 Mock.*mock_local/ }),
+  ).toBeVisible()
+
+  await page.getByRole('tab', { name: '运行记录' }).click()
+  const runPanel = page.getByLabel('运行记录')
+  await expect(runPanel.getByRole('row', { name: /instance-100/ })).toBeVisible()
+  await runPanel.getByRole('button', { name: '详情' }).click()
+  const drawer = page.getByRole('dialog', { name: '运行详情 #91' })
+  await expect(drawer.getByText('执行尝试 (1)')).toBeVisible()
+  await drawer.getByRole('tab', { name: '状态历史 (1)' }).click()
+  const stateTransition = drawer.locator('.state-transition')
+  await expect(stateTransition.getByTitle('RUNNING')).toHaveText('运行中')
+  await expect(stateTransition.getByTitle('SUCCEEDED')).toHaveText('成功')
+  await expect(drawer.getByText('Trace ID：trace-91')).toBeVisible()
+})
+
+test('keeps Agent list pagination anchored when result sets are empty', async ({ page }) => {
+  await page.goto('/agents')
+
+  const cases = [
+    { tab: 'Agent 定义', emptyTitle: '尚未创建 Agent' },
+    { tab: 'Provider 配置', emptyTitle: '尚未配置 Provider' },
+    { tab: '运行记录', emptyTitle: '暂无运行记录' },
+  ]
+
+  for (const item of cases) {
+    await page.getByRole('tab', { name: item.tab }).click()
+    const panel = page.getByLabel(item.tab)
+    const pagination = panel.locator('.table-pagination')
+    const before = await pagination.boundingBox()
+    await panel.getByLabel('关键词').fill('__empty__')
+    await panel.getByRole('button', { name: '查询' }).click()
+    await expect(panel.getByText(item.emptyTitle, { exact: true })).toBeVisible()
+    const after = await pagination.boundingBox()
+
+    expect(before).not.toBeNull()
+    expect(after).not.toBeNull()
+    expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(1)
+  }
 })
 
 test('queries tenant users when configuring an assignment rule', async ({ page }) => {

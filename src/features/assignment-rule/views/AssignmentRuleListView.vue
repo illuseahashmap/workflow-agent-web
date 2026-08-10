@@ -5,10 +5,10 @@ import { ElMessage } from 'element-plus'
 import { Plus, RefreshCw, Search, Trash2 } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
+import ListEmptyState from '@/components/ListEmptyState.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import { definitionApi } from '@/features/process-definition/api'
-import type { ProcessDefinition } from '@/features/process-definition/types'
+import { definitionApi, type ProcessDefinition } from '@/features/process-definition'
 import { useAuthStore } from '@/stores/auth'
 import { listUserTasks, resolveTaskMode } from '@/utils/bpmn'
 import { confirmAction } from '@/utils/confirmation'
@@ -433,14 +433,15 @@ function assignmentTargetsText(rule: AssignmentRule) {
         ><el-table-column
           prop="processDefinitionKey"
           label="流程标识"
-          min-width="160"
-        /><el-table-column label="流程版本" width="110"
+          min-width="160" /><el-table-column label="流程版本" width="110"
           ><template #default="{ row }">{{ formatVersion(row.version) }}</template></el-table-column
         ><el-table-column
           prop="taskDefinitionKey"
           label="节点标识"
-          min-width="160"
-        /><el-table-column label="条件（全部满足）" min-width="260" show-overflow-tooltip
+          min-width="160" /><el-table-column
+          label="条件（全部满足）"
+          min-width="260"
+          show-overflow-tooltip
           ><template #default="{ row }">{{ conditionsText(row) }}</template></el-table-column
         ><el-table-column prop="priority" label="优先级" width="85" /><el-table-column
           label="派单类型"
@@ -468,8 +469,14 @@ function assignmentTargetsText(rule: AssignmentRule) {
               ><Trash2 :size="14" />删除</el-button
             ></template
           ></el-table-column
-        ><template #empty><div class="empty-copy">暂无派单规则</div></template></el-table
+        ><template #empty>
+          <ListEmptyState
+            title="暂无派单规则"
+            description="规则为空时，流程会优先使用发起或审批时指定的参与人。"
+          /> </template></el-table
       ><el-pagination
+        v-accessible-label="'每页条数'"
+        aria-label="派单规则分页"
         class="table-pagination"
         v-model:current-page="query.pageNum"
         v-model:page-size="query.pageSize"

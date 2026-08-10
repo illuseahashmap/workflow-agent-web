@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { UserRoundSearch } from '@lucide/vue'
-import UserPickerDialog from '@/features/process-instance/components/UserPickerDialog.vue'
+import { UserPickerDialog } from '@/features/process-instance'
 
 const props = defineProps<{
   modelValue: string[]

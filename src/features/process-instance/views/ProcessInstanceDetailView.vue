@@ -6,6 +6,8 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft, Ban, Check, RefreshCw, RotateCcw, Send } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
+import ListEmptyState from '@/components/ListEmptyState.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import { canOperateInstances as isInstanceOperable } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
 import { promptRequired } from '@/utils/confirmation'
@@ -218,9 +220,7 @@ function confirmDecision() {
         <h2>{{ instance?.processDefinitionName || '流程实例' }}</h2>
         <p>{{ id }}</p>
       </div>
-      <el-tag :type="instance?.status === 'RUNNING' ? 'success' : 'info'" effect="plain">{{
-        instance?.status === 'RUNNING' ? '运行中' : '已结束'
-      }}</el-tag>
+      <StatusBadge :status="instance?.status === 'RUNNING' ? 'RUNNING' : 'COMPLETED'" />
       <div class="toolbar-spacer" />
       <el-button @click="refresh"><RefreshCw :size="16" />刷新</el-button>
       <el-button
@@ -262,16 +262,17 @@ function confirmDecision() {
             ><el-table-column prop="taskName" label="任务" min-width="150" /><el-table-column
               prop="taskDefinitionKey"
               label="节点标识"
-              min-width="150"
-            /><el-table-column prop="assignee" label="处理人" width="130" /><el-table-column
-              label="候选用户/组"
-              min-width="200"
+              min-width="150" /><el-table-column
+              prop="assignee"
+              label="处理人"
+              width="130" /><el-table-column label="候选用户/组" min-width="200"
               ><template #default="{ row }">{{
                 joinValues([...(row.candidateUsers || []), ...(row.candidateGroups || [])]) || '-'
               }}</template></el-table-column
-            ><el-table-column prop="status" label="状态" width="100" /><el-table-column
-              label="开始时间"
-              width="175"
+            ><el-table-column label="状态" width="100"
+              ><template #default="{ row }"
+                ><StatusBadge :status="row.status" /></template></el-table-column
+            ><el-table-column label="开始时间" width="175"
               ><template #default="{ row }">{{
                 formatDateTime(row.startTime)
               }}</template></el-table-column
@@ -310,9 +311,16 @@ function confirmDecision() {
                   </span>
                 </el-tooltip>
               </template></el-table-column
-            ></el-table
-          >
+            ><template #empty>
+              <ListEmptyState
+                compact
+                title="暂无任务"
+                description="流程进入人工环节后，任务会显示在这里。"
+              /> </template
+          ></el-table>
           <el-pagination
+            v-accessible-label="'每页条数'"
+            aria-label="任务分页"
             v-model:current-page="taskPage.pageNum"
             v-model:page-size="taskPage.pageSize"
             class="detail-pagination"
@@ -329,8 +337,7 @@ function confirmDecision() {
             ><el-table-column prop="variableName" label="变量名" min-width="170" /><el-table-column
               prop="variableTypeName"
               label="类型"
-              width="130"
-            /><el-table-column label="值" min-width="260" show-overflow-tooltip
+              width="130" /><el-table-column label="值" min-width="260" show-overflow-tooltip
               ><template #default="{ row }"
                 ><code>{{ displayValue(row.value) }}</code></template
               ></el-table-column
@@ -340,9 +347,16 @@ function confirmDecision() {
               ><template #default="{ row }">{{
                 formatDateTime(row.lastUpdatedTime || row.createTime)
               }}</template></el-table-column
-            ></el-table
-          >
+            ><template #empty>
+              <ListEmptyState
+                compact
+                title="暂无流程变量"
+                description="流程运行产生的业务变量会显示在这里。"
+              /> </template
+          ></el-table>
           <el-pagination
+            v-accessible-label="'每页条数'"
+            aria-label="变量分页"
             v-model:current-page="variablePage.pageNum"
             v-model:page-size="variablePage.pageSize"
             class="detail-pagination"

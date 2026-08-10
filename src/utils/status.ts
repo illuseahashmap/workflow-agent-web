@@ -1,0 +1,36 @@
+export type StatusTone = 'primary' | 'success' | 'warning' | 'danger' | 'info'
+
+export interface StatusPresentation {
+  label: string
+  tone: StatusTone
+}
+
+const STATUS_PRESENTATIONS: Record<string, StatusPresentation> = {
+  ENABLED: { label: '启用', tone: 'success' },
+  DISABLED: { label: '停用', tone: 'info' },
+  DRAFT: { label: '草稿', tone: 'warning' },
+  PUBLISHED: { label: '已发布', tone: 'success' },
+  QUEUED: { label: '排队中', tone: 'primary' },
+  PENDING: { label: '待执行', tone: 'info' },
+  ACTIVE: { label: '待处理', tone: 'primary' },
+  RUNNING: { label: '运行中', tone: 'primary' },
+  SUCCEEDED: { label: '成功', tone: 'success' },
+  SUCCESS: { label: '成功', tone: 'success' },
+  COMPLETED: { label: '已完成', tone: 'success' },
+  FAILED: { label: '失败', tone: 'danger' },
+  TIMED_OUT: { label: '已超时', tone: 'danger' },
+  CANCELLED: { label: '已取消', tone: 'info' },
+  SKIPPED: { label: '已跳过', tone: 'info' },
+  EMPTY: { label: '空结果', tone: 'warning' },
+  PARTIAL: { label: '部分完成', tone: 'warning' },
+  REJECTED: { label: '已拒绝', tone: 'danger' },
+}
+
+export function getStatusPresentation(status: string | boolean): StatusPresentation {
+  const normalized = typeof status === 'boolean' ? (status ? 'ENABLED' : 'DISABLED') : status
+  return STATUS_PRESENTATIONS[normalized] ?? { label: normalized || '未知', tone: 'info' }
+}
+
+export function getStatusLabel(status: string | boolean) {
+  return getStatusPresentation(status).label
+}

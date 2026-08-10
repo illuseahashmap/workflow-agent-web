@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppShell from '@/layouts/AppShell.vue'
-import { readAuthSession } from '@/features/auth/storage'
-import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
+import { APP_PERMISSION, APP_ROLE, hasAccess, readAuthSession } from '@/features/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -84,7 +83,18 @@ const router = createRouter({
             title: '成员与角色',
             requiredAnyRoles: [APP_ROLE.platformAdministrator],
             requiredAnyPermissions: [APP_PERMISSION.memberManage, APP_PERMISSION.roleManage],
-            navigation: { label: '成员与角色', icon: 'access', order: 40 },
+            navigation: { label: '成员与角色', icon: 'access', order: 50 },
+          },
+        },
+        {
+          path: 'agents',
+          name: 'agent-management',
+          component: () => import('@/features/agent/views/AgentManagementView.vue'),
+          meta: {
+            title: 'Agent 中心',
+            requiredAnyRoles: [APP_ROLE.platformAdministrator, APP_ROLE.tenantAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.agentManage, APP_PERMISSION.agentRunRead],
+            navigation: { label: 'Agent 中心', icon: 'agents', order: 40 },
           },
         },
         {
@@ -95,7 +105,7 @@ const router = createRouter({
             title: '租户管理',
             requiredAnyRoles: [APP_ROLE.platformAdministrator],
             requiredAnyPermissions: [APP_PERMISSION.tenantManage],
-            navigation: { label: '租户管理', icon: 'tenants', order: 50 },
+            navigation: { label: '租户管理', icon: 'tenants', order: 60 },
           },
         },
       ],

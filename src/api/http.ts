@@ -63,18 +63,31 @@ async function unwrap<T>(request: Promise<AxiosResponse<ApiResponse<T>>>) {
   return body.data
 }
 
+async function withCsrf(config?: AxiosRequestConfig): Promise<AxiosRequestConfig> {
+  const response = await http.get<ApiResponse<string>>('/auth/csrf')
+  const token = response.data?.data
+  if (!token) throw new ApiError('无法建立安全请求上下文', 'CSRF_TOKEN_MISSING', response.status)
+  return {
+    ...config,
+    headers: {
+      ...config?.headers,
+      'X-XSRF-TOKEN': token,
+    },
+  }
+}
+
 export const apiClient = {
   get<T>(url: string, config?: AxiosRequestConfig) {
     return unwrap(http.get<ApiResponse<T>>(url, config))
   },
-  post<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
-    return unwrap(http.post<ApiResponse<T>>(url, data, config))
+  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return unwrap(http.post<ApiResponse<T>>(url, data, await withCsrf(config)))
   },
-  patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
-    return unwrap(http.patch<ApiResponse<T>>(url, data, config))
+  async patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return unwrap(http.patch<ApiResponse<T>>(url, data, await withCsrf(config)))
   },
-  delete<T>(url: string, config?: AxiosRequestConfig) {
-    return unwrap(http.delete<ApiResponse<T>>(url, config))
+  async delete<T>(url: string, config?: AxiosRequestConfig) {
+    return unwrap(http.delete<ApiResponse<T>>(url, await withCsrf(config)))
   },
 }
 

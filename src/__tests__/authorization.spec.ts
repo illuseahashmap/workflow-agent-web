@@ -32,6 +32,20 @@ describe('authorization policy', () => {
       }),
     ).toBe(true)
   })
+
+  it('keeps Agent management and runtime audit permissions independently assignable', () => {
+    const runAuditor = { roles: ['USER'], permissions: [APP_PERMISSION.agentRunRead] }
+
+    expect(hasAccess(runAuditor, { requiredAnyPermissions: [APP_PERMISSION.agentRunRead] })).toBe(
+      true,
+    )
+    expect(hasAccess(runAuditor, { requiredAnyPermissions: [APP_PERMISSION.agentManage] })).toBe(
+      false,
+    )
+    expect(
+      hasAccess(runAuditor, { requiredAnyPermissions: [APP_PERMISSION.agentRunExecute] }),
+    ).toBe(false)
+  })
 })
 
 describe('post-authentication redirects', () => {

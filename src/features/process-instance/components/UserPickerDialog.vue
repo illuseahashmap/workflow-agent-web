@@ -2,8 +2,8 @@
 import { computed, ref, watch } from 'vue'
 import { useQuery } from '@tanstack/vue-query'
 import { Check, Search } from '@lucide/vue'
-import { accessApi } from '@/features/access/api'
-import type { DirectoryUser } from '@/features/access/types'
+import { accessApi, type DirectoryUser } from '@/features/access'
+import { queryKeys } from '@/api/queryKeys'
 import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
@@ -26,13 +26,13 @@ const pageSize = 10
 const selectedUsernames = ref(new Set<string>())
 
 const usersQuery = useQuery({
-  queryKey: computed(() => [
-    'directory-users',
-    tenantCode.value,
-    appliedKeyword.value,
-    pageNum.value,
-    pageSize,
-  ]),
+  queryKey: computed(() =>
+    queryKeys.directoryUsers(tenantCode.value, {
+      keyword: appliedKeyword.value,
+      pageNum: pageNum.value,
+      pageSize,
+    }),
+  ),
   queryFn: () =>
     accessApi.directoryUsers({
       keyword: appliedKeyword.value || undefined,
@@ -117,6 +117,8 @@ function confirm() {
       </div>
     </div>
     <el-pagination
+      v-accessible-label="'每页条数'"
+      aria-label="成员选择分页"
       v-model:current-page="pageNum"
       class="user-picker-pagination"
       :page-size="pageSize"

@@ -12,21 +12,12 @@ import {
 } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Copy,
-  Download,
-  FileUp,
-  MoreHorizontal,
-  Plus,
-  Save,
-  Trash2,
-} from '@lucide/vue'
+import { ArrowLeft, Copy, Download, FileUp, MoreHorizontal, Plus, Save, Trash2 } from '@lucide/vue'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { getErrorMessage } from '@/api/http'
 import flowableModdle from '@/bpmn/flowableModdle'
 import workflowPaletteModule from '@/bpmn/workflowPaletteModule'
+import StatusBadge from '@/components/StatusBadge.vue'
 import type {
   ApprovalMode,
   BpmnElement,
@@ -39,7 +30,7 @@ import type {
   ModdleElement,
   Modeling,
 } from '@/bpmn/modeler-types'
-import { assignmentRuleApi } from '@/features/assignment-rule/api'
+import { assignmentRuleApi } from '@/features/assignment-rule'
 import { createBlankBpmn, validateBpmnXml } from '@/utils/bpmn'
 import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
@@ -844,10 +835,10 @@ watch(selectedVersion, () => resetSelection())
           </div>
           <div class="version-status-row">
             <span>当前已发布</span>
-            <el-tag :type="activeVersion ? 'success' : 'info'" effect="plain">
-              <CheckCircle2 v-if="activeVersion" :size="13" />
-              {{ activeVersion ? formatVersion(activeVersion.version) : '未发布' }}
-            </el-tag>
+            <StatusBadge
+              :status="activeVersion ? 'PUBLISHED' : 'PENDING'"
+              :label="activeVersion ? formatVersion(activeVersion.version) : '未发布'"
+            />
           </div>
           <el-select
             :model-value="selectedVersion"

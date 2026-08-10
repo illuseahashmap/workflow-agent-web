@@ -1,8 +1,49 @@
 /*
  * Workflow Agent presentation standards.
- * Keep product-wide component rules here; feature-specific visuals stay with main.css.
+ * Keep product-wide component rules and tokens here; feature-specific layout
+ * stays with the owning feature and consumes these shared values.
  */
 :root {
+  /* Product-wide visual tokens. Feature styles should consume these tokens
+   * instead of introducing page-local copies of the same colors and radii. */
+  --color-primary: #2563eb;
+  --color-primary-strong: #1d4ed8;
+  --color-primary-soft: #eff6ff;
+  --color-text: #1e293b;
+  --color-text-strong: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-subtle: #94a3b8;
+  --color-border: #dbe4f0;
+  --color-border-soft: #e5ebf3;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-success: #15803d;
+  --color-success-soft: #ecf9f0;
+  --color-success-border: #b9e6c7;
+  --color-warning: #a85b08;
+  --color-warning-soft: #fff8e8;
+  --color-warning-border: #f5d99a;
+  --color-danger: #c2414b;
+  --color-danger-soft: #fff0f1;
+  --color-danger-border: #f5c2c7;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-panel: 0 10px 30px rgba(37, 99, 235, 0.08);
+  --shadow-popover: 0 16px 36px rgba(15, 23, 42, 0.14);
+  --el-color-primary: #1d4ed8;
+  --el-color-primary-light-3: #5b82e8;
+  --el-color-primary-light-5: #8da9f0;
+  --el-color-primary-light-7: #bfd0f7;
+  --el-color-primary-light-8: #d6e1fa;
+  --el-color-primary-light-9: #e8effd;
+  --el-color-primary-dark-2: #173fae;
   --control-height: 36px;
   --control-height-small: 32px;
   --control-height-large: 42px;
@@ -12,7 +53,7 @@
   --control-focus: #2563eb;
   --control-focus-ring: rgba(37, 99, 235, 0.14);
   --control-placeholder: #94a3b8;
-  --panel-radius: 16px;
+  --panel-radius: var(--radius-lg);
 }
 
 /* Element Plus control baseline */
@@ -21,7 +62,7 @@
   min-height: var(--control-height);
   align-items: center;
   border-radius: var(--control-radius);
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   box-shadow: 0 0 0 1px var(--control-border) inset;
   transition:
     background-color 160ms ease,
@@ -44,7 +85,7 @@
 
 .el-input__inner,
 .el-select__selected-item {
-  color: #1e293b;
+  color: var(--color-text);
   font-weight: 500;
   line-height: calc(var(--control-height) - 2px);
 }
@@ -99,9 +140,9 @@
 .el-select__popper.el-popper,
 .tenant-switcher-dropdown.el-popper {
   overflow: hidden;
-  border: 1px solid #dbe4f0;
-  border-radius: 12px;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.14);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
 }
 
 .el-select__popper .el-select-dropdown__list,
@@ -134,9 +175,9 @@
 
 .el-dropdown__popper.el-popper {
   overflow: hidden;
-  border: 1px solid #dbe4f0;
-  border-radius: 12px;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.14);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
 }
 
 .el-dropdown-menu {
@@ -209,7 +250,7 @@
 .el-table {
   --el-table-header-bg-color: #f7f9fc;
   --el-table-row-hover-bg-color: #f7faff;
-  --el-table-border-color: #e5ebf3;
+  --el-table-border-color: var(--color-border-soft);
   --el-table-header-text-color: #64748b;
   --el-table-text-color: #334155;
 }
@@ -225,7 +266,7 @@
 }
 
 .el-tag {
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-weight: 600;
 }
 

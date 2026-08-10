@@ -14,6 +14,9 @@ export const APP_PERMISSION = {
   memberManage: 'member:manage',
   roleManage: 'role:manage',
   tenantManage: 'tenant:manage',
+  agentManage: 'agent:manage',
+  agentRunRead: 'agent:run:read',
+  agentRunExecute: 'agent:run:execute',
 } as const
 
 export type AppRole = (typeof APP_ROLE)[keyof typeof APP_ROLE]
