@@ -1,5 +1,6 @@
 export type AgentProviderType = 'MOCK' | 'OPENAI_COMPATIBLE'
 export type AgentVersionStatus = 'DRAFT' | 'PUBLISHED'
+export type AgentExecutionMode = 'MODEL_ONLY' | 'PLATFORM_AGENT' | 'REMOTE_AGENT'
 export type AgentFailurePolicy = 'FAIL_PROCESS' | 'CONTINUE_EMPTY' | 'MANUAL_REVIEW'
 export type AgentRunStatus =
   'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'CANCELLED'
@@ -29,6 +30,7 @@ export interface AgentVersion {
   definitionId: number
   version: number
   status: AgentVersionStatus
+  executionMode?: AgentExecutionMode
   providerId?: number
   providerName?: string
   modelName?: string
@@ -45,6 +47,7 @@ export interface AgentVersion {
 }
 
 export interface AgentVersionCommand {
+  executionMode: AgentExecutionMode
   providerId?: number
   modelName?: string
   systemPrompt: string

@@ -23,6 +23,15 @@ const flowableModdle = {
       ],
     },
     {
+      name: 'ServiceTask',
+      extends: ['bpmn:ServiceTask'],
+      properties: [
+        { name: 'delegateExpression', isAttr: true, type: 'String' },
+        { name: 'triggerable', isAttr: true, type: 'Boolean' },
+        { name: 'async', isAttr: true, type: 'Boolean' },
+      ],
+    },
+    {
       name: 'TaskListener',
       superClass: ['Element'],
       properties: [

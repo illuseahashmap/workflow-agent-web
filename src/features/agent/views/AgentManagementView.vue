@@ -184,6 +184,7 @@ const versionEditorVisible = ref(false)
 const selectedAgent = ref<AgentDefinition>()
 const editingVersion = ref<AgentVersion>()
 const versionForm = reactive<AgentVersionCommand>({
+  executionMode: 'MODEL_ONLY',
   providerId: undefined,
   modelName: '',
   systemPrompt: '',
@@ -327,6 +328,7 @@ function openVersions(agent: AgentDefinition) {
 function openVersionEditor(version: AgentVersion) {
   editingVersion.value = version
   Object.assign(versionForm, {
+    executionMode: version.executionMode || 'MODEL_ONLY',
     providerId: version.providerId,
     modelName: version.modelName || '',
     systemPrompt: version.systemPrompt || '',
@@ -1288,6 +1290,17 @@ function snapshotField(snapshot: string | undefined, field: string) {
           :closable="false"
           show-icon
         />
+        <el-form-item label="执行方式" required>
+          <el-select
+            v-model="versionForm.executionMode"
+            :disabled="editingVersion?.status === 'PUBLISHED'"
+          >
+            <el-option label="模型调用（MODEL_ONLY）" value="MODEL_ONLY" />
+            <el-option label="平台 Agent（规划中）" value="PLATFORM_AGENT" disabled />
+            <el-option label="远程 Agent（规划中）" value="REMOTE_AGENT" disabled />
+          </el-select>
+          <div class="form-help">执行方式属于版本语义，发布后不可修改。</div>
+        </el-form-item>
         <div class="agent-form-grid">
           <el-form-item label="Provider" required
             ><el-select
@@ -1318,17 +1331,17 @@ function snapshotField(snapshot: string | undefined, field: string) {
             placeholder="定义 Agent 的职责、边界、输入和输出要求"
         /></el-form-item>
         <div class="agent-form-grid">
-          <el-form-item label="超时时间（秒）" required
+          <el-form-item label="Agent 运行超时（秒）" required
             ><el-input-number
               v-model="versionForm.timeoutSeconds"
               :min="1"
               :max="3600"
               :disabled="editingVersion?.status === 'PUBLISHED'" /></el-form-item
-          ><el-form-item label="失败策略" required
+          ><el-form-item label="Agent 运行失败策略" required
             ><el-select
               v-model="versionForm.failurePolicy"
               :disabled="editingVersion?.status === 'PUBLISHED'"
-              ><el-option label="终止流程" value="FAIL_PROCESS" /><el-option
+              ><el-option label="运行失败" value="FAIL_PROCESS" /><el-option
                 label="空结果继续"
                 value="CONTINUE_EMPTY" /><el-option
                 label="转人工处理"

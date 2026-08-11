@@ -40,12 +40,28 @@ export function validateBpmnXml(xml: string) {
     const owner = task.parentElement?.parentElement
     if (
       task.parentElement?.localName !== 'extensionElements' ||
-      owner?.localName !== 'receiveTask'
+      !['receiveTask', 'serviceTask'].includes(owner?.localName || '')
     ) {
       throw new Error('Agent 任务必须绑定在等待型任务上')
     }
     const version = Number(task.getAttribute('agentVersionId'))
     if (!Number.isInteger(version) || version <= 0) throw new Error('Agent 任务必须选择已发布版本')
+    if (owner?.localName === 'serviceTask') {
+      const flowable = 'http://flowable.org/bpmn'
+      const delegateExpression =
+        owner.getAttributeNS(flowable, 'delegateExpression') ||
+        owner.getAttribute('flowable:delegateExpression')
+      const triggerable =
+        owner.getAttributeNS(flowable, 'triggerable') || owner.getAttribute('flowable:triggerable')
+      const async = owner.getAttributeNS(flowable, 'async') || owner.getAttribute('flowable:async')
+      if (
+        delegateExpression !== '${agentTaskDelegate}' ||
+        triggerable !== 'true' ||
+        async !== 'true'
+      ) {
+        throw new Error('Agent 服务任务缺少异步可触发执行配置')
+      }
+    }
   }
   return document
 }
@@ -138,7 +154,10 @@ export function resolveStartFrontierKinds(xml: string): StartFrontierKinds {
       result.hasUserTask = true
       continue
     }
-    if (element.localName === 'receiveTask' && isAgentTaskXmlElement(element)) {
+    if (
+      ['receiveTask', 'serviceTask'].includes(element.localName) &&
+      isAgentTaskXmlElement(element)
+    ) {
       result.hasAgentWait = true
       continue
     }

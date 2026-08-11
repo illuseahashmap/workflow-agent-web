@@ -14,6 +14,8 @@ const workflowModdle = {
         { name: 'outputMapping', isAttr: true, type: 'String' },
         { name: 'failurePolicy', isAttr: true, type: 'String' },
         { name: 'timeoutSeconds', isAttr: true, type: 'String' },
+        { name: 'processFailurePolicy', isAttr: true, type: 'String' },
+        { name: 'processWaitTimeoutSeconds', isAttr: true, type: 'String' },
       ],
     },
   ],

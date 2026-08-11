@@ -85,6 +85,11 @@ const agentVersionId = ref('')
 const agentInputMapping = ref('{}')
 const agentOutputMapping = ref('{}')
 const agentMappingRows = ref<Array<{ field: string; source: string }>>([])
+const agentOutputMappingRows = ref<Array<{ field: string; target: string }>>([])
+const agentProcessFailurePolicy = ref<'CONTINUE_EMPTY' | 'MANUAL_REVIEW' | 'HOLD_FOR_OPERATIONS'>(
+  'HOLD_FOR_OPERATIONS',
+)
+const agentProcessWaitTimeoutSeconds = ref(300)
 const agentVersions = ref<Array<AgentVersion & { agentName: string }>>([])
 const listenerForm = reactive({ kind: 'executionStart' as ListenerKind, bean: '' })
 const listeners = reactive<Record<ListenerKind, string[]>>({
@@ -99,7 +104,9 @@ const selectedType = computed(
 )
 const isAgentTask = computed(() => isAgentTaskElement(selectedBusinessObject.value))
 const isTask = computed(() =>
-  ['bpmn:Task', 'bpmn:UserTask', 'bpmn:ReceiveTask'].includes(selectedType.value),
+  ['bpmn:Task', 'bpmn:UserTask', 'bpmn:ReceiveTask', 'bpmn:ServiceTask'].includes(
+    selectedType.value,
+  ),
 )
 const isSequenceFlow = computed(() => selectedType.value === 'bpmn:SequenceFlow')
 const isSelectedActive = computed(() => activeVersion.value?.version === selectedVersion.value)
@@ -109,6 +116,9 @@ const selectedDefinition = computed(() =>
 const elementTypeLabel = computed(() => getElementTypeLabel(selectedType.value))
 const selectedSource = computed(() => selectedBusinessObject.value?.sourceRef?.id || '')
 const selectedTarget = computed(() => selectedBusinessObject.value?.targetRef?.id || '')
+const selectedAgentVersion = computed(() =>
+  agentVersions.value.find((version) => String(version.id) === agentVersionId.value),
+)
 const extensionAttributes = computed(() => {
   const object = selectedBusinessObject.value
   if (!object) return []
@@ -195,6 +205,17 @@ function resetSelection(element?: BpmnElement) {
   agentInputMapping.value = String(agentBinding?.inputMapping || '{}')
   agentOutputMapping.value = String(agentBinding?.outputMapping || '{}')
   agentMappingRows.value = parseAgentMapping(agentInputMapping.value)
+  agentOutputMappingRows.value = parseAgentOutputMapping(agentOutputMapping.value)
+  const rawFailurePolicy = String(
+    agentBinding?.processFailurePolicy || agentBinding?.failurePolicy || 'HOLD_FOR_OPERATIONS',
+  )
+  agentProcessFailurePolicy.value =
+    rawFailurePolicy === 'CONTINUE_EMPTY' || rawFailurePolicy === 'MANUAL_REVIEW'
+      ? rawFailurePolicy
+      : 'HOLD_FOR_OPERATIONS'
+  agentProcessWaitTimeoutSeconds.value = Number(
+    agentBinding?.processWaitTimeoutSeconds || agentBinding?.timeoutSeconds || 300,
+  )
   Object.keys(listeners).forEach((key) => (listeners[key as ListenerKind] = []))
   for (const item of object?.extensionElements?.values || []) {
     const value = normalizeListener(
@@ -226,10 +247,16 @@ function applyAgentVersion() {
     ElMessage.warning('请输入已发布的 Agent 版本 ID')
     return
   }
+  const selected = selectedAgentVersion.value
+  if (selected && agentProcessWaitTimeoutSeconds.value > selected.timeoutSeconds) {
+    agentProcessWaitTimeoutSeconds.value = selected.timeoutSeconds
+  }
   modeling.updateModdleProperties(element, binding, {
     agentVersionId: version,
     inputMapping: agentInputMapping.value.trim() || '{}',
     outputMapping: agentOutputMapping.value.trim() || '{}',
+    processFailurePolicy: agentProcessFailurePolicy.value,
+    processWaitTimeoutSeconds: String(agentProcessWaitTimeoutSeconds.value),
   })
   dirty.value = true
 }
@@ -247,7 +274,10 @@ function applyAgentMappings() {
       if (row.field.trim() && row.source.trim()) result[row.field.trim()] = row.source.trim()
       return result
     }, {})
-    const output = JSON.parse(agentOutputMapping.value || '{}')
+    const output = agentOutputMappingRows.value.reduce<Record<string, string>>((result, row) => {
+      if (row.field.trim() && row.target.trim()) result[row.field.trim()] = row.target.trim()
+      return result
+    }, {})
     if (!input || Array.isArray(input) || typeof input !== 'object') throw new Error()
     if (!output || Array.isArray(output) || typeof output !== 'object') throw new Error()
     modeling.updateModdleProperties(element, binding, {
@@ -262,6 +292,29 @@ function applyAgentMappings() {
   }
 }
 
+function applyAgentProcessPolicy() {
+  const element = selectedElement.value
+  const object = selectedBusinessObject.value
+  const modeling = service<Modeling>('modeling')
+  const binding = object?.extensionElements?.values?.find(
+    (item) => item.$type === 'workflow:AgentTask',
+  )
+  if (!element || !binding || !modeling) return
+  const versionTimeout = selectedAgentVersion.value?.timeoutSeconds || 3600
+  if (
+    agentProcessWaitTimeoutSeconds.value < 1 ||
+    agentProcessWaitTimeoutSeconds.value > versionTimeout
+  ) {
+    ElMessage.warning(`流程等待时限必须在 1 到 ${versionTimeout} 秒之间`)
+    return
+  }
+  modeling.updateModdleProperties(element, binding, {
+    processFailurePolicy: agentProcessFailurePolicy.value,
+    processWaitTimeoutSeconds: String(agentProcessWaitTimeoutSeconds.value),
+  })
+  dirty.value = true
+}
+
 function parseAgentMapping(value: string) {
   try {
     const mapping = JSON.parse(value || '{}')
@@ -273,12 +326,32 @@ function parseAgentMapping(value: string) {
   }
 }
 
+function parseAgentOutputMapping(value: string) {
+  try {
+    const mapping = JSON.parse(value || '{}')
+    return Object.entries(mapping)
+      .filter(([, target]) => typeof target === 'string')
+      .map(([field, target]) => ({ field, target: target as string }))
+  } catch {
+    return []
+  }
+}
+
 function addAgentMappingRow() {
   agentMappingRows.value.push({ field: '', source: '' })
 }
 
 function removeAgentMappingRow(index: number) {
   agentMappingRows.value.splice(index, 1)
+  applyAgentMappings()
+}
+
+function addAgentOutputMappingRow() {
+  agentOutputMappingRows.value.push({ field: '', target: '' })
+}
+
+function removeAgentOutputMappingRow(index: number) {
+  agentOutputMappingRows.value.splice(index, 1)
   applyAgentMappings()
 }
 
@@ -302,7 +375,13 @@ function ensureAgentTaskBinding(element?: BpmnElement) {
   const object = element?.businessObject
   const modeling = service<Modeling>('modeling')
   const moddle = service<Moddle>('moddle')
-  if (!element || !object || object.$type !== 'bpmn:ReceiveTask' || !modeling || !moddle)
+  if (
+    !element ||
+    !object ||
+    !['bpmn:ServiceTask', 'bpmn:ReceiveTask'].includes(object.$type || '') ||
+    !modeling ||
+    !moddle
+  )
     return false
   if (isAgentTaskElement(object)) return false
   const extensionElements = moddle.create('bpmn:ExtensionElements', {
@@ -311,16 +390,19 @@ function ensureAgentTaskBinding(element?: BpmnElement) {
         agentVersionId: '',
         inputMapping: '{}',
         outputMapping: '{}',
-        failurePolicy: 'FAIL_PROCESS',
-        timeoutSeconds: '300',
-      }),
-      moddle.create('flowable:ExecutionListener', {
-        event: 'start',
-        delegateExpression: '${agentTaskExecutionListener}',
+        processFailurePolicy: 'HOLD_FOR_OPERATIONS',
+        processWaitTimeoutSeconds: '300',
       }),
     ],
   })
   modeling.updateModdleProperties(element, object, { extensionElements })
+  if (object.$type === 'bpmn:ServiceTask') {
+    modeling.updateModdleProperties(element, object, {
+      delegateExpression: '${agentTaskDelegate}',
+      triggerable: true,
+      async: true,
+    })
+  }
   return true
 }
 
@@ -1061,6 +1143,11 @@ watch(selectedVersion, () => resetSelection())
                     />
                   </el-select>
                 </el-form-item>
+                <div v-if="selectedAgentVersion" class="agent-version-summary">
+                  <span>执行方式：模型调用</span>
+                  <span>Agent 运行上限：{{ selectedAgentVersion.timeoutSeconds }} 秒</span>
+                  <span>输入、输出契约以该已发布版本为准</span>
+                </div>
                 <el-form-item label="输入字段映射">
                   <div class="agent-mapping-editor">
                     <div class="agent-mapping-editor__toolbar">
@@ -1097,7 +1184,58 @@ watch(selectedVersion, () => resetSelection())
                     左侧是 Agent 输入字段，右侧是流程变量路径，只传递显式映射的数据。
                   </p>
                 </el-form-item>
-                <p class="property-hint">Agent 任务会等待模型完成后再继续流程。</p>
+                <el-form-item label="输出字段映射">
+                  <div class="agent-mapping-editor">
+                    <div class="agent-mapping-editor__toolbar">
+                      <span>Agent 输出字段 → 流程变量</span>
+                      <el-button link type="primary" @click="addAgentOutputMappingRow">
+                        <Plus :size="14" />新增映射
+                      </el-button>
+                    </div>
+                    <div
+                      v-for="(row, index) in agentOutputMappingRows"
+                      :key="index"
+                      class="agent-mapping-row"
+                    >
+                      <el-input
+                        v-model="row.field"
+                        placeholder="输出字段，例如 decision"
+                        @blur="applyAgentMappings"
+                      />
+                      <span>→</span>
+                      <el-input
+                        v-model="row.target"
+                        placeholder="新流程变量，例如 agentDecision"
+                        @blur="applyAgentMappings"
+                      />
+                      <el-button link type="danger" @click="removeAgentOutputMappingRow(index)"
+                        >删除</el-button
+                      >
+                    </div>
+                    <div v-if="!agentOutputMappingRows.length" class="agent-mapping-editor__empty">
+                      暂无映射。模型输出不会自动写入流程变量。
+                    </div>
+                  </div>
+                  <p class="property-hint">只写入显式映射的新变量，禁止覆盖平台内部变量。</p>
+                </el-form-item>
+                <el-form-item label="流程等待时限（秒）" required>
+                  <el-input-number
+                    v-model="agentProcessWaitTimeoutSeconds"
+                    :min="1"
+                    :max="selectedAgentVersion?.timeoutSeconds || 3600"
+                    @change="applyAgentProcessPolicy"
+                  />
+                  <p class="property-hint">只能小于或等于 Agent 版本的运行上限。</p>
+                </el-form-item>
+                <el-form-item label="流程失败处理" required>
+                  <el-select v-model="agentProcessFailurePolicy" @change="applyAgentProcessPolicy">
+                    <el-option label="保留现场，等待运维处理" value="HOLD_FOR_OPERATIONS" />
+                    <el-option label="转人工处理" value="MANUAL_REVIEW" />
+                    <el-option label="以空结果继续" value="CONTINUE_EMPTY" />
+                  </el-select>
+                  <p class="property-hint">Agent 失败不会隐式删除流程实例。</p>
+                </el-form-item>
+                <p class="property-hint">Agent 任务会异步执行，完成事件校验通过后继续流程。</p>
               </el-form>
             </div>
 

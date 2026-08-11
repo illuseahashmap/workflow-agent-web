@@ -982,6 +982,19 @@ select {
   padding: 8px;
   background: #fbfcfe;
 }
+
+.agent-version-summary {
+  display: grid;
+  gap: 4px;
+  margin: -2px 0 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  background: var(--color-surface-muted);
+}
 .agent-mapping-editor__toolbar {
   display: flex;
   align-items: center;
