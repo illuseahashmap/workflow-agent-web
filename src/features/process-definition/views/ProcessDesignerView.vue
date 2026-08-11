@@ -16,6 +16,7 @@ import { ArrowLeft, Copy, Download, FileUp, MoreHorizontal, Plus, Save, Trash2 }
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import { getErrorMessage } from '@/api/http'
 import flowableModdle from '@/bpmn/flowableModdle'
+import workflowModdle from '@/bpmn/workflowModdle'
 import workflowPaletteModule from '@/bpmn/workflowPaletteModule'
 import StatusBadge from '@/components/StatusBadge.vue'
 import type {
@@ -31,7 +32,8 @@ import type {
   Modeling,
 } from '@/bpmn/modeler-types'
 import { assignmentRuleApi } from '@/features/assignment-rule'
-import { createBlankBpmn, validateBpmnXml } from '@/utils/bpmn'
+import { agentApi, type AgentVersion } from '@/features/agent'
+import { createBlankBpmn, isAgentTaskElement, validateBpmnXml } from '@/utils/bpmn'
 import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
 import { definitionApi } from '../api'
@@ -79,6 +81,8 @@ let elementEditSequence = 0
 const selectedBusinessObject = shallowRef<ModdleElement>()
 const elementForm = reactive({ id: '', name: '', documentation: '', conditionExpression: '' })
 const approvalMode = ref<ApprovalMode>('')
+const agentVersionId = ref('')
+const agentVersions = ref<Array<AgentVersion & { agentName: string }>>([])
 const listenerForm = reactive({ kind: 'executionStart' as ListenerKind, bean: '' })
 const listeners = reactive<Record<ListenerKind, string[]>>({
   executionStart: [],
@@ -90,7 +94,10 @@ const listeners = reactive<Record<ListenerKind, string[]>>({
 const selectedType = computed(
   () => selectedBusinessObject.value?.$type || selectedElement.value?.type || '',
 )
-const isTask = computed(() => ['bpmn:Task', 'bpmn:UserTask'].includes(selectedType.value))
+const isAgentTask = computed(() => isAgentTaskElement(selectedBusinessObject.value))
+const isTask = computed(() =>
+  ['bpmn:Task', 'bpmn:UserTask', 'bpmn:ReceiveTask'].includes(selectedType.value),
+)
 const isSequenceFlow = computed(() => selectedType.value === 'bpmn:SequenceFlow')
 const isSelectedActive = computed(() => activeVersion.value?.version === selectedVersion.value)
 const selectedDefinition = computed(() =>
@@ -178,6 +185,10 @@ function resetSelection(element?: BpmnElement) {
       : object?.assignee
         ? 'single'
         : ''
+  const agentBinding = object?.extensionElements?.values?.find(
+    (item) => item.$type === 'workflow:AgentTask',
+  )
+  agentVersionId.value = String(agentBinding?.agentVersionId || '')
   Object.keys(listeners).forEach((key) => (listeners[key as ListenerKind] = []))
   for (const item of object?.extensionElements?.values || []) {
     const value = normalizeListener(
@@ -194,6 +205,65 @@ function resetSelection(element?: BpmnElement) {
       listeners.taskComplete.push(value)
   }
   triggerRef(selectedBusinessObject)
+}
+
+function applyAgentVersion() {
+  const element = selectedElement.value
+  const object = selectedBusinessObject.value
+  const modeling = service<Modeling>('modeling')
+  const binding = object?.extensionElements?.values?.find(
+    (item) => item.$type === 'workflow:AgentTask',
+  )
+  if (!element || !object || !binding || !modeling) return
+  const version = agentVersionId.value.trim()
+  if (!/^\d+$/.test(version) || Number(version) <= 0) {
+    ElMessage.warning('请输入已发布的 Agent 版本 ID')
+    return
+  }
+  modeling.updateModdleProperties(element, binding, { agentVersionId: version })
+  dirty.value = true
+}
+
+async function loadAgentVersions() {
+  try {
+    const page = await agentApi.page({ pageNum: 1, pageSize: 100, enabled: true })
+    const versions = await Promise.all(
+      page.records.map(async (agent) =>
+        (await agentApi.versions(agent.id))
+          .filter((version) => version.status === 'PUBLISHED')
+          .map((version) => ({ ...version, agentName: agent.name })),
+      ),
+    )
+    agentVersions.value = versions.flat()
+  } catch {
+    agentVersions.value = []
+  }
+}
+
+function ensureAgentTaskBinding(element?: BpmnElement) {
+  const object = element?.businessObject
+  const modeling = service<Modeling>('modeling')
+  const moddle = service<Moddle>('moddle')
+  if (!element || !object || object.$type !== 'bpmn:ReceiveTask' || !modeling || !moddle)
+    return false
+  if (isAgentTaskElement(object)) return false
+  const extensionElements = moddle.create('bpmn:ExtensionElements', {
+    values: [
+      moddle.create('workflow:AgentTask', {
+        agentVersionId: '',
+        inputMapping: '{}',
+        outputMapping: '{}',
+        failurePolicy: 'FAIL_PROCESS',
+        timeoutSeconds: '300',
+      }),
+      moddle.create('flowable:ExecutionListener', {
+        event: 'start',
+        delegateExpression: '${agentTaskExecutionListener}',
+      }),
+    ],
+  })
+  modeling.updateModdleProperties(element, object, { extensionElements })
+  return true
 }
 
 function sanitizeAttributes(object?: ModdleElement | string) {
@@ -698,7 +768,7 @@ onMounted(async () => {
   modeler.value = new BpmnModeler({
     container: canvasElement.value,
     additionalModules: [workflowPaletteModule],
-    moddleExtensions: { flowable: flowableModdle },
+    moddleExtensions: { flowable: flowableModdle, workflow: workflowModdle },
   })
   modeler.value.on('selection.changed', (event) => resetSelection(event.newSelection?.[0]))
   modeler.value.on('commandStack.changed', () => {
@@ -707,12 +777,14 @@ onMounted(async () => {
   modeler.value.on('shape.added', (event) => {
     const element = event.element
     window.setTimeout(() => {
-      if (ensureDefaultUserTaskAssignment(element) && selectedElement.value?.id === element?.id) {
+      const changed = ensureAgentTaskBinding(element) || ensureDefaultUserTaskAssignment(element)
+      if (changed && selectedElement.value?.id === element?.id) {
         resetSelection(element)
       }
     }, 0)
   })
   window.addEventListener('beforeunload', beforeUnload)
+  await loadAgentVersions()
 
   const key = String(route.query.key || '')
   const name = String(route.query.name || key)
@@ -912,7 +984,30 @@ watch(selectedVersion, () => resetSelection())
               </el-form>
             </div>
 
-            <div v-if="isTask || isSequenceFlow" class="property-block">
+            <div v-if="isAgentTask" class="property-block agent-task-config">
+              <strong>Agent 配置</strong>
+              <el-form label-position="top" size="small">
+                <el-form-item label="已发布版本 ID" required>
+                  <el-select
+                    v-model="agentVersionId"
+                    filterable
+                    clearable
+                    placeholder="选择已发布 Agent 版本"
+                    @change="applyAgentVersion"
+                  >
+                    <el-option
+                      v-for="version in agentVersions"
+                      :key="version.id"
+                      :label="`${version.agentName} · 第 ${version.version} 版`"
+                      :value="String(version.id)"
+                    />
+                  </el-select>
+                </el-form-item>
+                <p class="property-hint">Agent 任务会等待模型完成后再继续流程。</p>
+              </el-form>
+            </div>
+
+            <div v-if="!isAgentTask && (isTask || isSequenceFlow)" class="property-block">
               <strong>流转规则</strong>
               <el-form label-position="top" size="small">
                 <el-form-item v-if="isTask" label="环节类型">
@@ -961,7 +1056,7 @@ watch(selectedVersion, () => resetSelection())
                   <dd>{{ elementForm.documentation }}</dd>
                 </template>
               </dl>
-              <div v-if="extensionAttributes.length" class="extension-attributes">
+              <div v-if="!isAgentTask && extensionAttributes.length" class="extension-attributes">
                 <p v-for="attribute in extensionAttributes" :key="attribute.key">
                   <span>{{ attribute.key }}</span
                   ><code>{{ attribute.value }}</code>
@@ -969,7 +1064,7 @@ watch(selectedVersion, () => resetSelection())
               </div>
             </div>
 
-            <div class="property-block listener-editor">
+            <div v-if="!isAgentTask" class="property-block listener-editor">
               <strong>监听器</strong>
               <el-select v-model="listenerForm.kind">
                 <el-option

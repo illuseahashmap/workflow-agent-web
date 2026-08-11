@@ -34,6 +34,19 @@ export function validateBpmnXml(xml: string) {
     (element) => element.localName === 'process',
   )
   if (!process?.getAttribute('id')) throw new Error('BPMN XML 缺少 process id')
+  for (const task of Array.from(document.getElementsByTagName('*')).filter(
+    (element) => element.localName === 'agentTask',
+  )) {
+    const owner = task.parentElement?.parentElement
+    if (
+      task.parentElement?.localName !== 'extensionElements' ||
+      owner?.localName !== 'receiveTask'
+    ) {
+      throw new Error('Agent 任务必须绑定在等待型任务上')
+    }
+    const version = Number(task.getAttribute('agentVersionId'))
+    if (!Number.isInteger(version) || version <= 0) throw new Error('Agent 任务必须选择已发布版本')
+  }
   return document
 }
 
@@ -83,4 +96,15 @@ export function resolveTaskMode(xml: string, taskDefinitionKey: string): BpmnTas
   )
   if (!task) return undefined
   return resolveTaskElementMode(task)
+}
+
+export function isAgentTaskElement(element?: ModdleElementLike) {
+  return Boolean(
+    element?.extensionElements?.values?.some((value) => value.$type === 'workflow:AgentTask'),
+  )
+}
+
+interface ModdleElementLike {
+  $type?: string
+  extensionElements?: { values?: ModdleElementLike[] }
 }

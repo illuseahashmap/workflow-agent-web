@@ -51,4 +51,20 @@ describe('BPMN utilities', () => {
       { id: 'archiveTask', name: 'archiveTask', mode: 'parallel' },
     ])
   })
+
+  it('requires Agent bindings to use a receive-task wait state and a published version id', () => {
+    const valid = `<?xml version="1.0"?>
+      <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+        xmlns:workflow="http://workflow-agent.local/bpmn">
+        <process id="agent" isExecutable="true">
+          <receiveTask id="agentTask"><extensionElements>
+            <workflow:agentTask agentVersionId="12" />
+          </extensionElements></receiveTask>
+        </process>
+      </definitions>`
+    expect(() => validateBpmnXml(valid)).not.toThrow()
+
+    const invalid = valid.replace(/receiveTask/g, 'serviceTask')
+    expect(() => validateBpmnXml(invalid)).toThrow('等待型任务')
+  })
 })

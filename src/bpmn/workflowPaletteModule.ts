@@ -47,6 +47,16 @@ class WorkflowPaletteProvider {
           click: createUserTask,
         },
       }
+      const createAgentTask = (event: Event) => {
+        const shape = this.elementFactory.createShape({ type: 'bpmn:ReceiveTask' })
+        this.create.start(event, shape)
+      }
+      entries['create.agent-task'] = {
+        group: 'activity',
+        className: 'bpmn-icon-receive-task',
+        title: '创建 Agent 任务',
+        action: { dragstart: createAgentTask, click: createAgentTask },
+      }
       return entries
     }
   }
