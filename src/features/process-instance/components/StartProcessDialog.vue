@@ -34,6 +34,7 @@ const form = reactive({ processDefinitionId: '', businessKey: '' })
 const variableRows = ref<ProcessVariableDraft[]>([])
 const participantRequirements = ref<ParticipantRequirement[]>([])
 const participantAssignments = ref<ParticipantAssignment[]>([])
+const selectedDefinitionXml = ref('')
 const preparedVariables = ref<Record<string, unknown>>()
 const requirementsLoaded = ref(false)
 let previewTimer: ReturnType<typeof setTimeout> | undefined
@@ -62,13 +63,39 @@ const selectedDefinition = computed(() =>
 )
 
 const startFrontier = computed(() => {
-  if (!selectedDefinition.value?.bpmnXml) return { hasAgentWait: false, hasUserTask: false }
+  if (!selectedDefinitionXml.value) return { hasAgentWait: false, hasUserTask: false }
   try {
-    return resolveStartFrontierKinds(selectedDefinition.value.bpmnXml)
+    return resolveStartFrontierKinds(selectedDefinitionXml.value)
   } catch {
     return { hasAgentWait: false, hasUserTask: false }
   }
 })
+
+let definitionLoadSequence = 0
+
+async function loadSelectedDefinitionXml() {
+  const definition = selectedDefinition.value
+  if (!definition) {
+    selectedDefinitionXml.value = ''
+    return
+  }
+  if (definition.bpmnXml) {
+    selectedDefinitionXml.value = definition.bpmnXml
+    return
+  }
+  const sequence = ++definitionLoadSequence
+  try {
+    const detail = await definitionApi.detail(definition.processDefinitionKey, definition.version)
+    if (
+      sequence === definitionLoadSequence &&
+      detail.processDefinitionId === definition.processDefinitionId
+    ) {
+      selectedDefinitionXml.value = detail.bpmnXml
+    }
+  } catch {
+    if (sequence === definitionLoadSequence) selectedDefinitionXml.value = ''
+  }
+}
 
 watch(
   [() => props.modelValue, activeDefinitions, () => props.initialProcessDefinitionKey],
@@ -142,12 +169,13 @@ const requirementsMutation = useMutation({
   },
 })
 
-function requestRequirements(startWhenReady: boolean) {
+async function requestRequirements(startWhenReady: boolean) {
   const definition = selectedDefinition.value
   if (!definition) {
     if (startWhenReady) ElMessage.warning('请选择已发布的流程')
     return
   }
+  await loadSelectedDefinitionXml()
   let variables: Record<string, unknown>
   try {
     variables = buildProcessVariables(variableRows.value)
@@ -174,6 +202,7 @@ function scheduleRequirementsPreview() {
   preparedVariables.value = undefined
   participantRequirements.value = []
   participantAssignments.value = []
+  selectedDefinitionXml.value = ''
   if (previewTimer) clearTimeout(previewTimer)
   if (!props.modelValue || !selectedDefinition.value) return
   previewTimer = setTimeout(() => requestRequirements(false), 300)
