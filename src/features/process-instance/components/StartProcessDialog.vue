@@ -8,6 +8,7 @@ import { queryKeys } from '@/api/queryKeys'
 import { definitionApi, type ProcessDefinition } from '@/features/process-definition'
 import { useAuthStore } from '@/stores/auth'
 import { formatVersion } from '@/utils/format'
+import { resolveStartFrontierKinds } from '@/utils/bpmn'
 import { processInstanceApi } from '../api'
 import ParticipantAssignmentEditor from './ParticipantAssignmentEditor.vue'
 import {
@@ -59,6 +60,15 @@ const activeDefinitions = computed(() => {
 const selectedDefinition = computed(() =>
   activeDefinitions.value.find((item) => item.processDefinitionId === form.processDefinitionId),
 )
+
+const startFrontier = computed(() => {
+  if (!selectedDefinition.value?.bpmnXml) return { hasAgentWait: false, hasUserTask: false }
+  try {
+    return resolveStartFrontierKinds(selectedDefinition.value.bpmnXml)
+  } catch {
+    return { hasAgentWait: false, hasUserTask: false }
+  }
+})
 
 watch(
   [() => props.modelValue, activeDefinitions, () => props.initialProcessDefinitionKey],
@@ -143,6 +153,14 @@ function requestRequirements(startWhenReady: boolean) {
     variables = buildProcessVariables(variableRows.value)
   } catch (error) {
     if (startWhenReady) ElMessage.error(getErrorMessage(error))
+    return
+  }
+  if (startFrontier.value.hasAgentWait && !startFrontier.value.hasUserTask) {
+    preparedVariables.value = variables
+    participantRequirements.value = []
+    participantAssignments.value = []
+    requirementsLoaded.value = true
+    if (startWhenReady) continueStart()
     return
   }
   const generation = ++previewGeneration

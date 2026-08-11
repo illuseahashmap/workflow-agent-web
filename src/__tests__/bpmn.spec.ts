@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { createBlankBpmn, listUserTasks, resolveTaskMode, validateBpmnXml } from '@/utils/bpmn'
+import {
+  createBlankBpmn,
+  listUserTasks,
+  resolveStartFrontierKinds,
+  resolveTaskMode,
+  validateBpmnXml,
+} from '@/utils/bpmn'
 
 describe('BPMN utilities', () => {
   it('creates an executable plain XML process', () => {
@@ -66,5 +72,21 @@ describe('BPMN utilities', () => {
 
     const invalid = valid.replace(/receiveTask/g, 'serviceTask')
     expect(() => validateBpmnXml(invalid)).toThrow('等待型任务')
+  })
+
+  it('stops start-time participant discovery at an Agent wait state', () => {
+    const xml = `<?xml version="1.0"?>
+      <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+        xmlns:workflow="http://workflow-agent.local/bpmn">
+        <process id="agent" isExecutable="true">
+          <startEvent id="start" /><receiveTask id="agentTask"><extensionElements>
+            <workflow:agentTask agentVersionId="12" />
+          </extensionElements></receiveTask>
+          <userTask id="afterAgent" />
+          <sequenceFlow sourceRef="start" targetRef="agentTask" />
+          <sequenceFlow sourceRef="agentTask" targetRef="afterAgent" />
+        </process>
+      </definitions>`
+    expect(resolveStartFrontierKinds(xml)).toEqual({ hasAgentWait: true, hasUserTask: false })
   })
 })

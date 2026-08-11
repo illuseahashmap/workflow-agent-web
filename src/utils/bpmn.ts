@@ -104,6 +104,57 @@ export function isAgentTaskElement(element?: ModdleElementLike) {
   )
 }
 
+export interface StartFrontierKinds {
+  hasAgentWait: boolean
+  hasUserTask: boolean
+}
+
+export function resolveStartFrontierKinds(xml: string): StartFrontierKinds {
+  const document = validateBpmnXml(xml)
+  const elements = Array.from(document.getElementsByTagName('*'))
+  const byId = new Map(
+    elements.filter((element) => element.id).map((element) => [element.id, element]),
+  )
+  const outgoing = new Map<string, string[]>()
+  elements
+    .filter((element) => element.localName === 'sequenceFlow')
+    .forEach((flow) => {
+      const source = flow.getAttribute('sourceRef')
+      const target = flow.getAttribute('targetRef')
+      if (source && target) outgoing.set(source, [...(outgoing.get(source) || []), target])
+    })
+  const queue = elements
+    .filter((element) => element.localName === 'startEvent')
+    .flatMap((element) => outgoing.get(element.id) || [])
+  const visited = new Set<string>()
+  const result: StartFrontierKinds = { hasAgentWait: false, hasUserTask: false }
+  while (queue.length) {
+    const id = queue.shift()!
+    if (visited.has(id)) continue
+    visited.add(id)
+    const element = byId.get(id)
+    if (!element) continue
+    if (element.localName === 'userTask') {
+      result.hasUserTask = true
+      continue
+    }
+    if (element.localName === 'receiveTask' && isAgentTaskXmlElement(element)) {
+      result.hasAgentWait = true
+      continue
+    }
+    queue.push(...(outgoing.get(id) || []))
+  }
+  return result
+}
+
+function isAgentTaskXmlElement(element: Element) {
+  return Array.from(element.children).some(
+    (child) =>
+      child.localName === 'extensionElements' &&
+      Array.from(child.children).some((extension) => extension.localName === 'agentTask'),
+  )
+}
+
 interface ModdleElementLike {
   $type?: string
   extensionElements?: { values?: ModdleElementLike[] }
