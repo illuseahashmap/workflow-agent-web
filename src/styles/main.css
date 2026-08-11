@@ -976,6 +976,33 @@ select {
   padding-bottom: 18px;
 }
 
+.agent-mapping-editor {
+  border: 1px solid #dfe7f2;
+  border-radius: 8px;
+  padding: 8px;
+  background: #fbfcfe;
+}
+.agent-mapping-editor__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #6d7f99;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.agent-mapping-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.agent-mapping-editor__empty {
+  color: #9aa9bd;
+  font-size: 12px;
+  text-align: center;
+  padding: 10px 0 4px;
+}
 .property-block {
   min-width: 0;
   display: grid;

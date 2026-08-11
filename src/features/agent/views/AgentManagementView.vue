@@ -189,8 +189,25 @@ const versionForm = reactive<AgentVersionCommand>({
   systemPrompt: '',
   timeoutSeconds: 120,
   failurePolicy: 'FAIL_PROCESS',
+  inputSchema: '',
   outputSchema: '',
 })
+type SchemaField = {
+  path: string
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array'
+  itemType: 'string' | 'number' | 'integer' | 'boolean' | 'object'
+  required: boolean
+  description: string
+}
+type InputSchemaNode = {
+  type?: string
+  description?: string
+  required?: string[]
+  items?: InputSchemaNode
+  properties?: Record<string, InputSchemaNode>
+}
+const inputSchemaFields = ref<SchemaField[]>([])
+const outputSchemaFields = ref<SchemaField[]>([])
 const versionsQuery = useQuery({
   queryKey: computed(() => queryKeys.agentVersions(tenantCode.value, selectedAgent.value?.id || 0)),
   queryFn: () => agentApi.versions(selectedAgent.value!.id),
@@ -214,7 +231,8 @@ const saveVersionMutation = useMutation({
       ...versionForm,
       modelName: versionForm.modelName?.trim(),
       systemPrompt: versionForm.systemPrompt.trim(),
-      outputSchema: versionForm.outputSchema?.trim(),
+      inputSchema: buildInputSchema(),
+      outputSchema: buildSchema(outputSchemaFields),
     }),
   onSuccess: async () => {
     versionEditorVisible.value = false
@@ -314,9 +332,105 @@ function openVersionEditor(version: AgentVersion) {
     systemPrompt: version.systemPrompt || '',
     timeoutSeconds: version.timeoutSeconds,
     failurePolicy: version.failurePolicy,
+    inputSchema: version.inputSchema || '',
     outputSchema: version.outputSchema || '',
   })
+  inputSchemaFields.value = parseSchema(version.inputSchema)
+  outputSchemaFields.value = parseSchema(version.outputSchema)
   versionEditorVisible.value = true
+}
+
+function parseSchema(schema?: string): SchemaField[] {
+  if (!schema?.trim()) return []
+  try {
+    const root = JSON.parse(schema) as InputSchemaNode
+    const fields: SchemaField[] = []
+    const walk = (node: InputSchemaNode, prefix = '') => {
+      const properties = node?.properties
+      if (!properties || typeof properties !== 'object') return
+      const required = new Set(Array.isArray(node.required) ? node.required : [])
+      Object.entries(properties).forEach(([name, child]) => {
+        const path = prefix ? `${prefix}.${name}` : name
+        fields.push({
+          path,
+          type: ['string', 'number', 'integer', 'boolean', 'object', 'array'].includes(
+            child?.type || '',
+          )
+            ? (child.type as SchemaField['type'])
+            : 'string',
+          itemType: ['string', 'number', 'integer', 'boolean', 'object'].includes(
+            child?.items?.type || '',
+          )
+            ? (child.items?.type as SchemaField['itemType'])
+            : 'string',
+          required: required.has(name),
+          description: child?.description || '',
+        })
+        walk(child, path)
+      })
+    }
+    walk(root)
+    return fields
+  } catch {
+    return []
+  }
+}
+
+function buildInputSchema() {
+  return buildSchema(inputSchemaFields)
+}
+
+function buildSchema(fieldsRef: { value: SchemaField[] }) {
+  const root: InputSchemaNode = { type: 'object', properties: {} }
+  fieldsRef.value
+    .filter((field) => field.path.trim())
+    .forEach((field) => {
+      const segments = field.path
+        .split('.')
+        .map((segment) => segment.trim())
+        .filter(Boolean)
+      let node = root
+      segments.forEach((segment, index) => {
+        node.properties ||= {}
+        node.properties[segment] ||= { type: index === segments.length - 1 ? field.type : 'object' }
+        if (index === segments.length - 1) {
+          node.properties[segment].type = field.type
+          if (field.description.trim())
+            node.properties[segment].description = field.description.trim()
+          if (field.required) {
+            node.required ||= []
+            if (!node.required.includes(segment)) node.required.push(segment)
+          }
+          if (field.type === 'array') node.properties[segment].items = { type: field.itemType }
+        }
+        node = node.properties[segment]
+      })
+    })
+  return fieldsRef.value.length ? JSON.stringify(root) : ''
+}
+
+function addInputSchemaField() {
+  inputSchemaFields.value.push({
+    path: '',
+    type: 'string',
+    itemType: 'string',
+    required: false,
+    description: '',
+  })
+}
+
+function addOutputSchemaField() {
+  outputSchemaFields.value.push({
+    path: '',
+    type: 'string',
+    itemType: 'string',
+    required: false,
+    description: '',
+  })
+}
+
+function removeInputSchemaField(index: number) {
+  inputSchemaFields.value.splice(index, 1)
 }
 async function publishVersion(version: AgentVersion) {
   const confirmed = await confirmAction(
@@ -1221,18 +1335,134 @@ function snapshotField(snapshot: string | undefined, field: string) {
                 value="MANUAL_REVIEW" /></el-select
           ></el-form-item>
         </div>
-        <el-form-item label="输出 JSON Schema"
-          ><el-input
-            v-model="versionForm.outputSchema"
-            type="textarea"
-            :rows="5"
-            :disabled="editingVersion?.status === 'PUBLISHED'"
-            placeholder='例如 {"type":"object","required":["summary"]}'
-          />
+        <el-form-item label="Agent 输入字段">
+          <div class="schema-editor">
+            <div class="schema-editor__toolbar">
+              <span>配置业务输入字段，保存时自动生成 JSON Schema</span>
+              <el-button
+                link
+                type="primary"
+                :disabled="editingVersion?.status === 'PUBLISHED'"
+                @click="addInputSchemaField"
+                ><Plus :size="15" />新增字段</el-button
+              >
+            </div>
+            <el-table :data="inputSchemaFields" size="small" border>
+              <el-table-column label="字段路径" min-width="180">
+                <template #default="{ row }">
+                  <el-input v-model="row.path" placeholder="例如 customer.name" />
+                </template>
+              </el-table-column>
+              <el-table-column label="类型" width="130">
+                <template #default="{ row }">
+                  <el-select v-model="row.type">
+                    <el-option label="文本" value="string" />
+                    <el-option label="数字" value="number" />
+                    <el-option label="整数" value="integer" />
+                    <el-option label="布尔值" value="boolean" />
+                    <el-option label="对象" value="object" />
+                    <el-option label="数组" value="array" />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column label="数组元素" width="130">
+                <template #default="{ row }">
+                  <el-select v-model="row.itemType" :disabled="row.type !== 'array'">
+                    <el-option label="文本" value="string" />
+                    <el-option label="数字" value="number" />
+                    <el-option label="整数" value="integer" />
+                    <el-option label="布尔值" value="boolean" />
+                    <el-option label="对象" value="object" />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column label="必填" width="75" align="center">
+                <template #default="{ row }"><el-checkbox v-model="row.required" /></template>
+              </el-table-column>
+              <el-table-column label="说明" min-width="150">
+                <template #default="{ row }"><el-input v-model="row.description" /></template>
+              </el-table-column>
+              <el-table-column label="操作" width="70" align="center">
+                <template #default="{ $index }">
+                  <el-button link type="danger" @click="removeInputSchemaField($index)"
+                    >删除</el-button
+                  >
+                </template>
+              </el-table-column>
+            </el-table>
+            <div v-if="!inputSchemaFields.length" class="schema-editor__empty">
+              暂未配置输入字段，Agent 将接收空对象或由流程映射提供的数据。
+            </div>
+          </div>
           <div class="form-help">
-            发布前后端会校验 JSON 格式；运行阶段将用它限制模型输出。
-          </div></el-form-item
-        >
+            对象或嵌套字段使用点号路径，例如
+            customer.name；数组填写字段路径并选择数组元素类型。流程节点通过输入映射提供数据，平台变量不会自动传入。
+          </div>
+        </el-form-item>
+        <el-form-item label="Agent 输出字段">
+          <div class="schema-editor">
+            <div class="schema-editor__toolbar">
+              <span>配置模型输出字段，保存时自动生成 JSON Schema</span>
+              <el-button
+                link
+                type="primary"
+                :disabled="editingVersion?.status === 'PUBLISHED'"
+                @click="addOutputSchemaField"
+                ><Plus :size="15" />新增字段</el-button
+              >
+            </div>
+            <el-table :data="outputSchemaFields" size="small" border>
+              <el-table-column label="字段路径" min-width="180">
+                <template #default="{ row }">
+                  <el-input v-model="row.path" placeholder="例如 result.summary" />
+                </template>
+              </el-table-column>
+              <el-table-column label="类型" width="130">
+                <template #default="{ row }">
+                  <el-select v-model="row.type">
+                    <el-option label="文本" value="string" />
+                    <el-option label="数字" value="number" />
+                    <el-option label="整数" value="integer" />
+                    <el-option label="布尔值" value="boolean" />
+                    <el-option label="对象" value="object" />
+                    <el-option label="数组" value="array" />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column label="数组元素" width="130">
+                <template #default="{ row }">
+                  <el-select v-model="row.itemType" :disabled="row.type !== 'array'">
+                    <el-option label="文本" value="string" />
+                    <el-option label="数字" value="number" />
+                    <el-option label="整数" value="integer" />
+                    <el-option label="布尔值" value="boolean" />
+                    <el-option label="对象" value="object" />
+                  </el-select>
+                </template>
+              </el-table-column>
+              <el-table-column label="必填" width="75" align="center">
+                <template #default="{ row }"><el-checkbox v-model="row.required" /></template>
+              </el-table-column>
+              <el-table-column label="说明" min-width="150">
+                <template #default="{ row }"><el-input v-model="row.description" /></template>
+              </el-table-column>
+              <el-table-column label="操作" width="70" align="center">
+                <template #default="{ $index }">
+                  <el-button link type="danger" @click="outputSchemaFields.splice($index, 1)"
+                    >删除</el-button
+                  >
+                </template>
+              </el-table-column>
+            </el-table>
+            <div v-if="!outputSchemaFields.length" class="schema-editor__empty">
+              暂未配置输出字段，Agent 输出将不做结构化字段约束。
+            </div>
+          </div>
+          <div class="form-help">
+            对象或嵌套字段使用点号路径，例如
+            customer.name；数组填写字段路径并选择数组元素类型，保存后仍以 JSON Schema 持久化。
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer
         ><el-button @click="versionEditorVisible = false">关闭</el-button
@@ -1253,6 +1483,28 @@ function snapshotField(snapshot: string | undefined, field: string) {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
+}
+.schema-editor {
+  width: 100%;
+  border: 1px solid #dfe7f2;
+  border-radius: 10px;
+  padding: 10px;
+  background: #fbfcfe;
+}
+.schema-editor__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #6d7f99;
+  font-size: 12px;
+}
+.schema-editor__empty {
+  padding: 16px 10px 6px;
+  color: #9aa9bd;
+  text-align: center;
+  font-size: 12px;
 }
 .agent-overview > div {
   min-width: 0;

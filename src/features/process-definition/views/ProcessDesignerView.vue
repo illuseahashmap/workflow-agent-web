@@ -82,6 +82,9 @@ const selectedBusinessObject = shallowRef<ModdleElement>()
 const elementForm = reactive({ id: '', name: '', documentation: '', conditionExpression: '' })
 const approvalMode = ref<ApprovalMode>('')
 const agentVersionId = ref('')
+const agentInputMapping = ref('{}')
+const agentOutputMapping = ref('{}')
+const agentMappingRows = ref<Array<{ field: string; source: string }>>([])
 const agentVersions = ref<Array<AgentVersion & { agentName: string }>>([])
 const listenerForm = reactive({ kind: 'executionStart' as ListenerKind, bean: '' })
 const listeners = reactive<Record<ListenerKind, string[]>>({
@@ -189,6 +192,9 @@ function resetSelection(element?: BpmnElement) {
     (item) => item.$type === 'workflow:AgentTask',
   )
   agentVersionId.value = String(agentBinding?.agentVersionId || '')
+  agentInputMapping.value = String(agentBinding?.inputMapping || '{}')
+  agentOutputMapping.value = String(agentBinding?.outputMapping || '{}')
+  agentMappingRows.value = parseAgentMapping(agentInputMapping.value)
   Object.keys(listeners).forEach((key) => (listeners[key as ListenerKind] = []))
   for (const item of object?.extensionElements?.values || []) {
     const value = normalizeListener(
@@ -220,8 +226,60 @@ function applyAgentVersion() {
     ElMessage.warning('请输入已发布的 Agent 版本 ID')
     return
   }
-  modeling.updateModdleProperties(element, binding, { agentVersionId: version })
+  modeling.updateModdleProperties(element, binding, {
+    agentVersionId: version,
+    inputMapping: agentInputMapping.value.trim() || '{}',
+    outputMapping: agentOutputMapping.value.trim() || '{}',
+  })
   dirty.value = true
+}
+
+function applyAgentMappings() {
+  const element = selectedElement.value
+  const object = selectedBusinessObject.value
+  const modeling = service<Modeling>('modeling')
+  const binding = object?.extensionElements?.values?.find(
+    (item) => item.$type === 'workflow:AgentTask',
+  )
+  if (!element || !object || !binding || !modeling) return
+  try {
+    const input = agentMappingRows.value.reduce<Record<string, string>>((result, row) => {
+      if (row.field.trim() && row.source.trim()) result[row.field.trim()] = row.source.trim()
+      return result
+    }, {})
+    const output = JSON.parse(agentOutputMapping.value || '{}')
+    if (!input || Array.isArray(input) || typeof input !== 'object') throw new Error()
+    if (!output || Array.isArray(output) || typeof output !== 'object') throw new Error()
+    modeling.updateModdleProperties(element, binding, {
+      inputMapping: JSON.stringify(input),
+      outputMapping: JSON.stringify(output),
+    })
+    agentInputMapping.value = JSON.stringify(input)
+    agentOutputMapping.value = JSON.stringify(output)
+    dirty.value = true
+  } catch {
+    ElMessage.warning('输入映射和输出映射必须是 JSON 对象')
+  }
+}
+
+function parseAgentMapping(value: string) {
+  try {
+    const mapping = JSON.parse(value || '{}')
+    return Object.entries(mapping)
+      .filter(([, source]) => typeof source === 'string')
+      .map(([field, source]) => ({ field, source: source as string }))
+  } catch {
+    return []
+  }
+}
+
+function addAgentMappingRow() {
+  agentMappingRows.value.push({ field: '', source: '' })
+}
+
+function removeAgentMappingRow(index: number) {
+  agentMappingRows.value.splice(index, 1)
+  applyAgentMappings()
 }
 
 async function loadAgentVersions() {
@@ -1002,6 +1060,42 @@ watch(selectedVersion, () => resetSelection())
                       :value="String(version.id)"
                     />
                   </el-select>
+                </el-form-item>
+                <el-form-item label="输入字段映射">
+                  <div class="agent-mapping-editor">
+                    <div class="agent-mapping-editor__toolbar">
+                      <span>Agent 字段 ← 流程变量</span>
+                      <el-button link type="primary" @click="addAgentMappingRow">
+                        <Plus :size="14" />新增映射
+                      </el-button>
+                    </div>
+                    <div
+                      v-for="(row, index) in agentMappingRows"
+                      :key="index"
+                      class="agent-mapping-row"
+                    >
+                      <el-input
+                        v-model="row.field"
+                        placeholder="Agent 字段，例如 customerName"
+                        @blur="applyAgentMappings"
+                      />
+                      <span>←</span>
+                      <el-input
+                        v-model="row.source"
+                        placeholder="流程变量，例如 customer.name"
+                        @blur="applyAgentMappings"
+                      />
+                      <el-button link type="danger" @click="removeAgentMappingRow(index)"
+                        >删除</el-button
+                      >
+                    </div>
+                    <div v-if="!agentMappingRows.length" class="agent-mapping-editor__empty">
+                      暂无映射。未配置时不会自动传入流程变量。
+                    </div>
+                  </div>
+                  <p class="property-hint">
+                    左侧是 Agent 输入字段，右侧是流程变量路径，只传递显式映射的数据。
+                  </p>
                 </el-form-item>
                 <p class="property-hint">Agent 任务会等待模型完成后再继续流程。</p>
               </el-form>

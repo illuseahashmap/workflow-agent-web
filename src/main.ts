@@ -4,6 +4,7 @@ import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import {
   ElAlert,
   ElButton,
+  ElCheckbox,
   ElDialog,
   ElDrawer,
   ElDropdown,
@@ -66,6 +67,7 @@ app.directive('accessible-label', accessibleLabel)
 const elementComponents = [
   ElAlert,
   ElButton,
+  ElCheckbox,
   ElDialog,
   ElDrawer,
   ElDropdown,

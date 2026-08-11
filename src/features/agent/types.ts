@@ -35,6 +35,7 @@ export interface AgentVersion {
   systemPrompt: string
   timeoutSeconds: number
   failurePolicy: AgentFailurePolicy
+  inputSchema?: string
   outputSchema?: string
   createdBy?: string
   publishedBy?: string
@@ -49,6 +50,7 @@ export interface AgentVersionCommand {
   systemPrompt: string
   timeoutSeconds: number
   failurePolicy: AgentFailurePolicy
+  inputSchema?: string
   outputSchema?: string
 }
 
