@@ -131,6 +131,26 @@ async function mockApi(page: Page) {
                 },
               ],
         }
+      } else if (url.pathname.endsWith('/agents/published-versions')) {
+        data = {
+          total: 1,
+          pageNum: 1,
+          pageSize: 30,
+          records: [
+            {
+              id: 51,
+              definitionId: 41,
+              agentCode: 'expense_reviewer',
+              agentName: '费用审核 Agent',
+              version: 1,
+              executionMode: 'MODEL_ONLY',
+              timeoutSeconds: 120,
+              inputSchema: '{"type":"object","properties":{"customer":{"type":"string"}}}',
+              outputSchema: '{"type":"object","properties":{"decision":{"type":"string"}}}',
+              contractFingerprint: 'test-contract-fingerprint',
+            },
+          ],
+        }
       } else if (url.pathname.endsWith('/agents')) {
         const empty = url.searchParams.get('keyword') === '__empty__'
         data = {

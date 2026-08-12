@@ -46,6 +46,19 @@ export interface AgentVersion {
   updatedAt?: string
 }
 
+export interface PublishedAgentVersion {
+  id: number
+  definitionId: number
+  agentCode: string
+  agentName: string
+  version: number
+  executionMode: AgentExecutionMode
+  timeoutSeconds: number
+  inputSchema?: string
+  outputSchema?: string
+  contractFingerprint: string
+}
+
 export interface AgentVersionCommand {
   executionMode: AgentExecutionMode
   providerId?: number

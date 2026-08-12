@@ -12,6 +12,7 @@ import type {
   AgentRunSubmission,
   AgentVersion,
   AgentVersionCommand,
+  PublishedAgentVersion,
 } from './types'
 
 export interface AgentPageQuery {
@@ -42,6 +43,12 @@ export const agentApi = {
     apiClient.post<AgentVersion>(`/agents/${definitionId}/versions/${versionId}`, payload),
   publish: (definitionId: number, versionId: number) =>
     apiClient.post<AgentVersion>(`/agents/${definitionId}/versions/${versionId}/publish`),
+  publishedVersions: (params: {
+    pageNum: number
+    pageSize: number
+    keyword?: string
+    versionId?: number
+  }) => apiClient.get<PageResult<PublishedAgentVersion>>('/agents/published-versions', { params }),
 }
 
 export const agentProviderApi = {

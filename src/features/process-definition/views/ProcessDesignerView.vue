@@ -32,7 +32,7 @@ import type {
   Modeling,
 } from '@/bpmn/modeler-types'
 import { assignmentRuleApi } from '@/features/assignment-rule'
-import { agentApi, type AgentVersion } from '@/features/agent'
+import { agentApi, type PublishedAgentVersion } from '@/features/agent'
 import { createBlankBpmn, isAgentTaskElement, validateBpmnXml } from '@/utils/bpmn'
 import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
@@ -90,7 +90,9 @@ const agentProcessFailurePolicy = ref<'CONTINUE_EMPTY' | 'MANUAL_REVIEW' | 'HOLD
   'HOLD_FOR_OPERATIONS',
 )
 const agentProcessWaitTimeoutSeconds = ref(300)
-const agentVersions = ref<Array<AgentVersion & { agentName: string }>>([])
+const agentVersions = ref<PublishedAgentVersion[]>([])
+const agentVersionSearchLoading = ref(false)
+let agentVersionSearchSequence = 0
 const listenerForm = reactive({ kind: 'executionStart' as ListenerKind, bean: '' })
 const listeners = reactive<Record<ListenerKind, string[]>>({
   executionStart: [],
@@ -118,6 +120,10 @@ const selectedSource = computed(() => selectedBusinessObject.value?.sourceRef?.i
 const selectedTarget = computed(() => selectedBusinessObject.value?.targetRef?.id || '')
 const selectedAgentVersion = computed(() =>
   agentVersions.value.find((version) => String(version.id) === agentVersionId.value),
+)
+const agentInputSchemaFields = computed(() => schemaFields(selectedAgentVersion.value?.inputSchema))
+const agentOutputSchemaFields = computed(() =>
+  schemaFields(selectedAgentVersion.value?.outputSchema),
 )
 const extensionAttributes = computed(() => {
   const object = selectedBusinessObject.value
@@ -202,6 +208,7 @@ function resetSelection(element?: BpmnElement) {
     (item) => item.$type === 'workflow:AgentTask',
   )
   agentVersionId.value = String(agentBinding?.agentVersionId || '')
+  void ensureSelectedAgentVersionLoaded()
   agentInputMapping.value = String(agentBinding?.inputMapping || '{}')
   agentOutputMapping.value = String(agentBinding?.outputMapping || '{}')
   agentMappingRows.value = parseAgentMapping(agentInputMapping.value)
@@ -210,9 +217,7 @@ function resetSelection(element?: BpmnElement) {
     agentBinding?.processFailurePolicy || agentBinding?.failurePolicy || 'HOLD_FOR_OPERATIONS',
   )
   agentProcessFailurePolicy.value =
-    rawFailurePolicy === 'CONTINUE_EMPTY' || rawFailurePolicy === 'MANUAL_REVIEW'
-      ? rawFailurePolicy
-      : 'HOLD_FOR_OPERATIONS'
+    rawFailurePolicy === 'CONTINUE_EMPTY' ? rawFailurePolicy : 'HOLD_FOR_OPERATIONS'
   agentProcessWaitTimeoutSeconds.value = Number(
     agentBinding?.processWaitTimeoutSeconds || agentBinding?.timeoutSeconds || 300,
   )
@@ -356,18 +361,68 @@ function removeAgentOutputMappingRow(index: number) {
 }
 
 async function loadAgentVersions() {
+  await searchAgentVersions('')
+}
+
+async function searchAgentVersions(keyword: string) {
+  const sequence = ++agentVersionSearchSequence
+  agentVersionSearchLoading.value = true
   try {
-    const page = await agentApi.page({ pageNum: 1, pageSize: 100, enabled: true })
-    const versions = await Promise.all(
-      page.records.map(async (agent) =>
-        (await agentApi.versions(agent.id))
-          .filter((version) => version.status === 'PUBLISHED')
-          .map((version) => ({ ...version, agentName: agent.name })),
-      ),
-    )
-    agentVersions.value = versions.flat()
+    const page = await agentApi.publishedVersions({
+      pageNum: 1,
+      pageSize: 30,
+      keyword: keyword.trim() || undefined,
+    })
+    if (sequence === agentVersionSearchSequence) agentVersions.value = page.records
   } catch {
-    agentVersions.value = []
+    if (sequence === agentVersionSearchSequence) agentVersions.value = []
+  } finally {
+    if (sequence === agentVersionSearchSequence) agentVersionSearchLoading.value = false
+  }
+}
+
+async function ensureSelectedAgentVersionLoaded() {
+  const versionId = Number(agentVersionId.value)
+  if (!versionId || agentVersions.value.some((version) => version.id === versionId)) return
+  try {
+    const page = await agentApi.publishedVersions({ pageNum: 1, pageSize: 1, versionId })
+    const version = page.records[0]
+    if (version && !agentVersions.value.some((item) => item.id === version.id)) {
+      agentVersions.value = [version, ...agentVersions.value]
+    }
+  } catch {
+    // Deployment validation remains authoritative if an imported version is unavailable.
+  }
+}
+
+function schemaFields(schemaJson?: string) {
+  if (!schemaJson) return []
+  try {
+    const root = JSON.parse(schemaJson) as Record<string, unknown>
+    const fields: Array<{ path: string; type: string }> = []
+    collectSchemaFields(root, '', fields)
+    return fields
+  } catch {
+    return []
+  }
+}
+
+function collectSchemaFields(
+  schema: Record<string, unknown>,
+  prefix: string,
+  result: Array<{ path: string; type: string }>,
+) {
+  const type = typeof schema.type === 'string' ? schema.type : 'unknown'
+  if (prefix) result.push({ path: prefix, type })
+  if (type !== 'object' || !schema.properties || typeof schema.properties !== 'object') return
+  for (const [name, child] of Object.entries(schema.properties as Record<string, unknown>)) {
+    if (child && typeof child === 'object') {
+      collectSchemaFields(
+        child as Record<string, unknown>,
+        prefix ? `${prefix}.${name}` : name,
+        result,
+      )
+    }
   }
 }
 
@@ -1131,7 +1186,10 @@ watch(selectedVersion, () => resetSelection())
                   <el-select
                     v-model="agentVersionId"
                     filterable
+                    remote
                     clearable
+                    :remote-method="searchAgentVersions"
+                    :loading="agentVersionSearchLoading"
                     placeholder="选择已发布 Agent 版本"
                     @change="applyAgentVersion"
                   >
@@ -1162,10 +1220,25 @@ watch(selectedVersion, () => resetSelection())
                       class="agent-mapping-row"
                     >
                       <el-input
+                        v-if="!agentInputSchemaFields.length"
                         v-model="row.field"
                         placeholder="Agent 字段，例如 customerName"
                         @blur="applyAgentMappings"
                       />
+                      <el-select
+                        v-else
+                        v-model="row.field"
+                        filterable
+                        placeholder="选择 Agent 输入字段"
+                        @change="applyAgentMappings"
+                      >
+                        <el-option
+                          v-for="field in agentInputSchemaFields"
+                          :key="field.path"
+                          :label="`${field.path} · ${field.type}`"
+                          :value="field.path"
+                        />
+                      </el-select>
                       <span>←</span>
                       <el-input
                         v-model="row.source"
@@ -1198,10 +1271,25 @@ watch(selectedVersion, () => resetSelection())
                       class="agent-mapping-row"
                     >
                       <el-input
+                        v-if="!agentOutputSchemaFields.length"
                         v-model="row.field"
                         placeholder="输出字段，例如 decision"
                         @blur="applyAgentMappings"
                       />
+                      <el-select
+                        v-else
+                        v-model="row.field"
+                        filterable
+                        placeholder="选择 Agent 输出字段"
+                        @change="applyAgentMappings"
+                      >
+                        <el-option
+                          v-for="field in agentOutputSchemaFields"
+                          :key="field.path"
+                          :label="`${field.path} · ${field.type}`"
+                          :value="field.path"
+                        />
+                      </el-select>
                       <span>→</span>
                       <el-input
                         v-model="row.target"
@@ -1230,10 +1318,11 @@ watch(selectedVersion, () => resetSelection())
                 <el-form-item label="流程失败处理" required>
                   <el-select v-model="agentProcessFailurePolicy" @change="applyAgentProcessPolicy">
                     <el-option label="保留现场，等待运维处理" value="HOLD_FOR_OPERATIONS" />
-                    <el-option label="转人工处理" value="MANUAL_REVIEW" />
                     <el-option label="以空结果继续" value="CONTINUE_EMPTY" />
                   </el-select>
-                  <p class="property-hint">Agent 失败不会隐式删除流程实例。</p>
+                  <p class="property-hint">
+                    Agent 失败不会隐式删除流程实例；人工复核将在任务中心能力完成后开放。
+                  </p>
                 </el-form-item>
                 <p class="property-hint">Agent 任务会异步执行，完成事件校验通过后继续流程。</p>
               </el-form>
