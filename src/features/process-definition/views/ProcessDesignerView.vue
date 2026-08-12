@@ -395,11 +395,17 @@ async function ensureSelectedAgentVersionLoaded() {
   }
 }
 
+type SchemaPathOption = {
+  path: string
+  type: string
+  mapping: 'value' | 'array' | 'index' | 'projection'
+}
+
 function schemaFields(schemaJson?: string) {
   if (!schemaJson) return []
   try {
     const root = JSON.parse(schemaJson) as Record<string, unknown>
-    const fields: Array<{ path: string; type: string }> = []
+    const fields: SchemaPathOption[] = []
     collectSchemaFields(root, '', fields)
     return fields
   } catch {
@@ -410,10 +416,25 @@ function schemaFields(schemaJson?: string) {
 function collectSchemaFields(
   schema: Record<string, unknown>,
   prefix: string,
-  result: Array<{ path: string; type: string }>,
+  result: SchemaPathOption[],
+  forcedMapping?: SchemaPathOption['mapping'],
 ) {
-  const type = typeof schema.type === 'string' ? schema.type : 'unknown'
-  if (prefix) result.push({ path: prefix, type })
+  const type = schemaType(schema)
+  if (prefix) {
+    result.push({
+      path: prefix,
+      type,
+      mapping: forcedMapping || (type === 'array' ? 'array' : 'value'),
+    })
+  }
+  if (type === 'array') {
+    const items = schema.items
+    if (!items || typeof items !== 'object') return
+    const itemSchema = items as Record<string, unknown>
+    result.push({ path: `${prefix}.0`, type: schemaType(itemSchema), mapping: 'index' })
+    collectSchemaFields(itemSchema, `${prefix}.*`, result, 'projection')
+    return
+  }
   if (type !== 'object' || !schema.properties || typeof schema.properties !== 'object') return
   for (const [name, child] of Object.entries(schema.properties as Record<string, unknown>)) {
     if (child && typeof child === 'object') {
@@ -421,9 +442,24 @@ function collectSchemaFields(
         child as Record<string, unknown>,
         prefix ? `${prefix}.${name}` : name,
         result,
+        forcedMapping,
       )
     }
   }
+}
+
+function schemaType(schema: Record<string, unknown>) {
+  return typeof schema.type === 'string' ? schema.type : 'unknown'
+}
+
+function schemaFieldLabel(field: SchemaPathOption) {
+  const mappingLabels = {
+    value: '字段',
+    array: '整个数组',
+    index: '首项示例',
+    projection: '数组投影',
+  }
+  return `${field.path} · ${field.type} · ${mappingLabels[field.mapping]}`
 }
 
 function ensureAgentTaskBinding(element?: BpmnElement) {
@@ -1235,7 +1271,7 @@ watch(selectedVersion, () => resetSelection())
                         <el-option
                           v-for="field in agentInputSchemaFields"
                           :key="field.path"
-                          :label="`${field.path} · ${field.type}`"
+                          :label="schemaFieldLabel(field)"
                           :value="field.path"
                         />
                       </el-select>
@@ -1286,7 +1322,7 @@ watch(selectedVersion, () => resetSelection())
                         <el-option
                           v-for="field in agentOutputSchemaFields"
                           :key="field.path"
-                          :label="`${field.path} · ${field.type}`"
+                          :label="schemaFieldLabel(field)"
                           :value="field.path"
                         />
                       </el-select>
@@ -1304,7 +1340,10 @@ watch(selectedVersion, () => resetSelection())
                       暂无映射。模型输出不会自动写入流程变量。
                     </div>
                   </div>
-                  <p class="property-hint">只写入显式映射的新变量，禁止覆盖平台内部变量。</p>
+                  <p class="property-hint">
+                    支持整个数组、固定索引（如 items.0）和通配投影（如
+                    items.*.name）；投影结果写入数组变量。
+                  </p>
                 </el-form-item>
                 <el-form-item label="流程等待时限（秒）" required>
                   <el-input-number
