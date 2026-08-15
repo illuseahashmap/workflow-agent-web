@@ -55,6 +55,8 @@ async function mockApi(page: Page) {
           businessKey: 'EXP-2026-002',
           activeTasks: [],
         }
+      } else if (url.pathname.endsWith('/process/interaction')) {
+        data = { fields: [], agentActivityIds: [] }
       } else if (url.pathname.endsWith('/process/participant-requirements')) {
         const payload = route.request().postDataJSON() as {
           variables?: Record<string, unknown>
@@ -89,6 +91,8 @@ async function mockApi(page: Page) {
             required: true,
           },
         ]
+      } else if (url.pathname.endsWith('/task/interaction')) {
+        data = { fields: [], agentActivityIds: [] }
       } else if (url.pathname.endsWith('/auth/directory/users')) {
         data = {
           total: 2,
@@ -542,11 +546,73 @@ test('selects participants without exposing Flowable variable names', async ({ p
   const startRequest = page.waitForRequest(
     (request) => request.url().endsWith('/workflow/process/start') && request.method() === 'POST',
   )
-  await startDialog.getByRole('button', { name: '确认发起' }).click()
+  await startDialog.getByRole('button', { name: /^(确认发起|发起流程)$/ }).click()
   const payload = (await startRequest).postDataJSON()
   expect(payload.participantAssignments).toEqual([
     { activityId: 'managerApproval', usernames: ['alice'] },
   ])
+})
+
+test('collects Agent input through the generated workflow contract', async ({ page }) => {
+  await page.route('**/api/workflow/process/interaction', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 'SUCCESS',
+        message: 'success',
+        data: {
+          agentActivityIds: ['agentReview'],
+          fields: [
+            {
+              variablePath: 'order.customer.name',
+              label: '客户名称',
+              description: '请输入本次申请对应的客户名称',
+              dataType: 'string',
+              required: true,
+              agentActivityId: 'agentReview',
+              agentActivityName: '智能审核',
+              agentInputPath: 'customer.name',
+            },
+          ],
+        },
+      }),
+    })
+  })
+  await page.goto('/process-definitions')
+  await page.getByRole('button', { name: '发起', exact: true }).click()
+  const startDialog = page.getByRole('dialog', { name: '发起流程' })
+  await expect(startDialog.getByText('Agent 业务输入')).toBeVisible()
+  await startDialog.getByLabel('客户名称').fill('示例客户')
+
+  const startRequest = page.waitForRequest(
+    (request) => request.url().endsWith('/workflow/process/start') && request.method() === 'POST',
+  )
+  await startDialog.getByRole('button', { name: /^(确认发起|发起流程)$/ }).click()
+  const payload = (await startRequest).postDataJSON()
+  expect(payload.variables).toMatchObject({ order: { customer: { name: '示例客户' } } })
+})
+
+test('keeps a stable explanation when the Agent contract has no user input', async ({ page }) => {
+  await page.route('**/api/workflow/process/interaction', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 'SUCCESS',
+        message: 'success',
+        data: { agentActivityIds: ['agentReview'], fields: [] },
+      }),
+    })
+  })
+  await page.goto('/process-definitions')
+  await page.getByRole('button', { name: '发起', exact: true }).click()
+  const explanation = page.getByText(
+    '即将进入的 Agent 节点未声明需要人工填写的业务数据，将按已发布配置运行。',
+  )
+  await expect(explanation).toBeVisible()
+  await page.waitForTimeout(500)
+  await expect(explanation).toBeVisible()
 })
 
 test('allows a ruled process to fall back when no participant is specified', async ({ page }) => {

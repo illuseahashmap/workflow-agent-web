@@ -20,9 +20,20 @@ import {
   splitValues,
 } from '@/utils/format'
 import ProcessDiagram from '../components/ProcessDiagram.vue'
+import InteractionDataFields from '../components/InteractionDataFields.vue'
 import ParticipantAssignmentEditor from '../components/ParticipantAssignmentEditor.vue'
 import { processInstanceApi } from '../api'
-import type { ParticipantAssignment, ParticipantRequirement, TaskItem } from '../types'
+import {
+  buildInteractionVariables,
+  synchronizeInteractionValues,
+  type InteractionValues,
+} from '../interaction'
+import type {
+  InteractionDataField,
+  ParticipantAssignment,
+  ParticipantRequirement,
+  TaskItem,
+} from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,6 +52,10 @@ const selectedTask = ref<TaskItem>()
 const decisionForm = reactive({ comment: '' })
 const decisionRequirements = ref<ParticipantRequirement[]>([])
 const decisionAssignments = ref<ParticipantAssignment[]>([])
+const decisionInteractionFields = ref<InteractionDataField[]>([])
+const decisionInteractionAgentActivityIds = ref<string[]>([])
+const decisionInteractionValues = ref<InteractionValues>({})
+const decisionContextLoading = ref(false)
 const transferForm = reactive({
   targetAssignee: '',
   targetCandidateUsers: '',
@@ -105,12 +120,16 @@ const decisionMutation = useMutation({
   mutationFn: () => {
     const task = selectedTask.value
     if (!task || !canActOnTask(task)) throw new Error('当前用户不能操作该任务')
+    const variables = buildInteractionVariables(
+      decisionInteractionFields.value,
+      decisionInteractionValues.value,
+    )
     const base = {
       taskId: task.taskId,
       currentAssignee: task.assignee || undefined,
       currentCandidateGroups: task.candidateGroups || [],
       comment: decisionForm.comment.trim() || undefined,
-      variables: {},
+      variables,
       participantAssignments: decisionAssignments.value,
     }
     return decisionType.value === 'approve'
@@ -129,20 +148,22 @@ const decisionMutation = useMutation({
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
 const decisionRequirementsMutation = useMutation({
-  mutationFn: () => {
+  mutationFn: (variables: Record<string, unknown> = {}) => {
     const task = selectedTask.value
     if (!task) throw new Error('请选择任务')
     return processInstanceApi.taskParticipantRequirements({
       taskId: task.taskId,
       action: decisionType.value === 'approve' ? 'APPROVE' : 'REJECT',
-      variables: {},
+      variables,
     })
   },
   onSuccess: (requirements) => {
     decisionRequirements.value = requirements
-    decisionAssignments.value = []
+    const activityIds = new Set(requirements.map((item) => item.activityId))
+    decisionAssignments.value = decisionAssignments.value.filter((item) =>
+      activityIds.has(item.activityId),
+    )
   },
-  onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
 
 async function refresh() {
@@ -180,16 +201,47 @@ function canActOnTask(task: TaskItem) {
     (task.assignee === username || task.candidateUsers?.includes(username)),
   )
 }
-function openDecision(task: TaskItem, type: 'approve' | 'reject') {
+async function openDecision(task: TaskItem, type: 'approve' | 'reject') {
   selectedTask.value = task
   decisionType.value = type
   decisionForm.comment = ''
   decisionRequirements.value = []
   decisionAssignments.value = []
+  decisionInteractionFields.value = []
+  decisionInteractionAgentActivityIds.value = []
+  decisionInteractionValues.value = {}
   decisionVisible.value = true
-  decisionRequirementsMutation.mutate()
+  decisionContextLoading.value = true
+  try {
+    if (type === 'approve') {
+      const interaction = await processInstanceApi.taskInteraction({
+        taskId: task.taskId,
+        variables: {},
+      })
+      if (selectedTask.value?.taskId !== task.taskId || !decisionVisible.value) return
+      decisionInteractionFields.value = interaction.fields
+      decisionInteractionAgentActivityIds.value = interaction.agentActivityIds
+      decisionInteractionValues.value = synchronizeInteractionValues(interaction.fields, {})
+    }
+    await decisionRequirementsMutation.mutateAsync({})
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+  } finally {
+    decisionContextLoading.value = false
+  }
 }
-function confirmDecision() {
+async function confirmDecision() {
+  let variables: Record<string, unknown>
+  try {
+    variables = buildInteractionVariables(
+      decisionInteractionFields.value,
+      decisionInteractionValues.value,
+    )
+    await decisionRequirementsMutation.mutateAsync(variables)
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+    return
+  }
   const complete = decisionRequirements.value.every((requirement) => {
     if (!requirement.required) return true
     const users = decisionAssignments.value.find(
@@ -391,8 +443,15 @@ function confirmDecision() {
             placeholder="选填"
           />
         </el-form-item>
+        <InteractionDataFields
+          v-if="decisionType === 'approve'"
+          v-model="decisionInteractionValues"
+          :fields="decisionInteractionFields"
+          :agent-activity-ids="decisionInteractionAgentActivityIds"
+          :loading="decisionContextLoading"
+        />
       </el-form>
-      <div v-loading="decisionRequirementsMutation.isPending.value">
+      <div v-loading="decisionRequirementsMutation.isPending.value || decisionContextLoading">
         <ParticipantAssignmentEditor
           v-model="decisionAssignments"
           :requirements="decisionRequirements"
@@ -402,8 +461,10 @@ function confirmDecision() {
         <el-button @click="decisionVisible = false">取消</el-button>
         <el-button
           :type="decisionType === 'approve' ? 'success' : 'warning'"
-          :disabled="decisionRequirementsMutation.isPending.value"
-          :loading="decisionMutation.isPending.value"
+          :disabled="decisionRequirementsMutation.isPending.value || decisionContextLoading"
+          :loading="
+            decisionMutation.isPending.value || decisionRequirementsMutation.isPending.value
+          "
           @click="confirmDecision"
         >
           {{ decisionType === 'approve' ? '确认同意' : '确认退回' }}

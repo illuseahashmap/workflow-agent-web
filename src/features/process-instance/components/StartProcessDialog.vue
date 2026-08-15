@@ -8,15 +8,26 @@ import { queryKeys } from '@/api/queryKeys'
 import { definitionApi, type ProcessDefinition } from '@/features/process-definition'
 import { useAuthStore } from '@/stores/auth'
 import { formatVersion } from '@/utils/format'
-import { resolveStartFrontierKinds } from '@/utils/bpmn'
 import { processInstanceApi } from '../api'
+import InteractionDataFields from './InteractionDataFields.vue'
 import ParticipantAssignmentEditor from './ParticipantAssignmentEditor.vue'
+import {
+  buildInteractionVariables,
+  mergeInteractionVariables,
+  synchronizeInteractionValues,
+  type InteractionValues,
+} from '../interaction'
 import {
   buildProcessVariables,
   type ProcessVariableDraft,
   type ProcessVariableType,
 } from '../startProcess'
-import type { ParticipantAssignment, ParticipantRequirement, StartProcessResult } from '../types'
+import type {
+  InteractionDataField,
+  ParticipantAssignment,
+  ParticipantRequirement,
+  StartProcessResult,
+} from '../types'
 
 const props = defineProps<{
   modelValue: boolean
@@ -34,7 +45,10 @@ const form = reactive({ processDefinitionId: '', businessKey: '' })
 const variableRows = ref<ProcessVariableDraft[]>([])
 const participantRequirements = ref<ParticipantRequirement[]>([])
 const participantAssignments = ref<ParticipantAssignment[]>([])
-const selectedDefinitionXml = ref('')
+const interactionFields = ref<InteractionDataField[]>([])
+const interactionAgentActivityIds = ref<string[]>([])
+const interactionValues = ref<InteractionValues>({})
+const interactionLoading = ref(false)
 const preparedVariables = ref<Record<string, unknown>>()
 const requirementsLoaded = ref(false)
 let previewTimer: ReturnType<typeof setTimeout> | undefined
@@ -61,41 +75,6 @@ const activeDefinitions = computed(() => {
 const selectedDefinition = computed(() =>
   activeDefinitions.value.find((item) => item.processDefinitionId === form.processDefinitionId),
 )
-
-const startFrontier = computed(() => {
-  if (!selectedDefinitionXml.value) return { hasAgentWait: false, hasUserTask: false }
-  try {
-    return resolveStartFrontierKinds(selectedDefinitionXml.value)
-  } catch {
-    return { hasAgentWait: false, hasUserTask: false }
-  }
-})
-
-let definitionLoadSequence = 0
-
-async function loadSelectedDefinitionXml() {
-  const definition = selectedDefinition.value
-  if (!definition) {
-    selectedDefinitionXml.value = ''
-    return
-  }
-  if (definition.bpmnXml) {
-    selectedDefinitionXml.value = definition.bpmnXml
-    return
-  }
-  const sequence = ++definitionLoadSequence
-  try {
-    const detail = await definitionApi.detail(definition.processDefinitionKey, definition.version)
-    if (
-      sequence === definitionLoadSequence &&
-      detail.processDefinitionId === definition.processDefinitionId
-    ) {
-      selectedDefinitionXml.value = detail.bpmnXml
-    }
-  } catch {
-    if (sequence === definitionLoadSequence) selectedDefinitionXml.value = ''
-  }
-}
 
 watch(
   [() => props.modelValue, activeDefinitions, () => props.initialProcessDefinitionKey],
@@ -175,42 +154,68 @@ async function requestRequirements(startWhenReady: boolean) {
     if (startWhenReady) ElMessage.warning('请选择已发布的流程')
     return
   }
-  await loadSelectedDefinitionXml()
-  let variables: Record<string, unknown>
+  let manualVariables: Record<string, unknown>
   try {
-    variables = buildProcessVariables(variableRows.value)
+    manualVariables = buildProcessVariables(variableRows.value)
   } catch (error) {
     if (startWhenReady) ElMessage.error(getErrorMessage(error))
     return
   }
-  if (startFrontier.value.hasAgentWait && !startFrontier.value.hasUserTask) {
-    preparedVariables.value = variables
-    participantRequirements.value = []
-    participantAssignments.value = []
-    requirementsLoaded.value = true
-    if (startWhenReady) continueStart()
-    return
-  }
   const generation = ++previewGeneration
   requirementsLoaded.value = false
+  interactionLoading.value = true
+  try {
+    const interaction = await processInstanceApi.startInteraction({
+      processDefinitionKey: definition.processDefinitionKey,
+      processDefinitionId: definition.processDefinitionId,
+      variables: manualVariables,
+    })
+    if (generation !== previewGeneration) return
+    interactionFields.value = interaction.fields
+    interactionAgentActivityIds.value = interaction.agentActivityIds
+    interactionValues.value = synchronizeInteractionValues(
+      interaction.fields,
+      interactionValues.value,
+    )
+  } catch (error) {
+    if (generation === previewGeneration && startWhenReady) ElMessage.error(getErrorMessage(error))
+    return
+  } finally {
+    if (generation === previewGeneration) interactionLoading.value = false
+  }
+  let variables: Record<string, unknown>
+  try {
+    variables = currentVariables()
+  } catch (error) {
+    if (startWhenReady) ElMessage.error(getErrorMessage(error))
+    return
+  }
   requirementsMutation.mutate({ definition, generation, startWhenReady, variables })
 }
 
-function scheduleRequirementsPreview() {
+function scheduleRequirementsPreview(resetInteraction: boolean) {
   previewGeneration += 1
   requirementsLoaded.value = false
   preparedVariables.value = undefined
   participantRequirements.value = []
   participantAssignments.value = []
-  selectedDefinitionXml.value = ''
+  if (resetInteraction) {
+    interactionFields.value = []
+    interactionAgentActivityIds.value = []
+    interactionValues.value = {}
+  }
   if (previewTimer) clearTimeout(previewTimer)
   if (!props.modelValue || !selectedDefinition.value) return
   previewTimer = setTimeout(() => requestRequirements(false), 300)
 }
 
 watch(
-  [() => form.processDefinitionId, () => JSON.stringify(variableRows.value)],
-  scheduleRequirementsPreview,
+  () => form.processDefinitionId,
+  () => scheduleRequirementsPreview(true),
+)
+watch(
+  () => JSON.stringify(variableRows.value),
+  () => scheduleRequirementsPreview(false),
 )
 
 onBeforeUnmount(() => {
@@ -231,6 +236,9 @@ function resetForm() {
   variableRows.value = []
   participantRequirements.value = []
   participantAssignments.value = []
+  interactionFields.value = []
+  interactionAgentActivityIds.value = []
+  interactionValues.value = {}
   preparedVariables.value = undefined
   requirementsLoaded.value = false
   previewGeneration += 1
@@ -238,9 +246,16 @@ function resetForm() {
 }
 
 function continueStart() {
+  let variables: Record<string, unknown>
+  try {
+    variables = currentVariables()
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error))
+    return
+  }
   if (!participantRequirements.value.length) {
     startMutation.mutate({
-      variables: preparedVariables.value ?? buildProcessVariables(variableRows.value),
+      variables,
       participantAssignments: [],
     })
     return
@@ -257,9 +272,16 @@ function continueStart() {
     return
   }
   startMutation.mutate({
-    variables: preparedVariables.value ?? buildProcessVariables(variableRows.value),
+    variables,
     participantAssignments: participantAssignments.value,
   })
+}
+
+function currentVariables() {
+  return mergeInteractionVariables(
+    buildProcessVariables(variableRows.value),
+    buildInteractionVariables(interactionFields.value, interactionValues.value),
+  )
 }
 
 function submit() {
@@ -313,6 +335,13 @@ function variablePlaceholder(type: ProcessVariableType) {
           placeholder="选填，例如 LEAVE-2026-0001"
         />
       </el-form-item>
+
+      <InteractionDataFields
+        v-model="interactionValues"
+        :fields="interactionFields"
+        :agent-activity-ids="interactionAgentActivityIds"
+        :loading="interactionLoading"
+      />
 
       <section class="variable-section">
         <div class="variable-section__heading">
@@ -381,7 +410,11 @@ function variablePlaceholder(type: ProcessVariableType) {
       <el-button
         type="primary"
         :disabled="!selectedDefinition"
-        :loading="startMutation.isPending.value || requirementsMutation.isPending.value"
+        :loading="
+          startMutation.isPending.value ||
+          requirementsMutation.isPending.value ||
+          interactionLoading
+        "
         @click="submit"
       >
         {{ participantRequirements.length ? '确认发起' : '发起流程' }}

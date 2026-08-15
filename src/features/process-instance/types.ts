@@ -79,6 +79,26 @@ export interface StartProcessRequest {
   participantAssignments: ParticipantAssignment[]
 }
 
+export type InteractionDataType = 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array'
+
+export interface InteractionDataField {
+  variablePath: string
+  label: string
+  description?: string
+  dataType: InteractionDataType
+  format?: string
+  required: boolean
+  currentValue?: unknown
+  agentActivityId: string
+  agentActivityName: string
+  agentInputPath: string
+}
+
+export interface ProcessInteraction {
+  fields: InteractionDataField[]
+  agentActivityIds: string[]
+}
+
 export type ParticipantAssignmentType =
   'ASSIGNEE' | 'CANDIDATE_USERS' | 'CANDIDATE_GROUPS' | 'COUNTERSIGN_USERS' | 'MIXED'
 

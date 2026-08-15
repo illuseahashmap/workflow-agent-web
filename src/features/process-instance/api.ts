@@ -7,6 +7,7 @@ import type {
   CompleteTaskRequest,
   CompleteTaskResult,
   ParticipantRequirement,
+  ProcessInteraction,
   RejectTaskRequest,
   StartProcessRequest,
   StartProcessResult,
@@ -25,6 +26,11 @@ export interface InstancePageQuery {
 }
 
 export const processInstanceApi = {
+  startInteraction: (payload: {
+    processDefinitionKey: string
+    processDefinitionId?: string
+    variables: Record<string, unknown>
+  }) => apiClient.post<ProcessInteraction>('/workflow/process/interaction', payload),
   start: (payload: StartProcessRequest) =>
     apiClient.post<StartProcessResult>('/workflow/process/start', payload),
   startParticipantRequirements: (payload: {
@@ -47,6 +53,8 @@ export const processInstanceApi = {
     apiClient.post<void>(`${ROOT}/instance/terminate`, { processInstanceId, reason }),
   approve: (payload: CompleteTaskRequest) =>
     apiClient.post<CompleteTaskResult>('/workflow/task/approve', payload),
+  taskInteraction: (payload: { taskId: string; variables: Record<string, unknown> }) =>
+    apiClient.post<ProcessInteraction>('/workflow/task/interaction', payload),
   taskParticipantRequirements: (payload: {
     taskId: string
     action: 'APPROVE' | 'REJECT'
