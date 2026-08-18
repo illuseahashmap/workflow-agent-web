@@ -121,7 +121,11 @@ const selectedTarget = computed(() => selectedBusinessObject.value?.targetRef?.i
 const selectedAgentVersion = computed(() =>
   agentVersions.value.find((version) => String(version.id) === agentVersionId.value),
 )
-const agentInputSchemaFields = computed(() => schemaFields(selectedAgentVersion.value?.inputSchema))
+const agentInputSchemaFields = computed(() =>
+  schemaFields(selectedAgentVersion.value?.inputSchema).filter(
+    (field) => field.mapping === 'value' || field.mapping === 'array',
+  ),
+)
 const agentOutputSchemaFields = computed(() =>
   schemaFields(selectedAgentVersion.value?.outputSchema),
 )
@@ -1290,7 +1294,8 @@ watch(selectedVersion, () => resetSelection())
                     </div>
                   </div>
                   <p class="property-hint">
-                    左侧是 Agent 输入字段，右侧是流程变量路径，只传递显式映射的数据。
+                    左侧是 Agent
+                    输入字段，右侧是流程变量路径，只传递显式映射的数据。输入侧支持标量、对象字段和整个数组；数组索引与通配投影仅适用于输出读取。
                   </p>
                 </el-form-item>
                 <el-form-item label="输出字段映射">
