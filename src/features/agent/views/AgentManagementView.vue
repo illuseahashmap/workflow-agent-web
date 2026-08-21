@@ -15,6 +15,7 @@ import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
 import { getStatusLabel } from '@/utils/status'
 import { agentApi, agentProviderApi, agentRunApi } from '../api'
+import { getAgentErrorPresentation } from '../errorPresentation'
 import type {
   AgentDefinition,
   AgentDefinitionCommand,
@@ -982,10 +983,37 @@ function snapshotField(snapshot: string | undefined, field: string) {
             }}</pre>
             <el-alert
               v-else
-              type="error"
+              :type="
+                getAgentErrorPresentation(runDetailQuery.data.value.run.errorCode)?.action ===
+                'CONFIGURATION'
+                  ? 'warning'
+                  : 'error'
+              "
               :closable="false"
-              :title="runDetailQuery.data.value.run.errorCode"
-            />
+            >
+              <template #title>
+                <span class="run-error-title">
+                  {{
+                    getAgentErrorPresentation(runDetailQuery.data.value.run.errorCode)?.title ||
+                    'Agent 执行未完成'
+                  }}
+                </span>
+              </template>
+              <div class="run-error-detail">
+                <span>
+                  {{
+                    getAgentErrorPresentation(runDetailQuery.data.value.run.errorCode)
+                      ?.description || '系统已记录本次失败，请联系管理员。'
+                  }}
+                </span>
+                <span class="run-error-action">
+                  {{
+                    getAgentErrorPresentation(runDetailQuery.data.value.run.errorCode)?.actionLabel
+                  }}
+                  · {{ runDetailQuery.data.value.run.errorCode }}
+                </span>
+              </div>
+            </el-alert>
           </section>
 
           <el-tabs class="run-detail-tabs">
@@ -1296,7 +1324,7 @@ function snapshotField(snapshot: string | undefined, field: string) {
             :disabled="editingVersion?.status === 'PUBLISHED'"
           >
             <el-option label="模型调用（MODEL_ONLY）" value="MODEL_ONLY" />
-            <el-option label="平台 Agent（规划中）" value="PLATFORM_AGENT" disabled />
+            <el-option label="平台 Agent（受控工具循环）" value="PLATFORM_AGENT" />
             <el-option label="远程 Agent（规划中）" value="REMOTE_AGENT" disabled />
           </el-select>
           <div class="form-help">执行方式属于版本语义，发布后不可修改。</div>
@@ -1819,6 +1847,18 @@ function snapshotField(snapshot: string | undefined, field: string) {
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.run-error-title {
+  font-weight: 700;
+}
+.run-error-detail {
+  display: grid;
+  gap: 5px;
+  line-height: 1.6;
+}
+.run-error-action {
+  color: #7a889d;
+  font-size: 12px;
 }
 .run-payload-grid {
   display: grid;

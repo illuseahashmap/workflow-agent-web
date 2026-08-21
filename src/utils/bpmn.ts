@@ -40,28 +40,12 @@ export function validateBpmnXml(xml: string) {
     const owner = task.parentElement?.parentElement
     if (
       task.parentElement?.localName !== 'extensionElements' ||
-      !['receiveTask', 'serviceTask'].includes(owner?.localName || '')
+      owner?.localName !== 'receiveTask'
     ) {
-      throw new Error('Agent 任务必须绑定在等待型任务上')
+      throw new Error('Agent 任务必须绑定在 bpmn:receiveTask 等待节点上')
     }
     const version = Number(task.getAttribute('agentVersionId'))
     if (!Number.isInteger(version) || version <= 0) throw new Error('Agent 任务必须选择已发布版本')
-    if (owner?.localName === 'serviceTask') {
-      const flowable = 'http://flowable.org/bpmn'
-      const delegateExpression =
-        owner.getAttributeNS(flowable, 'delegateExpression') ||
-        owner.getAttribute('flowable:delegateExpression')
-      const triggerable =
-        owner.getAttributeNS(flowable, 'triggerable') || owner.getAttribute('flowable:triggerable')
-      const async = owner.getAttributeNS(flowable, 'async') || owner.getAttribute('flowable:async')
-      if (
-        delegateExpression !== '${agentTaskDelegate}' ||
-        triggerable !== 'true' ||
-        async !== 'true'
-      ) {
-        throw new Error('Agent 服务任务缺少异步可触发执行配置')
-      }
-    }
   }
   return document
 }

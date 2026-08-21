@@ -473,32 +473,60 @@ function ensureAgentTaskBinding(element?: BpmnElement) {
   if (
     !element ||
     !object ||
-    !['bpmn:ServiceTask', 'bpmn:ReceiveTask'].includes(object.$type || '') ||
+    object.$type !== 'bpmn:ReceiveTask' ||
     !modeling ||
     !moddle
   )
     return false
-  if (isAgentTaskElement(object)) return false
-  const extensionElements = moddle.create('bpmn:ExtensionElements', {
-    values: [
-      moddle.create('workflow:AgentTask', {
-        agentVersionId: '',
-        inputMapping: '{}',
-        outputMapping: '{}',
-        processFailurePolicy: 'HOLD_FOR_OPERATIONS',
-        processWaitTimeoutSeconds: '300',
-      }),
-    ],
-  })
-  modeling.updateModdleProperties(element, object, { extensionElements })
-  if (object.$type === 'bpmn:ServiceTask') {
-    modeling.updateModdleProperties(element, object, {
-      delegateExpression: '${agentTaskDelegate}',
-      triggerable: true,
-      async: true,
+  const startListener = () =>
+    moddle.create('flowable:ExecutionListener', {
+      event: 'start',
+      delegateExpression: '${agentTaskExecutionListener}',
     })
+  let changed = false
+  if (!isAgentTaskElement(object)) {
+    const extensionElements = moddle.create('bpmn:ExtensionElements', {
+      values: [
+        moddle.create('workflow:AgentTask', {
+          agentVersionId: '',
+          inputMapping: '{}',
+          outputMapping: '{}',
+          processFailurePolicy: 'HOLD_FOR_OPERATIONS',
+          processWaitTimeoutSeconds: '300',
+        }),
+        startListener(),
+      ],
+    })
+    modeling.updateModdleProperties(element, object, { extensionElements })
+    changed = true
+  } else if (object.extensionElements) {
+    const values = object.extensionElements.values || []
+    const hasStartListener = values.some(
+      (item) =>
+        item.$type === 'flowable:ExecutionListener' &&
+        item.event === 'start' &&
+        item.delegateExpression === '${agentTaskExecutionListener}',
+    )
+    if (!hasStartListener) {
+      modeling.updateModdleProperties(element, object.extensionElements, {
+        values: [...values, startListener()],
+      })
+      changed = true
+    }
   }
-  return true
+  return changed
+}
+
+function normalizeAgentTaskBindings() {
+  let changed = false
+  service<ElementRegistry>('elementRegistry')
+    ?.getAll()
+    .forEach((element) => {
+      if (isAgentTaskElement(element.businessObject)) {
+        changed = ensureAgentTaskBinding(element) || changed
+      }
+    })
+  return changed
 }
 
 function sanitizeAttributes(object?: ModdleElement | string) {
@@ -640,6 +668,7 @@ async function saveVersion() {
   saving.value = true
   try {
     syncProcessMetadata()
+    normalizeAgentTaskBindings()
     sanitizeModel()
     const { xml } = await modeler.value.saveXML({ format: true })
     validateBpmnXml(xml)

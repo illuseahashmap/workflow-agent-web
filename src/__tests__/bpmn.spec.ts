@@ -58,22 +58,23 @@ describe('BPMN utilities', () => {
     ])
   })
 
-  it('requires Agent bindings to use the triggerable service-task contract', () => {
+  it('requires Agent bindings to use the receive-task contract', () => {
     const valid = `<?xml version="1.0"?>
       <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
         xmlns:workflow="http://workflow-agent.local/bpmn"
         xmlns:flowable="http://flowable.org/bpmn">
         <process id="agent" isExecutable="true">
-          <serviceTask id="agentTask" flowable:async="true" flowable:triggerable="true"
-            flowable:delegateExpression="\${agentTaskDelegate}"><extensionElements>
+          <receiveTask id="agentTask"><extensionElements>
             <workflow:agentTask agentVersionId="12" />
-          </extensionElements></serviceTask>
+            <flowable:ExecutionListener event="start"
+              flowable:delegateExpression="\${agentTaskExecutionListener}" />
+          </extensionElements></receiveTask>
         </process>
       </definitions>`
     expect(() => validateBpmnXml(valid)).not.toThrow()
 
-    const invalid = valid.replace('flowable:triggerable="true"', '')
-    expect(() => validateBpmnXml(invalid)).toThrow('异步可触发')
+    const invalid = valid.replace('<receiveTask', '<serviceTask').replace('</receiveTask>', '</serviceTask>')
+    expect(() => validateBpmnXml(invalid)).toThrow('receiveTask')
   })
 
   it('stops start-time participant discovery at an Agent wait state', () => {
