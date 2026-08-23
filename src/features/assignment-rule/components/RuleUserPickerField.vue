@@ -55,9 +55,9 @@ function remove(username: string) {
   width: 100%;
   gap: 10px;
   padding: 6px 8px 6px 12px;
-  border: 1px solid #d8e1ee;
+  border: 1px solid var(--color-border);
   border-radius: var(--control-radius);
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .rule-user-picker-field__tags {
@@ -69,7 +69,7 @@ function remove(username: string) {
 
 .rule-user-picker-field__placeholder {
   flex: 1;
-  color: #94a3b8;
+  color: var(--color-text-subtle);
   font-size: 13px;
 }
 

@@ -104,6 +104,7 @@ export interface AgentRun {
   processInstanceId?: string
   activityId?: string
   errorCode?: string
+  traceId?: string
   deadlineAt: string
   startedAt?: string
   completedAt?: string
@@ -156,6 +157,39 @@ export interface AgentRunStateHistory {
   createdAt: string
 }
 
+export type AgentFailureCategory =
+  | 'PROVIDER_TRANSIENT'
+  | 'OUTPUT_CONTRACT'
+  | 'TOOL_PROTOCOL'
+  | 'INPUT_CONTRACT'
+  | 'CONFIGURATION'
+  | 'BUSINESS_REJECTION'
+  | 'EXECUTION_UNEXPECTED'
+  | 'DEADLINE'
+
+export type AgentRecoveryAction =
+  | 'RETRY_PROVIDER'
+  | 'REPAIR_OUTPUT'
+  | 'REPAIR_TOOL_CALL'
+  | 'WAIT_FOR_REVIEW'
+  | 'FIX_CONFIGURATION'
+  | 'REJECT_BUSINESS'
+  | 'TERMINATE'
+
+export interface AgentRecoveryDecision {
+  id: number
+  attemptId: number
+  stepId: number
+  errorCode: string
+  failureCategory: AgentFailureCategory
+  action: AgentRecoveryAction
+  retryScheduled: boolean
+  requiresHumanReview: boolean
+  resultStatus?: AgentResultStatus
+  reason: string
+  createdAt: string
+}
+
 export interface AgentModelInvocation {
   id: number
   attemptId: number
@@ -198,4 +232,5 @@ export interface AgentRunDetail {
   modelInvocations: AgentModelInvocation[]
   checkpoints: AgentRunCheckpoint[]
   stateHistory: AgentRunStateHistory[]
+  recoveryDecisions: AgentRecoveryDecision[]
 }

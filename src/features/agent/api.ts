@@ -64,7 +64,18 @@ export const agentProviderApi = {
 export const agentRunApi = {
   page: (params: AgentRunPageQuery) =>
     apiClient.get<PageResult<AgentRun>>('/agent-runs', { params }),
-  detail: (runId: number) => apiClient.get<AgentRunDetail>(`/agent-runs/${runId}`),
+  detail: async (runId: number) => {
+    const detail = await apiClient.get<AgentRunDetail>(`/agent-runs/${runId}`)
+    return {
+      ...detail,
+      attempts: detail.attempts ?? [],
+      steps: detail.steps ?? [],
+      modelInvocations: detail.modelInvocations ?? [],
+      checkpoints: detail.checkpoints ?? [],
+      stateHistory: detail.stateHistory ?? [],
+      recoveryDecisions: detail.recoveryDecisions ?? [],
+    }
+  },
   submitManual: (payload: AgentManualRunCommand) =>
     apiClient.post<AgentRunSubmission>('/agent-runs/manual-tests', payload),
 }

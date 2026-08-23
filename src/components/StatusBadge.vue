@@ -40,33 +40,33 @@ const presentation = computed(() => getStatusPresentation(props.status))
 }
 
 .status-badge[data-tone='primary'] {
-  --el-tag-bg-color: #edf4ff;
+  --el-tag-bg-color: var(--color-primary-soft);
   --el-tag-border-color: #bfd5ff;
-  --el-tag-text-color: #1d4ed8;
+  --el-tag-text-color: var(--color-primary-strong);
 }
 
 .status-badge[data-tone='success'] {
-  --el-tag-bg-color: #ecf9f0;
-  --el-tag-border-color: #b9e6c7;
-  --el-tag-text-color: #15803d;
+  --el-tag-bg-color: var(--color-success-soft);
+  --el-tag-border-color: var(--color-success-border);
+  --el-tag-text-color: var(--color-success);
 }
 
 .status-badge[data-tone='warning'] {
-  --el-tag-bg-color: #fff8e8;
-  --el-tag-border-color: #f5d99a;
-  --el-tag-text-color: #a85b08;
+  --el-tag-bg-color: var(--color-warning-soft);
+  --el-tag-border-color: var(--color-warning-border);
+  --el-tag-text-color: var(--color-warning);
 }
 
 .status-badge[data-tone='danger'] {
-  --el-tag-bg-color: #fff0f1;
-  --el-tag-border-color: #f5c2c7;
-  --el-tag-text-color: #c2414b;
+  --el-tag-bg-color: var(--color-danger-soft);
+  --el-tag-border-color: var(--color-danger-border);
+  --el-tag-text-color: var(--color-danger);
 }
 
 .status-badge[data-tone='info'] {
-  --el-tag-bg-color: #f3f6fa;
-  --el-tag-border-color: #d7e0eb;
-  --el-tag-text-color: #64748b;
+  --el-tag-bg-color: var(--color-surface-muted);
+  --el-tag-border-color: var(--color-border);
+  --el-tag-text-color: var(--color-text-muted);
 }
 
 :deep(.el-tag__content) {

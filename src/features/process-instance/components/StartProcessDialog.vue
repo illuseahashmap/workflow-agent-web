@@ -443,13 +443,13 @@ function variablePlaceholder(type: ProcessVariableType) {
 }
 
 .variable-section__heading h3 {
-  color: #1e293b;
+  color: var(--color-text);
   font-size: 14px;
 }
 
 .variable-section__heading p {
   margin-top: 4px;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -461,7 +461,7 @@ function variablePlaceholder(type: ProcessVariableType) {
 }
 
 .variable-grid--header {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -472,9 +472,9 @@ function variablePlaceholder(type: ProcessVariableType) {
 
 .variable-empty {
   padding: 18px 0;
-  border: 1px dashed #dbe3ee;
+  border: 1px dashed var(--color-border);
   border-radius: 10px;
-  color: #94a3b8;
+  color: var(--color-text-subtle);
   font-size: 12px;
   text-align: center;
 }
@@ -485,10 +485,10 @@ function variablePlaceholder(type: ProcessVariableType) {
 
 .participant-status--loading {
   padding: 13px 15px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
-  background: #f8fbff;
-  color: #64748b;
+  background: var(--color-primary-soft);
+  color: var(--color-text-muted);
   font-size: 13px;
 }
 

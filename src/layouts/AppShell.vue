@@ -7,6 +7,8 @@ import {
   Building2,
   Bot,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   GitBranch,
   LogOut,
   Menu,
@@ -43,6 +45,9 @@ const savingProfile = ref(false)
 const savingPassword = ref(false)
 const profileForm = reactive({ displayName: '' })
 const passwordForm = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
+const sidebarCollapsed = ref(false)
+const sidebarToggleButton = ref<HTMLButtonElement>()
+const SIDEBAR_COLLAPSED_KEY = 'workflow-agent.sidebar-collapsed'
 let authorizationRefreshTimer: ReturnType<typeof setInterval> | undefined
 let refreshingAuthorization = false
 const navigationIcons: Record<NavigationIcon, Component> = {
@@ -80,10 +85,17 @@ function handleVisibilityChange() {
 }
 
 onMounted(async () => {
+  sidebarCollapsed.value = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
+  sidebarToggleButton.value?.setAttribute('aria-expanded', String(!sidebarCollapsed.value))
   await refreshAuthorization(true)
   window.addEventListener('focus', handleWindowFocus)
   document.addEventListener('visibilitychange', handleVisibilityChange)
   authorizationRefreshTimer = window.setInterval(() => void refreshAuthorization(), 30_000)
+})
+
+watch(sidebarCollapsed, (collapsed) => {
+  window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed))
+  sidebarToggleButton.value?.setAttribute('aria-expanded', String(!collapsed))
 })
 
 onBeforeUnmount(() => {
@@ -195,7 +207,7 @@ const navigation = computed(() =>
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'is-sidebar-collapsed': sidebarCollapsed }">
     <aside class="sidebar" aria-label="主导航">
       <div class="brand">
         <span class="brand-mark"><Workflow :size="21" /></span>
@@ -204,6 +216,18 @@ const navigation = computed(() =>
           <small>流程编排工作台</small>
         </span>
       </div>
+      <button
+        ref="sidebarToggleButton"
+        class="sidebar-toggle"
+        type="button"
+        :title="sidebarCollapsed ? '展开导航' : '收起导航'"
+        :aria-label="sidebarCollapsed ? '展开导航' : '收起导航'"
+        :aria-expanded="sidebarCollapsed ? ('false' as const) : ('true' as const)"
+        @click="sidebarCollapsed = !sidebarCollapsed"
+      >
+        <ChevronRight v-if="sidebarCollapsed" :size="16" />
+        <ChevronLeft v-else :size="16" />
+      </button>
 
       <nav class="navigation">
         <RouterLink
@@ -211,9 +235,11 @@ const navigation = computed(() =>
           :key="String(item.to.name)"
           :to="item.to"
           class="nav-item"
+          :title="sidebarCollapsed ? item.label : undefined"
+          :aria-label="item.label"
         >
           <component :is="item.icon" :size="18" />
-          <span>{{ item.label }}</span>
+          <span class="nav-item-label">{{ item.label }}</span>
         </RouterLink>
       </nav>
     </aside>

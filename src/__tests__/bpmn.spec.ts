@@ -73,7 +73,9 @@ describe('BPMN utilities', () => {
       </definitions>`
     expect(() => validateBpmnXml(valid)).not.toThrow()
 
-    const invalid = valid.replace('<receiveTask', '<serviceTask').replace('</receiveTask>', '</serviceTask>')
+    const invalid = valid
+      .replace('<receiveTask', '<serviceTask')
+      .replace('</receiveTask>', '</serviceTask>')
     expect(() => validateBpmnXml(invalid)).toThrow('receiveTask')
   })
 

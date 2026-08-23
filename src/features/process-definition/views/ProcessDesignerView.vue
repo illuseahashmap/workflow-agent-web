@@ -14,11 +14,15 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Copy, Download, FileUp, MoreHorizontal, Plus, Save, Trash2 } from '@lucide/vue'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
+import 'bpmn-js/dist/assets/diagram-js.css'
+import 'bpmn-js/dist/assets/bpmn-js.css'
+import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
 import { getErrorMessage } from '@/api/http'
 import flowableModdle from '@/bpmn/flowableModdle'
 import workflowModdle from '@/bpmn/workflowModdle'
 import workflowPaletteModule from '@/bpmn/workflowPaletteModule'
 import StatusBadge from '@/components/StatusBadge.vue'
+import AgentTaskConfigPanel from '../components/AgentTaskConfigPanel.vue'
 import type {
   ApprovalMode,
   BpmnElement,
@@ -470,13 +474,7 @@ function ensureAgentTaskBinding(element?: BpmnElement) {
   const object = element?.businessObject
   const modeling = service<Modeling>('modeling')
   const moddle = service<Moddle>('moddle')
-  if (
-    !element ||
-    !object ||
-    object.$type !== 'bpmn:ReceiveTask' ||
-    !modeling ||
-    !moddle
-  )
+  if (!element || !object || object.$type !== 'bpmn:ReceiveTask' || !modeling || !moddle)
     return false
   const startListener = () =>
     moddle.create('flowable:ExecutionListener', {
@@ -1248,158 +1246,30 @@ watch(selectedVersion, () => resetSelection())
               </el-form>
             </div>
 
-            <div v-if="isAgentTask" class="property-block agent-task-config">
-              <strong>Agent 配置</strong>
-              <el-form label-position="top" size="small">
-                <el-form-item label="已发布版本 ID" required>
-                  <el-select
-                    v-model="agentVersionId"
-                    filterable
-                    remote
-                    clearable
-                    :remote-method="searchAgentVersions"
-                    :loading="agentVersionSearchLoading"
-                    placeholder="选择已发布 Agent 版本"
-                    @change="applyAgentVersion"
-                  >
-                    <el-option
-                      v-for="version in agentVersions"
-                      :key="version.id"
-                      :label="`${version.agentName} · 第 ${version.version} 版`"
-                      :value="String(version.id)"
-                    />
-                  </el-select>
-                </el-form-item>
-                <div v-if="selectedAgentVersion" class="agent-version-summary">
-                  <span>执行方式：模型调用</span>
-                  <span>Agent 运行上限：{{ selectedAgentVersion.timeoutSeconds }} 秒</span>
-                  <span>输入、输出契约以该已发布版本为准</span>
-                </div>
-                <el-form-item label="输入字段映射">
-                  <div class="agent-mapping-editor">
-                    <div class="agent-mapping-editor__toolbar">
-                      <span>Agent 字段 ← 流程变量</span>
-                      <el-button link type="primary" @click="addAgentMappingRow">
-                        <Plus :size="14" />新增映射
-                      </el-button>
-                    </div>
-                    <div
-                      v-for="(row, index) in agentMappingRows"
-                      :key="index"
-                      class="agent-mapping-row"
-                    >
-                      <el-input
-                        v-if="!agentInputSchemaFields.length"
-                        v-model="row.field"
-                        placeholder="Agent 字段，例如 customerName"
-                        @blur="applyAgentMappings"
-                      />
-                      <el-select
-                        v-else
-                        v-model="row.field"
-                        filterable
-                        placeholder="选择 Agent 输入字段"
-                        @change="applyAgentMappings"
-                      >
-                        <el-option
-                          v-for="field in agentInputSchemaFields"
-                          :key="field.path"
-                          :label="schemaFieldLabel(field)"
-                          :value="field.path"
-                        />
-                      </el-select>
-                      <span>←</span>
-                      <el-input
-                        v-model="row.source"
-                        placeholder="流程变量，例如 customer.name"
-                        @blur="applyAgentMappings"
-                      />
-                      <el-button link type="danger" @click="removeAgentMappingRow(index)"
-                        >删除</el-button
-                      >
-                    </div>
-                    <div v-if="!agentMappingRows.length" class="agent-mapping-editor__empty">
-                      暂无映射。未配置时不会自动传入流程变量。
-                    </div>
-                  </div>
-                  <p class="property-hint">
-                    左侧是 Agent
-                    输入字段，右侧是流程变量路径，只传递显式映射的数据。输入侧支持标量、对象字段和整个数组；数组索引与通配投影仅适用于输出读取。
-                  </p>
-                </el-form-item>
-                <el-form-item label="输出字段映射">
-                  <div class="agent-mapping-editor">
-                    <div class="agent-mapping-editor__toolbar">
-                      <span>Agent 输出字段 → 流程变量</span>
-                      <el-button link type="primary" @click="addAgentOutputMappingRow">
-                        <Plus :size="14" />新增映射
-                      </el-button>
-                    </div>
-                    <div
-                      v-for="(row, index) in agentOutputMappingRows"
-                      :key="index"
-                      class="agent-mapping-row"
-                    >
-                      <el-input
-                        v-if="!agentOutputSchemaFields.length"
-                        v-model="row.field"
-                        placeholder="输出字段，例如 decision"
-                        @blur="applyAgentMappings"
-                      />
-                      <el-select
-                        v-else
-                        v-model="row.field"
-                        filterable
-                        placeholder="选择 Agent 输出字段"
-                        @change="applyAgentMappings"
-                      >
-                        <el-option
-                          v-for="field in agentOutputSchemaFields"
-                          :key="field.path"
-                          :label="schemaFieldLabel(field)"
-                          :value="field.path"
-                        />
-                      </el-select>
-                      <span>→</span>
-                      <el-input
-                        v-model="row.target"
-                        placeholder="新流程变量，例如 agentDecision"
-                        @blur="applyAgentMappings"
-                      />
-                      <el-button link type="danger" @click="removeAgentOutputMappingRow(index)"
-                        >删除</el-button
-                      >
-                    </div>
-                    <div v-if="!agentOutputMappingRows.length" class="agent-mapping-editor__empty">
-                      暂无映射。模型输出不会自动写入流程变量。
-                    </div>
-                  </div>
-                  <p class="property-hint">
-                    支持整个数组、固定索引（如 items.0）和通配投影（如
-                    items.*.name）；投影结果写入数组变量。
-                  </p>
-                </el-form-item>
-                <el-form-item label="流程等待时限（秒）" required>
-                  <el-input-number
-                    v-model="agentProcessWaitTimeoutSeconds"
-                    :min="1"
-                    :max="selectedAgentVersion?.timeoutSeconds || 3600"
-                    @change="applyAgentProcessPolicy"
-                  />
-                  <p class="property-hint">只能小于或等于 Agent 版本的运行上限。</p>
-                </el-form-item>
-                <el-form-item label="流程失败处理" required>
-                  <el-select v-model="agentProcessFailurePolicy" @change="applyAgentProcessPolicy">
-                    <el-option label="保留现场，等待运维处理" value="HOLD_FOR_OPERATIONS" />
-                    <el-option label="以空结果继续" value="CONTINUE_EMPTY" />
-                  </el-select>
-                  <p class="property-hint">
-                    Agent 失败不会隐式删除流程实例；人工复核将在任务中心能力完成后开放。
-                  </p>
-                </el-form-item>
-                <p class="property-hint">Agent 任务会异步执行，完成事件校验通过后继续流程。</p>
-              </el-form>
-            </div>
+            <AgentTaskConfigPanel
+              :agent-version-id="agentVersionId"
+              :agent-versions="agentVersions"
+              :selected-agent-version="selectedAgentVersion"
+              :agent-version-search-loading="agentVersionSearchLoading"
+              :agent-input-schema-fields="agentInputSchemaFields"
+              :agent-output-schema-fields="agentOutputSchemaFields"
+              :agent-mapping-rows="agentMappingRows"
+              :agent-output-mapping-rows="agentOutputMappingRows"
+              :agent-process-wait-timeout-seconds="agentProcessWaitTimeoutSeconds"
+              :agent-process-failure-policy="agentProcessFailurePolicy"
+              :search-agent-versions="searchAgentVersions"
+              :schema-field-label="schemaFieldLabel"
+              :apply-agent-version="applyAgentVersion"
+              :apply-agent-mappings="applyAgentMappings"
+              :add-agent-mapping-row="addAgentMappingRow"
+              :remove-agent-mapping-row="removeAgentMappingRow"
+              :add-agent-output-mapping-row="addAgentOutputMappingRow"
+              :remove-agent-output-mapping-row="removeAgentOutputMappingRow"
+              :apply-agent-process-policy="applyAgentProcessPolicy"
+              @update:agent-version-id="agentVersionId = $event"
+              @update:agent-process-wait-timeout-seconds="agentProcessWaitTimeoutSeconds = $event"
+              @update:agent-process-failure-policy="agentProcessFailurePolicy = $event"
+            />
 
             <div v-if="!isAgentTask && (isTask || isSequenceFlow)" class="property-block">
               <strong>流转规则</strong>

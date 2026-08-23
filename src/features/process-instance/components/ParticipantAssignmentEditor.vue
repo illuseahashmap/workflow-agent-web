@@ -124,7 +124,7 @@ function assignmentLabel(requirement: ParticipantRequirement) {
   gap: 10px;
   margin-top: 18px;
   padding-top: 18px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--color-border);
 }
 
 .participant-section__heading h3,
@@ -133,21 +133,21 @@ function assignmentLabel(requirement: ParticipantRequirement) {
 }
 
 .participant-section__heading h3 {
-  color: #1e293b;
+  color: var(--color-text);
   font-size: 14px;
 }
 
 .participant-section__heading p {
   margin-top: 4px;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
 .participant-card {
   padding: 12px;
-  border: 1px solid #dce6f3;
+  border: 1px solid var(--color-border-soft);
   border-radius: 12px;
-  background: #f8fbff;
+  background: var(--color-primary-soft);
 }
 
 .participant-card__title,
@@ -170,7 +170,7 @@ function assignmentLabel(requirement: ParticipantRequirement) {
 
 .participant-card__title small {
   margin-top: 2px;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .participant-card__selection {
@@ -185,7 +185,7 @@ function assignmentLabel(requirement: ParticipantRequirement) {
 }
 
 .participant-placeholder {
-  color: #94a3b8;
+  color: var(--color-text-subtle);
   font-size: 13px;
 }
 

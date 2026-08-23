@@ -8,13 +8,17 @@ import { queryKeys } from '@/api/queryKeys'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import AgentProviderTable from '../components/AgentProviderTable.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
+import TablePagination from '@/components/TablePagination.vue'
 import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
 import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
 import { getStatusLabel } from '@/utils/status'
 import { agentApi, agentProviderApi, agentRunApi } from '../api'
+import { useAgentSchemaEditor } from '../composables/useAgentSchemaEditor'
+import SchemaFieldsEditor from '../components/SchemaFieldsEditor.vue'
 import { getAgentErrorPresentation } from '../errorPresentation'
 import type {
   AgentDefinition,
@@ -194,22 +198,16 @@ const versionForm = reactive<AgentVersionCommand>({
   inputSchema: '',
   outputSchema: '',
 })
-type SchemaField = {
-  path: string
-  type: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array'
-  itemType: 'string' | 'number' | 'integer' | 'boolean' | 'object'
-  required: boolean
-  description: string
-}
-type InputSchemaNode = {
-  type?: string
-  description?: string
-  required?: string[]
-  items?: InputSchemaNode
-  properties?: Record<string, InputSchemaNode>
-}
-const inputSchemaFields = ref<SchemaField[]>([])
-const outputSchemaFields = ref<SchemaField[]>([])
+const {
+  inputSchemaFields,
+  outputSchemaFields,
+  reset: resetSchemaFields,
+  buildInputSchema,
+  buildOutputSchema,
+  addInputSchemaField,
+  addOutputSchemaField,
+  removeInputSchemaField,
+} = useAgentSchemaEditor()
 const versionsQuery = useQuery({
   queryKey: computed(() => queryKeys.agentVersions(tenantCode.value, selectedAgent.value?.id || 0)),
   queryFn: () => agentApi.versions(selectedAgent.value!.id),
@@ -234,7 +232,7 @@ const saveVersionMutation = useMutation({
       modelName: versionForm.modelName?.trim(),
       systemPrompt: versionForm.systemPrompt.trim(),
       inputSchema: buildInputSchema(),
-      outputSchema: buildSchema(outputSchemaFields),
+      outputSchema: buildOutputSchema(),
     }),
   onSuccess: async () => {
     versionEditorVisible.value = false
@@ -338,103 +336,10 @@ function openVersionEditor(version: AgentVersion) {
     inputSchema: version.inputSchema || '',
     outputSchema: version.outputSchema || '',
   })
-  inputSchemaFields.value = parseSchema(version.inputSchema)
-  outputSchemaFields.value = parseSchema(version.outputSchema)
+  resetSchemaFields(version.inputSchema, version.outputSchema)
   versionEditorVisible.value = true
 }
 
-function parseSchema(schema?: string): SchemaField[] {
-  if (!schema?.trim()) return []
-  try {
-    const root = JSON.parse(schema) as InputSchemaNode
-    const fields: SchemaField[] = []
-    const walk = (node: InputSchemaNode, prefix = '') => {
-      const properties = node?.properties
-      if (!properties || typeof properties !== 'object') return
-      const required = new Set(Array.isArray(node.required) ? node.required : [])
-      Object.entries(properties).forEach(([name, child]) => {
-        const path = prefix ? `${prefix}.${name}` : name
-        fields.push({
-          path,
-          type: ['string', 'number', 'integer', 'boolean', 'object', 'array'].includes(
-            child?.type || '',
-          )
-            ? (child.type as SchemaField['type'])
-            : 'string',
-          itemType: ['string', 'number', 'integer', 'boolean', 'object'].includes(
-            child?.items?.type || '',
-          )
-            ? (child.items?.type as SchemaField['itemType'])
-            : 'string',
-          required: required.has(name),
-          description: child?.description || '',
-        })
-        walk(child, path)
-      })
-    }
-    walk(root)
-    return fields
-  } catch {
-    return []
-  }
-}
-
-function buildInputSchema() {
-  return buildSchema(inputSchemaFields)
-}
-
-function buildSchema(fieldsRef: { value: SchemaField[] }) {
-  const root: InputSchemaNode = { type: 'object', properties: {} }
-  fieldsRef.value
-    .filter((field) => field.path.trim())
-    .forEach((field) => {
-      const segments = field.path
-        .split('.')
-        .map((segment) => segment.trim())
-        .filter(Boolean)
-      let node = root
-      segments.forEach((segment, index) => {
-        node.properties ||= {}
-        node.properties[segment] ||= { type: index === segments.length - 1 ? field.type : 'object' }
-        if (index === segments.length - 1) {
-          node.properties[segment].type = field.type
-          if (field.description.trim())
-            node.properties[segment].description = field.description.trim()
-          if (field.required) {
-            node.required ||= []
-            if (!node.required.includes(segment)) node.required.push(segment)
-          }
-          if (field.type === 'array') node.properties[segment].items = { type: field.itemType }
-        }
-        node = node.properties[segment]
-      })
-    })
-  return fieldsRef.value.length ? JSON.stringify(root) : ''
-}
-
-function addInputSchemaField() {
-  inputSchemaFields.value.push({
-    path: '',
-    type: 'string',
-    itemType: 'string',
-    required: false,
-    description: '',
-  })
-}
-
-function addOutputSchemaField() {
-  outputSchemaFields.value.push({
-    path: '',
-    type: 'string',
-    itemType: 'string',
-    required: false,
-    description: '',
-  })
-}
-
-function removeInputSchemaField(index: number) {
-  inputSchemaFields.value.splice(index, 1)
-}
 async function publishVersion(version: AgentVersion) {
   const confirmed = await confirmAction(
     `发布版本 ${version.version} 后配置将不可修改，后续变更需要创建新版本。是否继续？`,
@@ -522,6 +427,35 @@ function snapshotField(snapshot: string | undefined, field: string) {
   } catch {
     return snapshot
   }
+}
+
+function recoveryActionLabel(action: string) {
+  return (
+    {
+      RETRY_PROVIDER: 'Provider 重试',
+      REPAIR_OUTPUT: '修复输出',
+      REPAIR_TOOL_CALL: '修复工具调用',
+      WAIT_FOR_REVIEW: '等待人工处理',
+      FIX_CONFIGURATION: '修复配置',
+      REJECT_BUSINESS: '业务拒绝',
+      TERMINATE: '终止运行',
+    }[action] || action
+  )
+}
+
+function failureCategoryLabel(category: string) {
+  return (
+    {
+      PROVIDER_TRANSIENT: 'Provider 临时故障',
+      OUTPUT_CONTRACT: '输出契约错误',
+      TOOL_PROTOCOL: '工具协议错误',
+      INPUT_CONTRACT: '输入契约错误',
+      CONFIGURATION: '配置错误',
+      BUSINESS_REJECTION: '业务拒绝',
+      EXECUTION_UNEXPECTED: '未分类执行异常',
+      DEADLINE: '超过截止时间',
+    }[category] || category
+  )
 }
 </script>
 
@@ -663,15 +597,12 @@ function snapshotField(snapshot: string | undefined, field: string) {
                     :icon="Bot"
                 /></template>
               </el-table>
-              <el-pagination
-                v-accessible-label="'每页条数'"
-                aria-label="Agent 定义分页"
-                class="table-pagination"
+              <TablePagination
                 v-model:current-page="agentQuery.pageNum"
                 v-model:page-size="agentQuery.pageSize"
                 :total="agentsQuery.data.value?.total ?? 0"
                 :page-sizes="[10, 20, 50]"
-                layout="total, sizes, prev, pager, next"
+                aria-label="Agent 定义分页"
                 @change="changeAgentPage"
               />
             </section>
@@ -711,96 +642,18 @@ function snapshotField(snapshot: string | undefined, field: string) {
               >
             </section>
             <section class="agent-table-panel table-panel">
-              <el-table
-                class="provider-table"
-                v-loading="providersQuery.isFetching.value"
-                :data="providersQuery.data.value?.records ?? []"
-                height="100%"
-              >
-                <el-table-column prop="name" label="Provider 名称" min-width="180" />
-                <el-table-column prop="code" label="编码" min-width="150" />
-                <el-table-column label="类型" width="140"
-                  ><template #default="{ row }">{{
-                    providerTypeLabel(row.type)
-                  }}</template></el-table-column
-                >
-                <el-table-column
-                  prop="baseUrl"
-                  label="API 地址"
-                  min-width="230"
-                  show-overflow-tooltip
-                  ><template #default="{ row }">{{
-                    row.baseUrl || '本地 Mock'
-                  }}</template></el-table-column
-                >
-                <el-table-column prop="defaultModel" label="默认模型" min-width="150"
-                  ><template #default="{ row }">{{
-                    row.defaultModel || '—'
-                  }}</template></el-table-column
-                >
-                <el-table-column label="凭证" width="145" align="center" header-align="center"
-                  ><template #default="{ row }"
-                    ><div class="credential-status">
-                      <StatusBadge
-                        :status="
-                          row.credentialConfigured
-                            ? 'SUCCESS'
-                            : row.type === 'MOCK'
-                              ? 'SKIPPED'
-                              : 'PENDING'
-                        "
-                        :tone="
-                          row.credentialConfigured
-                            ? 'primary'
-                            : row.type === 'MOCK'
-                              ? 'info'
-                              : 'warning'
-                        "
-                        :label="
-                          row.credentialConfigured
-                            ? '已配置'
-                            : row.type === 'MOCK'
-                              ? '无需凭证'
-                              : '未配置'
-                        "
-                      />
-                      <small v-if="row.credentialConfigured && row.credentialHint">
-                        尾号 {{ row.credentialHint }}
-                      </small>
-                    </div></template
-                  ></el-table-column
-                >
-                <el-table-column
-                  class-name="agent-status-column"
-                  label="状态"
-                  width="110"
-                  align="center"
-                  header-align="center"
-                  ><template #default="{ row }"><StatusBadge :status="row.enabled" /></template
-                ></el-table-column>
-                <el-table-column label="操作" width="90" fixed="right"
-                  ><template #default="{ row }"
-                    ><el-button link type="primary" @click="openProviderEdit(row)"
-                      >编辑</el-button
-                    ></template
-                  ></el-table-column
-                >
-                <template #empty
-                  ><ListEmptyState
-                    title="尚未配置 Provider"
-                    description="先配置模型服务与凭据，再创建可发布的 Agent 版本。"
-                    :icon="ServerCog"
-                /></template>
-              </el-table>
-              <el-pagination
-                v-accessible-label="'每页条数'"
-                aria-label="Provider 分页"
-                class="table-pagination"
+              <AgentProviderTable
+                :rows="providersQuery.data.value?.records ?? []"
+                :loading="providersQuery.isFetching.value"
+                :provider-type-label="providerTypeLabel"
+                @edit="openProviderEdit"
+              />
+              <TablePagination
                 v-model:current-page="providerQuery.pageNum"
                 v-model:page-size="providerQuery.pageSize"
                 :total="providersQuery.data.value?.total ?? 0"
                 :page-sizes="[10, 20, 50]"
-                layout="total, sizes, prev, pager, next"
+                aria-label="Provider 分页"
                 @change="changeProviderPage"
               />
             </section>
@@ -886,15 +739,12 @@ function snapshotField(snapshot: string | undefined, field: string) {
                     :icon="CirclePlay"
                 /></template>
               </el-table>
-              <el-pagination
-                v-accessible-label="'每页条数'"
-                aria-label="运行记录分页"
-                class="table-pagination"
+              <TablePagination
                 v-model:current-page="runQuery.pageNum"
                 v-model:page-size="runQuery.pageSize"
                 :total="runsQuery.data.value?.total ?? 0"
                 :page-sizes="[10, 20, 50]"
-                layout="total, sizes, prev, pager, next"
+                aria-label="运行记录分页"
                 @change="changeRunPage"
               />
             </section>
@@ -967,6 +817,33 @@ function snapshotField(snapshot: string | undefined, field: string) {
               <span class="run-summary-card__meta">{{
                 runDetailQuery.data.value.run.activityId || '—'
               }}</span>
+            </div>
+          </section>
+
+          <section class="run-diagnostics-card">
+            <div>
+              <small>Trace ID</small>
+              <code>{{ runDetailQuery.data.value.run.traceId || '—' }}</code>
+            </div>
+            <div>
+              <small>当前 Attempt</small>
+              <strong>{{ runDetailQuery.data.value.attempts.at(-1)?.attemptNo || '—' }}</strong>
+            </div>
+            <div>
+              <small>当前 Step</small>
+              <strong>{{ runDetailQuery.data.value.steps.at(-1)?.stepType || '—' }}</strong>
+            </div>
+            <div>
+              <small>恢复状态</small>
+              <strong>{{
+                runDetailQuery.data.value.recoveryDecisions.at(-1)?.requiresHumanReview
+                  ? '等待人工处理'
+                  : runDetailQuery.data.value.recoveryDecisions.at(-1)?.retryScheduled
+                    ? '已安排恢复'
+                    : runDetailQuery.data.value.recoveryDecisions.length
+                      ? '已完成决策'
+                      : '未产生决策'
+              }}</strong>
             </div>
           </section>
 
@@ -1138,6 +1015,51 @@ function snapshotField(snapshot: string | undefined, field: string) {
                 title="暂无状态变更"
                 description="运行状态变化后会记录在这里。"
               />
+            </el-tab-pane>
+            <el-tab-pane
+              :label="`恢复决策 (${runDetailQuery.data.value.recoveryDecisions.length})`"
+            >
+              <el-table :data="runDetailQuery.data.value.recoveryDecisions" size="small">
+                <el-table-column label="失败分类" min-width="150">
+                  <template #default="{ row }">{{
+                    failureCategoryLabel(row.failureCategory)
+                  }}</template>
+                </el-table-column>
+                <el-table-column label="恢复动作" min-width="140">
+                  <template #default="{ row }">{{ recoveryActionLabel(row.action) }}</template>
+                </el-table-column>
+                <el-table-column label="状态" width="130">
+                  <template #default="{ row }">
+                    <StatusBadge
+                      :status="
+                        row.requiresHumanReview
+                          ? 'WAITING_FOR_REVIEW'
+                          : row.retryScheduled
+                            ? 'RETRYING'
+                            : 'DECIDED'
+                      "
+                      :label="
+                        row.requiresHumanReview
+                          ? '等待人工'
+                          : row.retryScheduled
+                            ? '已安排重试'
+                            : '已决策'
+                      "
+                      :tone="
+                        row.requiresHumanReview
+                          ? 'warning'
+                          : row.retryScheduled
+                            ? 'primary'
+                            : 'success'
+                      "
+                    />
+                  </template>
+                </el-table-column>
+                <el-table-column prop="reason" label="处理说明" min-width="300" />
+                <el-table-column label="时间" width="175">
+                  <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+                </el-table-column>
+              </el-table>
             </el-tab-pane>
           </el-tabs>
         </template>
@@ -1377,128 +1299,26 @@ function snapshotField(snapshot: string | undefined, field: string) {
           ></el-form-item>
         </div>
         <el-form-item label="Agent 输入字段">
-          <div class="schema-editor">
-            <div class="schema-editor__toolbar">
-              <span>配置业务输入字段，保存时自动生成 JSON Schema</span>
-              <el-button
-                link
-                type="primary"
-                :disabled="editingVersion?.status === 'PUBLISHED'"
-                @click="addInputSchemaField"
-                ><Plus :size="15" />新增字段</el-button
-              >
-            </div>
-            <el-table :data="inputSchemaFields" size="small" border>
-              <el-table-column label="字段路径" min-width="180">
-                <template #default="{ row }">
-                  <el-input v-model="row.path" placeholder="例如 customer.name" />
-                </template>
-              </el-table-column>
-              <el-table-column label="类型" width="130">
-                <template #default="{ row }">
-                  <el-select v-model="row.type">
-                    <el-option label="文本" value="string" />
-                    <el-option label="数字" value="number" />
-                    <el-option label="整数" value="integer" />
-                    <el-option label="布尔值" value="boolean" />
-                    <el-option label="对象" value="object" />
-                    <el-option label="数组" value="array" />
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="数组元素" width="130">
-                <template #default="{ row }">
-                  <el-select v-model="row.itemType" :disabled="row.type !== 'array'">
-                    <el-option label="文本" value="string" />
-                    <el-option label="数字" value="number" />
-                    <el-option label="整数" value="integer" />
-                    <el-option label="布尔值" value="boolean" />
-                    <el-option label="对象" value="object" />
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="必填" width="75" align="center">
-                <template #default="{ row }"><el-checkbox v-model="row.required" /></template>
-              </el-table-column>
-              <el-table-column label="说明" min-width="150">
-                <template #default="{ row }"><el-input v-model="row.description" /></template>
-              </el-table-column>
-              <el-table-column label="操作" width="70" align="center">
-                <template #default="{ $index }">
-                  <el-button link type="danger" @click="removeInputSchemaField($index)"
-                    >删除</el-button
-                  >
-                </template>
-              </el-table-column>
-            </el-table>
-            <div v-if="!inputSchemaFields.length" class="schema-editor__empty">
-              暂未配置输入字段，Agent 将接收空对象或由流程映射提供的数据。
-            </div>
-          </div>
+          <SchemaFieldsEditor
+            :fields="inputSchemaFields"
+            :readonly="editingVersion?.status === 'PUBLISHED'"
+            direction="input"
+            @add="addInputSchemaField"
+            @remove="removeInputSchemaField"
+          />
           <div class="form-help">
             对象或嵌套字段使用点号路径，例如
             customer.name；数组填写字段路径并选择数组元素类型。流程节点通过输入映射提供数据，平台变量不会自动传入。
           </div>
         </el-form-item>
         <el-form-item label="Agent 输出字段">
-          <div class="schema-editor">
-            <div class="schema-editor__toolbar">
-              <span>配置模型输出字段，保存时自动生成 JSON Schema</span>
-              <el-button
-                link
-                type="primary"
-                :disabled="editingVersion?.status === 'PUBLISHED'"
-                @click="addOutputSchemaField"
-                ><Plus :size="15" />新增字段</el-button
-              >
-            </div>
-            <el-table :data="outputSchemaFields" size="small" border>
-              <el-table-column label="字段路径" min-width="180">
-                <template #default="{ row }">
-                  <el-input v-model="row.path" placeholder="例如 result.summary" />
-                </template>
-              </el-table-column>
-              <el-table-column label="类型" width="130">
-                <template #default="{ row }">
-                  <el-select v-model="row.type">
-                    <el-option label="文本" value="string" />
-                    <el-option label="数字" value="number" />
-                    <el-option label="整数" value="integer" />
-                    <el-option label="布尔值" value="boolean" />
-                    <el-option label="对象" value="object" />
-                    <el-option label="数组" value="array" />
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="数组元素" width="130">
-                <template #default="{ row }">
-                  <el-select v-model="row.itemType" :disabled="row.type !== 'array'">
-                    <el-option label="文本" value="string" />
-                    <el-option label="数字" value="number" />
-                    <el-option label="整数" value="integer" />
-                    <el-option label="布尔值" value="boolean" />
-                    <el-option label="对象" value="object" />
-                  </el-select>
-                </template>
-              </el-table-column>
-              <el-table-column label="必填" width="75" align="center">
-                <template #default="{ row }"><el-checkbox v-model="row.required" /></template>
-              </el-table-column>
-              <el-table-column label="说明" min-width="150">
-                <template #default="{ row }"><el-input v-model="row.description" /></template>
-              </el-table-column>
-              <el-table-column label="操作" width="70" align="center">
-                <template #default="{ $index }">
-                  <el-button link type="danger" @click="outputSchemaFields.splice($index, 1)"
-                    >删除</el-button
-                  >
-                </template>
-              </el-table-column>
-            </el-table>
-            <div v-if="!outputSchemaFields.length" class="schema-editor__empty">
-              暂未配置输出字段，Agent 输出将不做结构化字段约束。
-            </div>
-          </div>
+          <SchemaFieldsEditor
+            :fields="outputSchemaFields"
+            :readonly="editingVersion?.status === 'PUBLISHED'"
+            direction="output"
+            @add="addOutputSchemaField"
+            @remove="(index) => outputSchemaFields.splice(index, 1)"
+          />
           <div class="form-help">
             对象或嵌套字段使用点号路径，例如
             customer.name；数组填写字段路径并选择数组元素类型，保存后仍以 JSON Schema 持久化。
@@ -1525,37 +1345,15 @@ function snapshotField(snapshot: string | undefined, field: string) {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
-.schema-editor {
-  width: 100%;
-  border: 1px solid #dfe7f2;
-  border-radius: 10px;
-  padding: 10px;
-  background: #fbfcfe;
-}
-.schema-editor__toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-  color: #6d7f99;
-  font-size: 12px;
-}
-.schema-editor__empty {
-  padding: 16px 10px 6px;
-  color: #9aa9bd;
-  text-align: center;
-  font-size: 12px;
-}
 .agent-overview > div {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 16px 18px;
-  border: 1px solid #dfe7f2;
+  border: 1px solid var(--color-border-soft);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--color-surface);
 }
 .agent-overview p,
 .agent-name-cell p {
@@ -1566,7 +1364,7 @@ function snapshotField(snapshot: string | undefined, field: string) {
   margin: 0;
 }
 .agent-overview strong {
-  color: #172033;
+  color: var(--color-text-strong);
   font-size: 13px;
 }
 .agent-overview small,
@@ -1583,25 +1381,25 @@ function snapshotField(snapshot: string | undefined, field: string) {
   place-items: center;
   border-radius: 11px;
   color: var(--color-primary);
-  background: #eaf2ff;
+  background: var(--color-primary-soft);
 }
 .overview-icon.tone-purple {
-  color: #7c3aed;
-  background: #f2ebff;
+  color: var(--color-agent-accent);
+  background: var(--color-agent-accent-soft);
 }
 .overview-icon.tone-green {
-  color: #059669;
-  background: #e8faf3;
+  color: var(--color-success);
+  background: var(--color-success-soft);
 }
 .overview-icon.tone-amber {
-  color: #d97706;
-  background: #fff5df;
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
 }
 .agent-workspace {
   height: clamp(560px, calc(100vh - 280px), 760px);
   min-height: 560px;
   overflow: hidden;
-  border: 1px solid #dfe7f2;
+  border: 1px solid var(--color-border-soft);
   border-radius: 16px;
   background: var(--color-surface);
 }
@@ -1620,11 +1418,11 @@ function snapshotField(snapshot: string | undefined, field: string) {
 .agent-tabs :deep(.el-tabs__header) {
   margin: 0;
   padding: 0 20px;
-  background: #fbfcfe;
+  background: var(--color-surface-muted);
 }
 .agent-tabs :deep(.el-tabs__nav-wrap::after) {
   height: 1px;
-  background: #e7edf5;
+  background: var(--color-border-soft);
 }
 .agent-tabs :deep(.el-tabs__item) {
   height: 52px;
@@ -1640,7 +1438,7 @@ function snapshotField(snapshot: string | undefined, field: string) {
 .agent-tab-content .page-actions {
   border: 1px solid var(--color-border-soft);
   border-radius: 13px;
-  background: #fbfcfe;
+  background: var(--color-surface-muted);
 }
 .filter-form--agent {
   flex: 1;
@@ -1672,7 +1470,7 @@ function snapshotField(snapshot: string | undefined, field: string) {
 .agent-table-panel .table-pagination {
   justify-content: flex-end;
   padding: 12px 14px;
-  border-top: 1px solid #edf1f6;
+  border-top: 1px solid var(--color-border-soft);
 }
 .agent-name-cell {
   display: flex;
@@ -1701,22 +1499,19 @@ function snapshotField(snapshot: string | undefined, field: string) {
 .provider-table :deep(td.el-table__cell) {
   height: 66px;
 }
-.credential-status {
-  height: 44px;
-  display: grid;
-  align-content: start;
-  justify-items: start;
-  gap: 4px;
-}
-.provider-status-cell {
-  display: flex;
-  align-items: flex-start;
-  height: 44px;
-}
-.credential-status small {
-  color: #8492a6;
-  font-size: 11px;
+.credential-hint {
+  display: inline-block;
+  padding: 3px 6px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 6px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
   line-height: 1;
+}
+.credential-empty {
+  color: var(--color-text-subtle);
 }
 .agent-form-grid {
   display: grid;
@@ -1729,10 +1524,10 @@ function snapshotField(snapshot: string | undefined, field: string) {
   gap: 10px;
   margin-bottom: 18px;
   padding: 13px 14px;
-  border: 1px solid #dbe8fb;
+  border: 1px solid var(--color-border-soft);
   border-radius: 12px;
   color: var(--color-primary);
-  background: #f3f7ff;
+  background: var(--color-primary-soft);
 }
 .manual-run-intro p {
   display: grid;
@@ -1750,24 +1545,24 @@ function snapshotField(snapshot: string | undefined, field: string) {
 .state-history-panel {
   margin-top: 12px;
   padding: 16px 12px 8px;
-  border: 1px solid #e4eaf2;
+  border: 1px solid var(--color-border-soft);
   border-radius: 12px;
-  background: #fbfdff;
+  background: var(--color-surface-muted);
 }
 .state-history-guide {
   display: flex;
   align-items: center;
   gap: 10px;
   margin: 0 4px 16px;
-  color: #526176;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 .state-history-guide strong {
-  color: #24324a;
+  color: var(--color-text);
   font-size: 13px;
 }
 .state-history-guide span {
-  color: #8492a6;
+  color: var(--color-text-subtle);
 }
 .state-history-timeline {
   padding: 4px 8px 0;
@@ -1776,10 +1571,10 @@ function snapshotField(snapshot: string | undefined, field: string) {
   padding-top: 4px;
 }
 .state-history-timeline :deep(.el-timeline-item__content) {
-  color: #526176;
+  color: var(--color-text-muted);
 }
 .manual-run-intro span {
-  color: #66758b;
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -1811,7 +1606,7 @@ function snapshotField(snapshot: string | undefined, field: string) {
 .run-summary-card small,
 .run-summary-card__meta,
 .el-timeline-item small {
-  color: #7a889d;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 .run-summary-card strong,
@@ -1826,12 +1621,39 @@ function snapshotField(snapshot: string | undefined, field: string) {
   gap: 8px;
   margin-top: 14px;
   padding: 15px;
-  border: 1px solid #dce7f5;
+  border: 1px solid var(--color-border-soft);
   border-radius: 13px;
-  background: #fbfdff;
+  background: var(--color-surface-muted);
+}
+.run-diagnostics-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(110px, 0.7fr));
+  gap: 14px;
+  margin-top: 12px;
+  padding: 12px 15px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: 11px;
+  background: var(--color-surface-muted);
+}
+.run-diagnostics-card > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.run-diagnostics-card small {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.run-diagnostics-card strong,
+.run-diagnostics-card code {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .run-result-card small {
-  color: #66758b;
+  color: var(--color-text-muted);
   font-weight: 650;
 }
 .run-result-card pre,
@@ -1840,8 +1662,8 @@ function snapshotField(snapshot: string | undefined, field: string) {
   padding: 12px;
   overflow: auto;
   border-radius: 9px;
-  color: #24324a;
-  background: #f3f6fa;
+  color: var(--color-text);
+  background: var(--color-code-surface);
   font-family: Consolas, 'Courier New', monospace;
   font-size: 12px;
   line-height: 1.65;
@@ -1857,7 +1679,7 @@ function snapshotField(snapshot: string | undefined, field: string) {
   line-height: 1.6;
 }
 .run-error-action {
-  color: #7a889d;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 .run-payload-grid {
@@ -1869,7 +1691,7 @@ function snapshotField(snapshot: string | undefined, field: string) {
   gap: 7px;
 }
 .run-payload-grid article > strong {
-  color: #526176;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 .run-detail-tabs {
@@ -1881,7 +1703,7 @@ function snapshotField(snapshot: string | undefined, field: string) {
 }
 .checkpoint-list article {
   overflow: hidden;
-  border: 1px solid #e4eaf2;
+  border: 1px solid var(--color-border-soft);
   border-radius: 11px;
 }
 .checkpoint-list header {
@@ -1889,16 +1711,16 @@ function snapshotField(snapshot: string | undefined, field: string) {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  color: #526176;
-  background: #f8fafc;
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
 }
 .checkpoint-list pre {
   max-height: 260px;
   margin: 0;
   padding: 12px;
   overflow: auto;
-  color: #334155;
-  background: #fff;
+  color: var(--color-text);
+  background: var(--color-surface);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
   line-height: 1.55;
@@ -1907,7 +1729,7 @@ function snapshotField(snapshot: string | undefined, field: string) {
 }
 .el-timeline-item p {
   margin: 5px 0;
-  color: #526176;
+  color: var(--color-text-muted);
 }
 .version-toolbar {
   display: flex;
@@ -1917,11 +1739,11 @@ function snapshotField(snapshot: string | undefined, field: string) {
   margin-bottom: 14px;
   padding: 12px 14px;
   border-radius: 11px;
-  background: #f6f9fd;
+  background: var(--color-surface-muted);
 }
 .version-toolbar p {
   margin: 0;
-  color: #65748a;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 @media (max-width: 1100px) {
@@ -1943,6 +1765,9 @@ function snapshotField(snapshot: string | undefined, field: string) {
   }
   .run-summary-card {
     grid-template-columns: 1fr;
+  }
+  .run-diagnostics-card {
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>

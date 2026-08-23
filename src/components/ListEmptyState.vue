@@ -33,7 +33,7 @@ defineProps<{
   justify-content: center;
   gap: 9px;
   padding: 32px 24px;
-  color: #8492a6;
+  color: var(--color-text-muted);
   text-align: center;
 }
 
@@ -48,15 +48,15 @@ defineProps<{
   display: grid;
   place-items: center;
   margin-bottom: 2px;
-  border: 1px solid #dce7f7;
+  border: 1px solid var(--color-border-soft);
   border-radius: 18px;
-  color: #3b82f6;
-  background: linear-gradient(145deg, #f4f8ff, #e8f1ff);
-  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.09);
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  box-shadow: var(--shadow-panel);
 }
 
 .list-empty-state strong {
-  color: #334155;
+  color: var(--color-text);
   font-size: 15px;
   font-weight: 700;
 }
@@ -64,7 +64,7 @@ defineProps<{
 .list-empty-state p {
   max-width: 460px;
   margin: 0;
-  color: #8492a6;
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.65;
 }

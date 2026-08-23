@@ -24,6 +24,9 @@ const STATUS_PRESENTATIONS: Record<string, StatusPresentation> = {
   EMPTY: { label: '空结果', tone: 'warning' },
   PARTIAL: { label: '部分完成', tone: 'warning' },
   REJECTED: { label: '已拒绝', tone: 'danger' },
+  WAITING_FOR_REVIEW: { label: '等待人工', tone: 'warning' },
+  RETRYING: { label: '已安排重试', tone: 'primary' },
+  DECIDED: { label: '已决策', tone: 'success' },
 }
 
 export function getStatusPresentation(status: string | boolean): StatusPresentation {

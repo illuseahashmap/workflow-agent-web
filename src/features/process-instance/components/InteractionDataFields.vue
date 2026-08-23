@@ -83,9 +83,9 @@ function placeholder(field: InteractionDataField) {
 .interaction-fields {
   margin: 14px 0;
   padding: 16px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: #f8fbff;
+  background: var(--color-primary-soft);
 }
 
 .interaction-fields header h3,
@@ -95,14 +95,14 @@ function placeholder(field: InteractionDataField) {
 }
 
 .interaction-fields header h3 {
-  color: #1e293b;
+  color: var(--color-text);
   font-size: 14px;
 }
 
 .interaction-fields header p,
 .interaction-field__description,
 .interaction-field__source {
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -120,10 +120,10 @@ function placeholder(field: InteractionDataField) {
 .interaction-fields__empty {
   margin-top: 14px;
   padding: 12px 14px;
-  border: 1px dashed #bfdbfe;
+  border: 1px dashed var(--color-border);
   border-radius: 9px;
-  background: #fff;
-  color: #64748b;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 

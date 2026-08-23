@@ -18,6 +18,7 @@ import {
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
 import ListEmptyState from '@/components/ListEmptyState.vue'
+import TablePagination from '@/components/TablePagination.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
@@ -291,15 +292,11 @@ function handleStarted(result: StartProcessResult) {
           </ListEmptyState>
         </template>
       </el-table>
-      <el-pagination
-        v-accessible-label="'每页条数'"
-        aria-label="分页"
-        class="table-pagination"
+      <TablePagination
         v-model:current-page="query.pageNum"
         v-model:page-size="query.pageSize"
         :total="total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next"
+        aria-label="流程定义分页"
         @change="changePage"
       />
     </section>

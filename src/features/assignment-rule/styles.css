@@ -5,9 +5,9 @@
   width: 100%;
   min-height: var(--control-height);
   padding: 0 12px;
-  color: #1d4ed8;
-  background: #f3f7ff;
-  border: 1px solid #c7d8f7;
+  color: var(--color-primary-strong);
+  background: var(--color-primary-soft);
+  border: 1px solid var(--color-border);
   border-radius: var(--control-radius);
 }
 
@@ -15,7 +15,7 @@
   width: 7px;
   height: 7px;
   margin-right: 8px;
-  background: #3b82f6;
+  background: var(--color-primary);
   border-radius: 50%;
 }
 
@@ -27,24 +27,24 @@
 .assignment-type-indicator__hint {
   margin-left: auto;
   font-size: 11px;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .assignment-type-indicator.is-empty {
-  color: #64748b;
-  background: #f8fafc;
-  border-color: #dbe3ee;
+  color: var(--color-text-muted);
+  background: var(--color-surface-muted);
+  border-color: var(--color-border);
 }
 
 .assignment-type-indicator.is-empty .assignment-type-indicator__dot {
-  background: #94a3b8;
+  background: var(--color-text-subtle);
 }
 
 .assignment-rule-select.has-value .el-select__placeholder,
 .assignment-rule-select.has-value.is-disabled .el-select__placeholder {
-  color: #1e293b;
+  color: var(--color-text);
   font-weight: 500;
-  -webkit-text-fill-color: #1e293b;
+  -webkit-text-fill-color: var(--color-text);
 }
 
 .task-option {
@@ -57,14 +57,14 @@
 
 .task-option span {
   overflow: hidden;
-  color: #1e293b;
+  color: var(--color-text);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .task-option small {
   flex: 0 0 auto;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 11px;
 }
 

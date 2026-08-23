@@ -265,7 +265,7 @@ async function submitRegister() {
           </el-button>
         </el-form>
 
-        <p class="auth-footnote">登录即表示会话 Token 将保存在当前浏览器中，仅用于访问本服务。</p>
+        <p class="auth-footnote">登录后将建立安全会话，仅用于访问当前工作台。</p>
       </div>
     </section>
   </main>

@@ -9,6 +9,8 @@
   --color-primary: #2563eb;
   --color-primary-strong: #1d4ed8;
   --color-primary-soft: #eff6ff;
+  --color-agent-accent: #7c3aed;
+  --color-agent-accent-soft: #f2ebff;
   --color-text: #1e293b;
   --color-text-strong: #0f172a;
   --color-text-muted: #64748b;
@@ -26,6 +28,15 @@
   --color-danger: #c2414b;
   --color-danger-soft: #fff0f1;
   --color-danger-border: #f5c2c7;
+  --color-canvas: #f4f7fb;
+  --color-focus-ring: rgba(37, 99, 235, 0.18);
+  --color-code-surface: #f3f6fa;
+  --color-sidebar: #0f172a;
+  --color-sidebar-muted: #94a3b8;
+  --color-sidebar-active: #2563eb;
+  --font-display: Inter, 'Noto Sans SC', ui-sans-serif, system-ui, sans-serif;
+  --font-body: Inter, 'Noto Sans SC', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -54,6 +65,27 @@
   --control-focus-ring: rgba(37, 99, 235, 0.14);
   --control-placeholder: #94a3b8;
   --panel-radius: var(--radius-lg);
+}
+
+/* Shared interaction baseline. Feature styles should add layout only. */
+:where(button, [role='button'], a, input, textarea, select):focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+:where(.el-button, .el-select, .el-input, .el-input-number):focus-within {
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 /* Element Plus control baseline */
@@ -117,6 +149,182 @@
 
 .el-input-number .el-input__wrapper {
   border-radius: var(--control-radius);
+}
+
+/* Table contract: text is left aligned; semantic tags own their alignment. */
+.el-table th.el-table__cell > .cell {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: left;
+}
+
+.el-table th.el-table__cell.is-center > .cell {
+  text-align: center;
+}
+
+.el-table td.el-table__cell > .cell {
+  min-height: 25px;
+  display: flex;
+  align-items: center;
+  line-height: 1.45;
+}
+
+.el-table td.el-table__cell.is-center > .cell {
+  justify-content: center;
+}
+
+.table-pagination {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: 10px var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.table-pagination .el-pagination__total {
+  color: var(--color-text-muted);
+}
+
+.table-pagination .el-pager li,
+.table-pagination button,
+.table-pagination .el-select__wrapper {
+  border-radius: var(--radius-sm);
+}
+
+.table-panel,
+.agent-table-panel {
+  min-height: 360px;
+}
+
+@media (max-width: 840px) {
+  .table-panel,
+  .agent-table-panel {
+    overflow-x: auto;
+  }
+
+  .table-pagination {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+/* Workflow canvas refinement: calm surfaces, clear hierarchy, one process signal. */
+.content {
+  background: var(--color-canvas);
+}
+
+.page-stack,
+.management-page {
+  gap: 18px;
+}
+
+.page-hero {
+  border-radius: 18px;
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(239, 246, 255, 0.92) 62%,
+    rgba(231, 238, 255, 0.9)
+  );
+  box-shadow: 0 12px 30px rgba(30, 64, 175, 0.07);
+}
+
+.page-hero::after {
+  opacity: 0.55;
+}
+
+.metric-card,
+.page-actions,
+.table-panel,
+.agent-table-panel {
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
+}
+
+.metric-card {
+  padding: 16px 18px;
+}
+
+.metric-card strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.page-actions {
+  padding: 14px 16px 2px;
+}
+
+.el-table {
+  --el-table-header-bg-color: #f7f9fc;
+  --el-table-row-hover-bg-color: #f8fbff;
+  --el-table-border-color: var(--color-border-soft);
+  color: var(--color-text);
+}
+
+.el-table th.el-table__cell {
+  height: 44px;
+  background: #f7f9fc;
+}
+
+.el-table td.el-table__cell {
+  height: 58px;
+}
+
+.el-table .el-table__row:last-child td.el-table__cell {
+  border-bottom: 0;
+}
+
+.el-tabs__item {
+  color: var(--color-text-muted);
+  font-weight: 650;
+}
+
+.el-tabs__item.is-active {
+  color: var(--color-primary);
+}
+
+.el-button--primary:not(.is-link) {
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.18);
+}
+
+.el-button--primary:not(.is-link):hover {
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+}
+
+.state-history-panel {
+  position: relative;
+  padding-left: 18px;
+  border-left: 3px solid var(--color-primary);
+  background: linear-gradient(90deg, #f5f9ff, var(--color-surface));
+}
+
+.state-history-guide {
+  margin-left: 0;
+}
+
+.state-history-timeline {
+  padding-left: 4px;
+}
+
+@media (max-width: 840px) {
+  .page-stack,
+  .management-page {
+    gap: 14px;
+  }
+
+  .page-hero {
+    border-radius: 16px;
+  }
+
+  .metric-card,
+  .page-actions,
+  .table-panel,
+  .agent-table-panel {
+    border-radius: 12px;
+  }
 }
 
 .el-textarea__inner {

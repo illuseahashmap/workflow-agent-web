@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import BpmnViewer from 'bpmn-js/lib/NavigatedViewer'
+import 'bpmn-js/dist/assets/diagram-js.css'
+import 'bpmn-js/dist/assets/bpmn-js.css'
+import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
 import type { BpmnModelerInstance, Canvas } from '@/bpmn/modeler-types'
 import { formatDateTime, formatDuration } from '@/utils/format'
 import type { ActivityDetail, ProcessDiagramData } from '../types'

@@ -143,14 +143,14 @@ function confirm() {
 
 .user-picker-hint {
   margin: 10px 0;
-  color: #64748b;
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
 .user-picker-list {
   min-height: 290px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--color-border);
   border-radius: 12px;
 }
 
@@ -163,8 +163,8 @@ function confirm() {
   padding: 8px 14px;
   border: 0;
   border-bottom: 1px solid #edf2f7;
-  background: #fff;
-  color: #1e293b;
+  background: var(--color-surface);
+  color: var(--color-text);
   cursor: pointer;
   text-align: left;
 }
@@ -175,7 +175,7 @@ function confirm() {
 
 .user-picker-option:hover,
 .user-picker-option.is-selected {
-  background: #f4f8ff;
+  background: var(--color-primary-soft);
 }
 
 .user-picker-avatar {
@@ -184,8 +184,8 @@ function confirm() {
   height: 30px;
   place-items: center;
   border-radius: 9px;
-  background: #eaf2ff;
-  color: #2563eb;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
   font-weight: 700;
 }
 
@@ -203,7 +203,7 @@ function confirm() {
 
 .user-picker-identity small {
   margin-top: 2px;
-  color: #64748b;
+  color: var(--color-text-muted);
 }
 
 .user-picker-check {
@@ -211,22 +211,22 @@ function confirm() {
   width: 24px;
   height: 24px;
   place-items: center;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--color-border);
   border-radius: 50%;
   color: transparent;
 }
 
 .user-picker-option.is-selected .user-picker-check {
-  border-color: #2563eb;
-  background: #2563eb;
-  color: #fff;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-surface);
 }
 
 .user-picker-empty {
   display: grid;
   min-height: 290px;
   place-items: center;
-  color: #94a3b8;
+  color: var(--color-text-subtle);
 }
 
 .user-picker-pagination {

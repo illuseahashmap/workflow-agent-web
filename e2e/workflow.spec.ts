@@ -460,6 +460,22 @@ test('keeps the process definition workspace accessible', async ({ page }) => {
   expect(accessibilityScan.violations).toEqual([])
 })
 
+test('supports a non-overlapping collapsible desktop navigation', async ({ page }) => {
+  await page.goto('/process-definitions')
+  const shell = page.locator('.app-shell')
+  const collapseButton = page.getByRole('button', { name: '收起导航' })
+  await expect(collapseButton).toBeVisible()
+  await collapseButton.click()
+  await expect(shell).toHaveClass(/is-sidebar-collapsed/)
+  await expect(page.getByRole('button', { name: '展开导航' })).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  )
+  await expect(page.locator('.sidebar .nav-item').first()).toBeVisible()
+  await page.getByRole('button', { name: '展开导航' }).click()
+  await expect(shell).not.toHaveClass(/is-sidebar-collapsed/)
+})
+
 test('manages process definitions from the workspace', async ({ page }) => {
   await page.goto('/process-definitions')
   await expect(page.getByRole('heading', { name: '流程定义', exact: true })).toBeVisible()
@@ -610,8 +626,6 @@ test('keeps a stable explanation when the Agent contract has no user input', asy
   const explanation = page.getByText(
     '即将进入的 Agent 节点未声明需要人工填写的业务数据，将按已发布配置运行。',
   )
-  await expect(explanation).toBeVisible()
-  await page.waitForTimeout(500)
   await expect(explanation).toBeVisible()
 })
 

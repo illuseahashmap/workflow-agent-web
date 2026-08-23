@@ -6,6 +6,7 @@ import { Plus, RefreshCw, Search, Trash2 } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
 import ListEmptyState from '@/components/ListEmptyState.vue'
+import TablePagination from '@/components/TablePagination.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import { definitionApi, type ProcessDefinition } from '@/features/process-definition'
@@ -474,15 +475,11 @@ function assignmentTargetsText(rule: AssignmentRule) {
             title="暂无派单规则"
             description="规则为空时，流程会优先使用发起或审批时指定的参与人。"
           /> </template></el-table
-      ><el-pagination
-        v-accessible-label="'每页条数'"
-        aria-label="派单规则分页"
-        class="table-pagination"
+      ><TablePagination
         v-model:current-page="query.pageNum"
         v-model:page-size="query.pageSize"
         :total="total"
-        :page-sizes="[10, 20, 50, 100]"
-        layout="total, sizes, prev, pager, next"
+        aria-label="派单规则分页"
         @change="changePage"
       />
     </section>

@@ -8,6 +8,7 @@ import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import TablePagination from '@/components/TablePagination.vue'
 import { canOperateInstances as isInstanceOperable } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
 import { promptRequired } from '@/utils/confirmation'
@@ -370,15 +371,12 @@ async function confirmDecision() {
                 description="流程进入人工环节后，任务会显示在这里。"
               /> </template
           ></el-table>
-          <el-pagination
-            v-accessible-label="'每页条数'"
-            aria-label="任务分页"
+          <TablePagination
             v-model:current-page="taskPage.pageNum"
             v-model:page-size="taskPage.pageSize"
-            class="detail-pagination"
             :total="detailQuery.data.value?.tasks.length ?? 0"
             :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
+            aria-label="任务分页"
           />
         </el-tab-pane>
         <el-tab-pane
@@ -406,15 +404,12 @@ async function confirmDecision() {
                 description="流程运行产生的业务变量会显示在这里。"
               /> </template
           ></el-table>
-          <el-pagination
-            v-accessible-label="'每页条数'"
-            aria-label="变量分页"
+          <TablePagination
             v-model:current-page="variablePage.pageNum"
             v-model:page-size="variablePage.pageSize"
-            class="detail-pagination"
             :total="detailQuery.data.value?.variables.length ?? 0"
             :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
+            aria-label="变量分页"
           />
         </el-tab-pane>
       </el-tabs>

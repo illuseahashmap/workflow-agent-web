@@ -12,6 +12,7 @@
     "test:unit:run": "vitest --run",
     "test:e2e": "playwright test",
     "build-only": "vite build",
+    "bundle-budget": "node scripts/check-bundle-budget.mjs",
     "type-check": "vue-tsc --build",
     "lint": "run-p lint:oxlint lint:eslint",
     "lint:oxlint": "oxlint .",
@@ -22,7 +23,7 @@
     "format": "prettier --write --experimental-cli \"src/**/*.{ts,vue,css}\" \"e2e/**/*.ts\" \"*.{ts,json,md}\"",
     "format:check": "prettier --check --experimental-cli \"src/**/*.{ts,vue,css}\" \"e2e/**/*.ts\" \"*.{ts,json,md}\"",
     "test:e2e:ci": "playwright test --project=chromium",
-    "check": "run-s format:check lint type-check test:unit:run build-only test:e2e:ci",
+    "check": "run-s format:check lint type-check test:unit:run build-only bundle-budget test:e2e:ci",
     "verify": "pnpm check"
   },
   "dependencies": {

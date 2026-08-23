@@ -32,9 +32,6 @@ import {
   ElTooltip,
 } from 'element-plus'
 import 'element-plus/dist/index.css'
-import 'bpmn-js/dist/assets/diagram-js.css'
-import 'bpmn-js/dist/assets/bpmn-js.css'
-import 'bpmn-js/dist/assets/bpmn-font/css/bpmn.css'
 
 import App from './App.vue'
 import router from './router'
