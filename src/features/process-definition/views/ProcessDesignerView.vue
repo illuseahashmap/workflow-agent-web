@@ -66,6 +66,7 @@ const router = useRouter()
 const canvasElement = ref<HTMLDivElement>()
 const fileInput = ref<HTMLInputElement>()
 const modeler = shallowRef<BpmnModelerInstance>()
+let canvasResizeObserver: ResizeObserver | undefined
 const versions = ref<ProcessDefinition[]>([])
 const activeVersion = ref<ActiveProcessVersion>()
 const selectedVersion = ref<number>()
@@ -1045,6 +1046,10 @@ onMounted(async () => {
       }
     }, 0)
   })
+  canvasResizeObserver = new ResizeObserver(() => {
+    service<Canvas>('canvas')?.resized()
+  })
+  canvasResizeObserver.observe(canvasElement.value)
   window.addEventListener('beforeunload', beforeUnload)
   await loadAgentVersions()
 
@@ -1072,6 +1077,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnload)
+  canvasResizeObserver?.disconnect()
   modeler.value?.destroy()
 })
 

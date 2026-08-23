@@ -13,10 +13,12 @@ const host = ref<HTMLDivElement>()
 const viewer = shallowRef<BpmnModelerInstance>()
 const hover = ref<{ detail: ActivityDetail; x: number; y: number }>()
 let renderVersion = 0
+let canvasResizeObserver: ResizeObserver | undefined
 
 async function render() {
   const version = ++renderVersion
   if (!host.value || !props.data?.bpmnXml) return
+  canvasResizeObserver?.disconnect()
   viewer.value?.destroy()
   const nextViewer = new BpmnViewer({ container: host.value }) as BpmnModelerInstance
   viewer.value = nextViewer
@@ -26,6 +28,8 @@ async function render() {
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
   if (version !== renderVersion || viewer.value !== nextViewer) return
   const canvas = nextViewer.get('canvas') as Canvas
+  canvasResizeObserver = new ResizeObserver(() => canvas.resized())
+  canvasResizeObserver.observe(host.value)
   canvas.resized()
   props.data.completedActivityIds.forEach((id) => canvas.addMarker(id, 'activity-completed'))
   props.data.activeActivityIds.forEach((id) => canvas.addMarker(id, 'activity-active'))
@@ -53,6 +57,7 @@ watch(() => props.data, render, { immediate: true })
 onMounted(render)
 onBeforeUnmount(() => {
   renderVersion++
+  canvasResizeObserver?.disconnect()
   viewer.value?.destroy()
 })
 </script>
