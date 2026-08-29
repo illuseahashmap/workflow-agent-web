@@ -129,6 +129,8 @@ function changePageSize(pageSize: number) {
 
 <style scoped>
 .operations-page {
+  display: flex;
+  flex-direction: column;
   gap: 18px;
 }
 .operations-filter {
@@ -136,6 +138,11 @@ function changePageSize(pageSize: number) {
   grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) minmax(220px, 1.2fr) auto;
   align-items: end;
   gap: 14px;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--panel-radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-panel);
 }
 .operations-filter label {
   display: grid;
