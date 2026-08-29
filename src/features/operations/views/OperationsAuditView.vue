@@ -7,12 +7,12 @@ import PageHeader from '@/components/PageHeader.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/format'
-import { operationsApi } from '../api'
+import { operationsApi, type WorkflowAuditQuery } from '../api'
 
 const authStore = useAuthStore()
 const tenantCode = computed(() => authStore.user?.tenantCode || '')
 const filters = reactive({ eventType: '', processInstanceId: '', traceId: '' })
-const applied = ref({ pageNum: 1, pageSize: 20, eventType: '', processInstanceId: '', traceId: '' })
+const applied = ref<WorkflowAuditQuery>({ pageNum: 1, pageSize: 20 })
 const query = useQuery({
   queryKey: computed(() => ['workflow-audit', tenantCode.value, applied.value]),
   queryFn: () => operationsApi.audit(applied.value),
@@ -21,8 +21,19 @@ const query = useQuery({
 const records = computed(() => query.data.value?.records ?? [])
 const total = computed(() => query.data.value?.total ?? 0)
 
+function optionalFilter(value: string) {
+  const normalized = value.trim()
+  return normalized || undefined
+}
+
 function search() {
-  applied.value = { pageNum: 1, pageSize: applied.value.pageSize, ...filters }
+  applied.value = {
+    pageNum: 1,
+    pageSize: applied.value.pageSize,
+    eventType: optionalFilter(filters.eventType),
+    processInstanceId: optionalFilter(filters.processInstanceId),
+    traceId: optionalFilter(filters.traceId),
+  }
 }
 function reset() {
   filters.eventType = ''

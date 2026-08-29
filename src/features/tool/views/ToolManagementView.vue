@@ -8,7 +8,6 @@ import ListEmptyState from '@/components/ListEmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { queryKeys } from '@/api/queryKeys'
 import { useAuthStore } from '@/stores/auth'
-import { getErrorMessage } from '@/api/http'
 import { APP_PERMISSION, hasAccess } from '@/features/auth/authorization'
 import { toolApi } from '../api'
 import type { ToolConnectorCommand, ToolConnectorSummary, ToolDiscovery } from '../types'
@@ -235,17 +234,21 @@ function schemaPreview(schema: string) {
             ><el-input-number v-model="connectorForm.timeoutSeconds" :min="1" :max="300"
           /></el-form-item>
         </div>
-        <el-form-item label="凭证引用"
+        <el-form-item label="认证凭证引用"
           ><el-input
             v-model="connectorForm.credentialRef"
-            placeholder="只填写平台凭证引用，不填写密钥本身"
+            placeholder="例如 employee_directory_prod"
         /></el-form-item>
         <el-alert
           type="info"
           :closable="false"
           title="安全边界"
-          description="平台仅保存凭证引用；模型不会看到连接器凭证，工具必须发现并审核后才能运行。"
+          description="这里填写部署环境中的凭证引用，不要填写明文密钥。当前读取该引用对应的完整 Authorization 值，因此支持 Bearer、Basic 或 API Key 等 Authorization 方案；非 Authorization 请求头暂未开放。"
         />
+        <p class="tool-credential-help">
+          部署配置示例：mcp.credentials.&lt;tenantCode&gt;.&lt;credentialRef&gt;=Bearer
+          &lt;token&gt;
+        </p>
       </el-form>
       <template #footer
         ><el-button @click="createVisible = false">取消</el-button
@@ -399,6 +402,14 @@ function schemaPreview(schema: string) {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+}
+.tool-credential-help {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 .discovery-summary {
   display: grid;
