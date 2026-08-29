@@ -57,6 +57,7 @@ const navigationIcons: Record<NavigationIcon, Component> = {
   agents: Bot,
   access: UsersRound,
   tenants: Building2,
+  audit: ScrollText,
 }
 
 watch(

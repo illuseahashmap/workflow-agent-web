@@ -98,6 +98,17 @@ const router = createRouter({
           },
         },
         {
+          path: 'operations/audit',
+          name: 'operations-audit',
+          component: () => import('@/features/operations/views/OperationsAuditView.vue'),
+          meta: {
+            title: '运行审计',
+            requiredAnyRoles: [APP_ROLE.platformAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.workflowAuditRead],
+            navigation: { label: '运行审计', icon: 'audit', order: 55 },
+          },
+        },
+        {
           path: 'tenants',
           name: 'tenants',
           component: () => import('@/features/tenant/views/TenantListView.vue'),

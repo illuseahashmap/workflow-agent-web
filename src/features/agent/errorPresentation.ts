@@ -69,6 +69,26 @@ const catalog: Record<string, Omit<AgentErrorPresentation, 'code'>> = {
     action: 'CONFIGURATION',
     actionLabel: '需要管理员处理',
   },
+  PROVIDER_INVALID_RESPONSE: {
+    title: 'Provider 返回了不可识别的响应',
+    description:
+      '模型服务已响应，但响应格式不符合当前 Provider 适配器契约。请检查模型接口类型和返回格式。',
+    action: 'CONFIGURATION',
+    actionLabel: '修复 Provider 配置后重试',
+  },
+  PROVIDER_RESPONSE_TOO_LARGE: {
+    title: 'Provider 响应超过限制',
+    description:
+      '模型响应超过平台安全大小限制，系统不会直接放大限制。请调整模型输出或 Provider 配置。',
+    action: 'CONFIGURATION',
+    actionLabel: '修复输出配置后重试',
+  },
+  AGENT_RESULT_EVIDENCE_INSUFFICIENT: {
+    title: 'Agent 结果证据不足',
+    description: '结果虽然返回成功，但没有满足业务结果策略要求，系统不会绕过校验推进流程。',
+    action: 'WAIT_FOR_REVIEW',
+    actionLabel: '检查结果策略后重试',
+  },
   AGENT_EXECUTION_ERROR: {
     title: 'Agent 执行异常',
     description: '执行过程中出现未分类异常。请保留运行编号和 Trace ID，交由管理员排查。',

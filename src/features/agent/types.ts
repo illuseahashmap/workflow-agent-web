@@ -159,10 +159,12 @@ export interface AgentRunStateHistory {
 
 export type AgentFailureCategory =
   | 'PROVIDER_TRANSIENT'
+  | 'PROVIDER_PERMANENT'
   | 'OUTPUT_CONTRACT'
   | 'TOOL_PROTOCOL'
   | 'INPUT_CONTRACT'
   | 'CONFIGURATION'
+  | 'RESULT_POLICY'
   | 'BUSINESS_REJECTION'
   | 'EXECUTION_UNEXPECTED'
   | 'DEADLINE'

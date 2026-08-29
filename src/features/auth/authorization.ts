@@ -17,6 +17,7 @@ export const APP_PERMISSION = {
   agentManage: 'agent:manage',
   agentRunRead: 'agent:run:read',
   agentRunExecute: 'agent:run:execute',
+  workflowAuditRead: 'workflow:audit:read',
 } as const
 
 export type AppRole = (typeof APP_ROLE)[keyof typeof APP_ROLE]

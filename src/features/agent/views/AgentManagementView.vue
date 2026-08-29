@@ -13,7 +13,7 @@ import TableTagCell from '@/components/TableTagCell.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
-import { confirmAction } from '@/utils/confirmation'
+import { confirmAction, promptRequired } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
 import { getStatusLabel } from '@/utils/status'
 import { agentApi, agentProviderApi, agentRunApi } from '../api'
@@ -151,6 +151,29 @@ const submitManualRunMutation = useMutation({
   },
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
+
+const retryAgentRunMutation = useMutation({
+  mutationFn: (reason: string) => agentRunApi.retry(selectedRunId.value!, reason),
+  onSuccess: async () => {
+    ElMessage.success('已重新排队，修复后的配置将在当前 Agent 节点重新执行')
+    await Promise.all([
+      runDetailQuery.refetch(),
+      queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns(tenantCode.value) }),
+    ])
+  },
+  onError: (error) => ElMessage.error(getErrorMessage(error)),
+})
+
+async function retryFailedRun() {
+  const reason = await promptRequired(
+    '请说明已完成的修复，例如“已补充 Provider 凭证”或“已修正输出 Schema”。',
+    '修复后重新执行',
+    { inputPlaceholder: '请输入处置说明', inputValidator: (value) => value.trim().length > 0 },
+  )
+  if (reason) {
+    retryAgentRunMutation.mutate(reason)
+  }
+}
 
 const agentDialogVisible = ref(false)
 const editingAgentId = ref<number>()
@@ -447,10 +470,12 @@ function failureCategoryLabel(category: string) {
   return (
     {
       PROVIDER_TRANSIENT: 'Provider 临时故障',
+      PROVIDER_PERMANENT: 'Provider 永久故障',
       OUTPUT_CONTRACT: '输出契约错误',
       TOOL_PROTOCOL: '工具协议错误',
       INPUT_CONTRACT: '输入契约错误',
       CONFIGURATION: '配置错误',
+      RESULT_POLICY: '结果策略拒绝',
       BUSINESS_REJECTION: '业务拒绝',
       EXECUTION_UNEXPECTED: '未分类执行异常',
       DEADLINE: '超过截止时间',
@@ -889,6 +914,21 @@ function failureCategoryLabel(category: string) {
                   }}
                   · {{ runDetailQuery.data.value.run.errorCode }}
                 </span>
+                <el-button
+                  v-if="
+                    canExecuteRuns &&
+                    ['FAILED', 'TIMED_OUT', 'CANCELLED'].includes(
+                      runDetailQuery.data.value.run.status,
+                    )
+                  "
+                  type="warning"
+                  plain
+                  size="small"
+                  :loading="retryAgentRunMutation.isPending.value"
+                  @click="retryFailedRun"
+                >
+                  修复后重新执行
+                </el-button>
               </div>
             </el-alert>
           </section>
