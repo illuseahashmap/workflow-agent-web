@@ -35,6 +35,7 @@ export const agentApi = {
   create: (payload: AgentDefinitionCommand) => apiClient.post<AgentDefinition>('/agents', payload),
   update: (id: number, payload: AgentDefinitionCommand) =>
     apiClient.post<AgentDefinition>(`/agents/${id}`, payload),
+  delete: (id: number) => apiClient.delete<void>(`/agents/${id}`),
   versions: (definitionId: number) =>
     apiClient.get<AgentVersion[]>(`/agents/${definitionId}/versions`),
   createDraft: (definitionId: number) =>

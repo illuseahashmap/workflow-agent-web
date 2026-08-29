@@ -17,6 +17,7 @@ import { confirmAction, promptRequired } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
 import { getStatusLabel } from '@/utils/status'
 import { agentApi, agentProviderApi, agentRunApi } from '../api'
+import { toolApi, type PublishedMcpTool } from '@/features/tool'
 import { useAgentSchemaEditor } from '../composables/useAgentSchemaEditor'
 import SchemaFieldsEditor from '../components/SchemaFieldsEditor.vue'
 import { getAgentErrorPresentation } from '../errorPresentation'
@@ -233,6 +234,24 @@ const saveAgentMutation = useMutation({
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
 
+const deleteAgentMutation = useMutation({
+  mutationFn: (agent: AgentDefinition) => agentApi.delete(agent.id),
+  onSuccess: async () => {
+    ElMessage.success('Agent 定义已删除')
+    await queryClient.invalidateQueries({ queryKey: queryKeys.agents(tenantCode.value) })
+  },
+  onError: (error) => ElMessage.error(getErrorMessage(error)),
+})
+
+async function deleteAgent(agent: AgentDefinition) {
+  const confirmed = await confirmAction(
+    `确认删除 Agent“${agent.name}”吗？仅未发布且没有运行记录的定义可以删除，此操作不可恢复。`,
+    '删除 Agent 定义',
+    { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' },
+  )
+  if (confirmed) deleteAgentMutation.mutate(agent)
+}
+
 const versionDialogVisible = ref(false)
 const versionEditorVisible = ref(false)
 const selectedAgent = ref<AgentDefinition>()
@@ -246,6 +265,7 @@ const versionForm = reactive<AgentVersionCommand>({
   failurePolicy: 'FAIL_PROCESS',
   inputSchema: '',
   outputSchema: '',
+  toolCodes: [],
 })
 const {
   inputSchemaFields,
@@ -263,6 +283,32 @@ const versionsQuery = useQuery({
   enabled: computed(() => Boolean(selectedAgent.value?.id && versionDialogVisible.value)),
 })
 const versions = computed(() => versionsQuery.data.value ?? [])
+const publishedMcpToolsQuery = useQuery({
+  queryKey: computed(() => queryKeys.mcpPublishedTools(tenantCode.value)),
+  queryFn: async (): Promise<PublishedMcpTool[]> => {
+    const connectors = await toolApi.list()
+    const published = connectors.filter(
+      (connector) =>
+        connector.latestCatalogStatus === 'PUBLISHED' && connector.latestCatalogVersionId,
+    )
+    const groups = await Promise.all(
+      published.map(async (connector) => {
+        const tools = await toolApi.publishedTools(connector.latestCatalogVersionId!)
+        return tools.map((tool) => ({
+          ...tool,
+          catalogVersionId: connector.latestCatalogVersionId!,
+          connectorName: connector.connectorName,
+          connectorCode: connector.connectorCode,
+          connectorVersion: connector.connectorVersion,
+        }))
+      }),
+    )
+    return groups.flat()
+  },
+  enabled: computed(() =>
+    Boolean(tenantCode.value && canManageAgents.value && versionEditorVisible.value),
+  ),
+})
 const hasDraft = computed(() => versions.value.some((item) => item.status === 'DRAFT'))
 const createDraftMutation = useMutation({
   mutationFn: () => agentApi.createDraft(selectedAgent.value!.id),
@@ -275,14 +321,37 @@ const createDraftMutation = useMutation({
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
 const saveVersionMutation = useMutation({
-  mutationFn: () =>
-    agentApi.updateDraft(selectedAgent.value!.id, editingVersion.value!.id, {
+  mutationFn: async () => {
+    const previousCodes = new Set<string>(editingVersion.value?.toolCodes || [])
+    const nextCodes = new Set<string>(versionForm.toolCodes || [])
+    const saved = await agentApi.updateDraft(selectedAgent.value!.id, editingVersion.value!.id, {
       ...versionForm,
       modelName: versionForm.modelName?.trim(),
       systemPrompt: versionForm.systemPrompt.trim(),
       inputSchema: buildInputSchema(),
       outputSchema: buildOutputSchema(),
-    }),
+      toolCodes: [...nextCodes],
+    })
+    const snapshots = publishedMcpToolsQuery.data.value || []
+    const snapshotByCode = new Map(snapshots.map((tool) => [tool.registryToolCode, tool]))
+    await Promise.all([
+      [...nextCodes]
+        .filter((code) => !previousCodes.has(code) && code.startsWith('mcp:'))
+        .map((code) => {
+          const tool = snapshotByCode.get(code)
+          return tool ? toolApi.bindToAgentVersion(saved.id, tool.snapshotId) : Promise.resolve()
+        }),
+      [...previousCodes]
+        .filter((code) => !nextCodes.has(code) && code.startsWith('mcp:'))
+        .map((code) => {
+          const tool = snapshotByCode.get(code)
+          return tool
+            ? toolApi.unbindFromAgentVersion(saved.id, tool.snapshotId)
+            : Promise.resolve()
+        }),
+    ])
+    return saved
+  },
   onSuccess: async () => {
     versionEditorVisible.value = false
     ElMessage.success('Agent 草稿已保存')
@@ -384,6 +453,7 @@ function openVersionEditor(version: AgentVersion) {
     failurePolicy: version.failurePolicy,
     inputSchema: version.inputSchema || '',
     outputSchema: version.outputSchema || '',
+    toolCodes: [...(version.toolCodes || [])],
   })
   resetSchemaFields(version.inputSchema, version.outputSchema)
   versionEditorVisible.value = true
@@ -626,7 +696,7 @@ function failureCategoryLabel(category: string) {
                     formatDateTime(row.updatedAt)
                   }}</template></el-table-column
                 >
-                <el-table-column label="操作" width="260" fixed="right"
+                <el-table-column label="操作" width="330" fixed="right"
                   ><template #default="{ row }"
                     ><el-button
                       v-if="canExecuteRuns"
@@ -636,8 +706,14 @@ function failureCategoryLabel(category: string) {
                       @click="openManualRun(row)"
                       >测试运行</el-button
                     ><el-button link type="primary" @click="openVersions(row)">版本管理</el-button
-                    ><el-button link type="primary" @click="openAgentEdit(row)"
-                      >编辑</el-button
+                    ><el-button link type="primary" @click="openAgentEdit(row)">编辑</el-button
+                    ><el-button
+                      v-if="canManageAgents"
+                      link
+                      type="danger"
+                      :disabled="deleteAgentMutation.isPending.value"
+                      @click="deleteAgent(row)"
+                      >删除</el-button
                     ></template
                   ></el-table-column
                 >
@@ -1422,6 +1498,43 @@ function failureCategoryLabel(category: string) {
               placeholder="留空使用 Provider 默认模型"
           /></el-form-item>
         </div>
+        <el-form-item v-if="versionForm.executionMode === 'PLATFORM_AGENT'" label="MCP 工具集">
+          <el-select
+            v-model="versionForm.toolCodes"
+            multiple
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :disabled="editingVersion?.status === 'PUBLISHED'"
+            :loading="publishedMcpToolsQuery.isFetching.value"
+            placeholder="选择已发布的只读 MCP 工具"
+          >
+            <el-option
+              v-for="tool in publishedMcpToolsQuery.data.value || []"
+              :key="tool.snapshotId"
+              :label="`${tool.name} · ${tool.connectorName}`"
+              :value="tool.registryToolCode"
+            >
+              <span class="mcp-tool-option">
+                <span>{{ tool.name }}</span>
+                <StatusBadge status="READ_ONLY" label="只读" tone="success" />
+              </span>
+            </el-option>
+          </el-select>
+          <div class="form-help">
+            只显示已审核发布的 MCP 快照。工具集合会随 Agent 版本冻结，流程节点只能继续缩小范围。
+          </div>
+        </el-form-item>
+        <el-alert
+          v-if="
+            versionForm.executionMode === 'PLATFORM_AGENT' &&
+            !publishedMcpToolsQuery.data.value?.length
+          "
+          type="info"
+          :closable="false"
+          title="暂无已发布 MCP 工具"
+          description="请先在工具目录中创建连接器、发现工具并审核发布，再回到这里绑定。"
+        />
         <el-form-item label="系统提示词" required
           ><el-input
             v-model="versionForm.systemPrompt"

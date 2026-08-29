@@ -6,9 +6,13 @@ import { Cable, CircleCheck, Compass, Plus, RefreshCw, Wrench } from '@lucide/vu
 import PageHeader from '@/components/PageHeader.vue'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import TableTagCell from '@/components/TableTagCell.vue'
 import { queryKeys } from '@/api/queryKeys'
+import { getErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { APP_PERMISSION, hasAccess } from '@/features/auth/authorization'
+import { confirmAction } from '@/utils/confirmation'
+import { formatVersion } from '@/utils/format'
 import { toolApi } from '../api'
 import type { ToolConnectorCommand, ToolConnectorSummary, ToolDiscovery } from '../types'
 
@@ -72,6 +76,14 @@ const publishMutation = useMutation({
     })
   },
 })
+const deleteMutation = useMutation({
+  mutationFn: (connectorId: number) => toolApi.deleteDraftConnector(connectorId),
+  onSuccess: async () => {
+    ElMessage.success('草稿连接器已删除')
+    await queryClient.invalidateQueries({ queryKey: queryKeys.mcpConnectors(tenantCode.value) })
+  },
+  onError: (error) => ElMessage.error(getErrorMessage(error)),
+})
 
 function resetForm() {
   Object.assign(connectorForm, {
@@ -90,7 +102,16 @@ function openCreate() {
 function openDiscovery(connector: ToolConnectorSummary) {
   discoverMutation.mutate(connector)
 }
+async function removeConnector(connector: ToolConnectorSummary) {
+  const confirmed = await confirmAction(
+    '仅未发布、未被 Agent 使用的草稿连接器可以删除；已发布连接器需要保留版本历史。',
+    '删除草稿连接器',
+    { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' },
+  )
+  if (confirmed) deleteMutation.mutate(connector.connectorId)
+}
 function statusLabel(status?: string) {
+  if (!status) return '未发现'
   return (
     (
       {
@@ -110,7 +131,9 @@ function statusTone(status?: string) {
     ? 'success'
     : status === 'DISABLED' || status === 'RETIRED'
       ? 'info'
-      : 'warning'
+      : status === undefined
+        ? 'info'
+        : 'warning'
 }
 function schemaPreview(schema: string) {
   try {
@@ -174,9 +197,11 @@ function schemaPreview(schema: string) {
         >
         <el-table-column label="版本" width="110" align="center"
           ><template #default="{ row }"
-            >version:{{ row.connectorVersion }}</template
-          ></el-table-column
-        >
+            ><TableTagCell align="center"
+              ><StatusBadge
+                :status="row.connectorVersionStatus"
+                :label="formatVersion(row.connectorVersion)" /></TableTagCell></template
+        ></el-table-column>
         <el-table-column label="端点" min-width="260" show-overflow-tooltip
           ><template #default="{ row }"
             ><code>{{ row.endpointUrl }}</code></template
@@ -184,15 +209,16 @@ function schemaPreview(schema: string) {
         >
         <el-table-column label="目录状态" width="130" align="center"
           ><template #default="{ row }"
-            ><StatusBadge
-              :label="statusLabel(row.latestCatalogStatus)"
-              :status="row.latestCatalogStatus || 'DRAFT'"
-              :tone="statusTone(row.latestCatalogStatus)" /></template
+            ><TableTagCell align="center"
+              ><StatusBadge
+                :label="statusLabel(row.latestCatalogStatus)"
+                :status="row.latestCatalogStatus || 'NOT_DISCOVERED'"
+                :tone="statusTone(row.latestCatalogStatus)" /></TableTagCell></template
         ></el-table-column>
         <el-table-column label="工具数" width="90" align="center"
           ><template #default="{ row }">{{ row.toolCount }}</template></el-table-column
         >
-        <el-table-column label="操作" width="150" align="center"
+        <el-table-column label="操作" width="220" align="center"
           ><template #default="{ row }"
             ><el-button
               type="primary"
@@ -200,6 +226,13 @@ function schemaPreview(schema: string) {
               :loading="discoverMutation.isPending.value"
               @click="openDiscovery(row)"
               >发现工具</el-button
+            ><el-button
+              v-if="row.connectorStatus === 'DRAFT'"
+              link
+              type="danger"
+              :loading="deleteMutation.isPending.value"
+              @click="removeConnector(row)"
+              >删除</el-button
             ></template
           ></el-table-column
         >
@@ -319,26 +352,30 @@ function schemaPreview(schema: string) {
 .tool-management-page {
   --tool-ink: #172554;
   --tool-blue: #2563eb;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 0;
 }
 .tool-principles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-4);
 }
 .tool-principles article {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   min-height: 70px;
-  padding: 14px 16px;
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-md);
   background: linear-gradient(135deg, #fff 0%, #f5f8ff 100%);
   color: var(--tool-blue);
 }
 .tool-principles article div {
   display: grid;
-  gap: 3px;
+  gap: var(--space-1);
 }
 .tool-principles strong {
   color: var(--color-text-strong);
@@ -349,14 +386,16 @@ function schemaPreview(schema: string) {
   font-size: 12px;
 }
 .tool-table-panel {
+  min-height: 0;
+  height: auto;
   overflow: hidden;
 }
 .tool-table-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 18px 20px;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--color-border);
 }
 .tool-table-heading h3 {

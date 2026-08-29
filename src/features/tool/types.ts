@@ -40,3 +40,10 @@ export interface ToolSnapshot {
   description?: string
   inputSchema: string
 }
+
+export interface PublishedMcpTool extends ToolSnapshot {
+  catalogVersionId: number
+  connectorName: string
+  connectorCode: string
+  connectorVersion: number
+}

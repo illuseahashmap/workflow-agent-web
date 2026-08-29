@@ -44,6 +44,7 @@ export interface AgentVersion {
   publishedAt?: string
   createdAt?: string
   updatedAt?: string
+  toolCodes?: string[]
 }
 
 export interface PublishedAgentVersion {
@@ -57,6 +58,7 @@ export interface PublishedAgentVersion {
   inputSchema?: string
   outputSchema?: string
   contractFingerprint: string
+  toolCodes?: string[]
 }
 
 export interface AgentVersionCommand {
@@ -68,6 +70,7 @@ export interface AgentVersionCommand {
   failurePolicy: AgentFailurePolicy
   inputSchema?: string
   outputSchema?: string
+  toolCodes?: string[]
 }
 
 export interface AgentProvider {

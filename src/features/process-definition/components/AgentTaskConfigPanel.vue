@@ -70,8 +70,17 @@ const emit = defineEmits<{
         </el-select>
       </el-form-item>
       <div v-if="props.selectedAgentVersion" class="agent-version-summary">
-        <span>执行方式：模型调用</span>
+        <span
+          >执行方式：{{
+            props.selectedAgentVersion.executionMode === 'PLATFORM_AGENT'
+              ? '平台 Agent'
+              : '模型调用'
+          }}</span
+        >
         <span>Agent 运行上限：{{ props.selectedAgentVersion.timeoutSeconds }} 秒</span>
+        <span v-if="props.selectedAgentVersion.executionMode === 'PLATFORM_AGENT'"
+          >工具集合由 Agent 版本冻结</span
+        >
         <span>输入、输出契约以该已发布版本为准</span>
       </div>
       <el-form-item label="输入字段映射">

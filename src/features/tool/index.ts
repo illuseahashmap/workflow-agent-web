@@ -7,4 +7,5 @@ export type {
   ToolDiscovery,
   ToolSnapshot,
   ToolVersionStatus,
+  PublishedMcpTool,
 } from './types'

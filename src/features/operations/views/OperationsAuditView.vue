@@ -5,6 +5,8 @@ import { RefreshCw, Search } from '@lucide/vue'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import TablePagination from '@/components/TablePagination.vue'
+import TableTagCell from '@/components/TableTagCell.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/format'
 import { operationsApi, type WorkflowAuditQuery } from '../api'
@@ -109,7 +111,11 @@ function changePageSize(pageSize: number) {
             show-overflow-tooltip
           />
           <el-table-column prop="actorUsername" label="操作者" width="130" />
-          <el-table-column prop="nextState" label="结果" min-width="130" />
+          <el-table-column prop="nextState" label="结果" min-width="130"
+            ><template #default="{ row }"
+              ><TableTagCell align="center"
+                ><StatusBadge :status="row.nextState || 'UNKNOWN'" /></TableTagCell></template
+          ></el-table-column>
           <el-table-column prop="traceId" label="Trace ID" min-width="210" show-overflow-tooltip />
           <el-table-column label="发生时间" width="175"
             ><template #default="{ row }">{{

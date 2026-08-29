@@ -29,6 +29,7 @@ const presentation = computed(() => getStatusPresentation(props.status))
 .status-badge {
   width: 74px;
   min-width: 74px;
+  max-width: 100%;
   box-sizing: border-box;
   height: 25px;
   justify-content: center;
@@ -72,6 +73,10 @@ const presentation = computed(() => getStatusPresentation(props.status))
 :deep(.el-tag__content) {
   display: inline-flex;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 </style>
