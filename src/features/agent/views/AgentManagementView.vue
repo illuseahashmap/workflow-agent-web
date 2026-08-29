@@ -164,6 +164,18 @@ const retryAgentRunMutation = useMutation({
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
 
+const cancelAgentRunMutation = useMutation({
+  mutationFn: (reason: string) => agentRunApi.cancel(selectedRunId.value!, reason),
+  onSuccess: async () => {
+    ElMessage.success('运行已取消，系统已记录处置原因')
+    await Promise.all([
+      runDetailQuery.refetch(),
+      queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns(tenantCode.value) }),
+    ])
+  },
+  onError: (error) => ElMessage.error(getErrorMessage(error)),
+})
+
 async function retryFailedRun() {
   const reason = await promptRequired(
     '请说明已完成的修复，例如“已补充 Provider 凭证”或“已修正输出 Schema”。',
@@ -173,6 +185,21 @@ async function retryFailedRun() {
   if (reason) {
     retryAgentRunMutation.mutate(reason)
   }
+}
+
+async function cancelActiveRun() {
+  const confirmed = await confirmAction(
+    '取消后当前 Agent 不会继续调用模型或工具，是否继续？',
+    '取消运行',
+    { confirmButtonText: '确认取消', cancelButtonText: '返回', type: 'warning' },
+  )
+  if (!confirmed) return
+  const reason = await promptRequired(
+    '请说明取消原因，便于后续审计和恢复分析。',
+    '填写取消原因',
+    { inputPlaceholder: '请输入处置说明', inputValidator: (value) => value.trim().length > 0 },
+  )
+  if (reason) cancelAgentRunMutation.mutate(reason)
 }
 
 const agentDialogVisible = ref(false)
@@ -870,6 +897,25 @@ function failureCategoryLabel(category: string) {
                       : '未产生决策'
               }}</strong>
             </div>
+          </section>
+
+          <section
+            v-if="
+              canExecuteRuns &&
+              ['QUEUED', 'RUNNING'].includes(runDetailQuery.data.value.run.status)
+            "
+            class="run-operations-card"
+          >
+            <span>运行仍在执行中</span>
+            <el-button
+              type="danger"
+              plain
+              size="small"
+              :loading="cancelAgentRunMutation.isPending.value"
+              @click="cancelActiveRun"
+            >
+              取消运行
+            </el-button>
           </section>
 
           <section
@@ -1674,6 +1720,19 @@ function failureCategoryLabel(category: string) {
   border: 1px solid var(--color-border-soft);
   border-radius: 11px;
   background: var(--color-surface-muted);
+}
+.run-operations-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 22%, var(--color-border-soft));
+  border-radius: 11px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-danger-soft) 55%, var(--color-surface));
+  font-size: 13px;
 }
 .run-diagnostics-card > div {
   display: grid;

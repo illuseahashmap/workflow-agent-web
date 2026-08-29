@@ -80,4 +80,6 @@ export const agentRunApi = {
     apiClient.post<AgentRunSubmission>('/agent-runs/manual-tests', payload),
   retry: (runId: number, reason: string, retryWindowSeconds = 120) =>
     apiClient.post<void>(`/agent-runs/${runId}/retry`, { reason, retryWindowSeconds }),
+  cancel: (runId: number, reason: string) =>
+    apiClient.post<void>(`/agent-runs/${runId}/cancel`, { reason }),
 }
