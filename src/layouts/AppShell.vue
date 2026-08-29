@@ -18,6 +18,7 @@ import {
   KeyRound,
   UserRound,
   Workflow,
+  Wrench,
   X,
 } from '@lucide/vue'
 import { useAppStore } from '@/stores/app'
@@ -55,6 +56,7 @@ const navigationIcons: Record<NavigationIcon, Component> = {
   instances: GitBranch,
   assignments: Route,
   agents: Bot,
+  tools: Wrench,
   access: UsersRound,
   tenants: Building2,
   audit: ScrollText,

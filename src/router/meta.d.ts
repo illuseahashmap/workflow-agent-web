@@ -2,7 +2,7 @@ import 'vue-router'
 import type { AppPermission, AppRole } from '@/features/auth'
 
 export type NavigationIcon =
-  'definitions' | 'instances' | 'assignments' | 'agents' | 'access' | 'tenants' | 'audit'
+  'definitions' | 'instances' | 'assignments' | 'agents' | 'tools' | 'access' | 'tenants' | 'audit'
 
 declare module 'vue-router' {
   interface RouteMeta {

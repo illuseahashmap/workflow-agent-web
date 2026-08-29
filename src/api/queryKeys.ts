@@ -46,6 +46,7 @@ export const queryKeys = {
     [...queryKeys.agentProviders(tenantCode), 'page', parameters] as const,
   enabledAgentProviders: (tenantCode: string) =>
     [...queryKeys.agentProviders(tenantCode), 'enabled'] as const,
+  mcpConnectors: (tenantCode: string) => [...tenantScope(tenantCode), 'mcp-connectors'] as const,
   agentRuns: (tenantCode: string) => [...tenantScope(tenantCode), 'agent-runs'] as const,
   agentRunPage: (tenantCode: string, parameters: QueryParameters) =>
     [...queryKeys.agentRuns(tenantCode), 'page', parameters] as const,

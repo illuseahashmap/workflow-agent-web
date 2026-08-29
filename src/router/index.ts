@@ -98,6 +98,17 @@ const router = createRouter({
           },
         },
         {
+          path: 'tools',
+          name: 'tool-management',
+          component: () => import('@/features/tool/views/ToolManagementView.vue'),
+          meta: {
+            title: '工具目录',
+            requiredAnyRoles: [APP_ROLE.platformAdministrator, APP_ROLE.tenantAdministrator],
+            requiredAnyPermissions: [APP_PERMISSION.agentManage],
+            navigation: { label: '工具目录', icon: 'tools', order: 45 },
+          },
+        },
+        {
           path: 'operations/audit',
           name: 'operations-audit',
           component: () => import('@/features/operations/views/OperationsAuditView.vue'),
