@@ -194,11 +194,10 @@ async function cancelActiveRun() {
     { confirmButtonText: '确认取消', cancelButtonText: '返回', type: 'warning' },
   )
   if (!confirmed) return
-  const reason = await promptRequired(
-    '请说明取消原因，便于后续审计和恢复分析。',
-    '填写取消原因',
-    { inputPlaceholder: '请输入处置说明', inputValidator: (value) => value.trim().length > 0 },
-  )
+  const reason = await promptRequired('请说明取消原因，便于后续审计和恢复分析。', '填写取消原因', {
+    inputPlaceholder: '请输入处置说明',
+    inputValidator: (value) => value.trim().length > 0,
+  })
   if (reason) cancelAgentRunMutation.mutate(reason)
 }
 
@@ -901,8 +900,7 @@ function failureCategoryLabel(category: string) {
 
           <section
             v-if="
-              canExecuteRuns &&
-              ['QUEUED', 'RUNNING'].includes(runDetailQuery.data.value.run.status)
+              canExecuteRuns && ['QUEUED', 'RUNNING'].includes(runDetailQuery.data.value.run.status)
             "
             class="run-operations-card"
           >
