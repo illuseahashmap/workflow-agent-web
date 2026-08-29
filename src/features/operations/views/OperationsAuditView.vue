@@ -28,13 +28,21 @@ function optionalFilter(value: string) {
 }
 
 function search() {
-  applied.value = {
+  const nextQuery: WorkflowAuditQuery = {
     pageNum: 1,
     pageSize: applied.value.pageSize,
     eventType: optionalFilter(filters.eventType),
     processInstanceId: optionalFilter(filters.processInstanceId),
     traceId: optionalFilter(filters.traceId),
   }
+  const queryUnchanged =
+    applied.value.pageNum === nextQuery.pageNum &&
+    applied.value.pageSize === nextQuery.pageSize &&
+    applied.value.eventType === nextQuery.eventType &&
+    applied.value.processInstanceId === nextQuery.processInstanceId &&
+    applied.value.traceId === nextQuery.traceId
+  applied.value = nextQuery
+  if (queryUnchanged) void query.refetch()
 }
 function reset() {
   filters.eventType = ''
