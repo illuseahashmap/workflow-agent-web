@@ -977,6 +977,74 @@ function failureCategoryLabel(category: string) {
             </el-alert>
           </section>
 
+          <section
+            v-if="
+              runDetailQuery.data.value.run.status !== 'SUCCEEDED' &&
+              runDetailQuery.data.value.recoveryDecisions.length
+            "
+            class="run-recovery-card"
+          >
+            <div class="run-recovery-card__heading">
+              <div>
+                <small>运维处理建议</small>
+                <strong>{{
+                  getAgentErrorPresentation(
+                    runDetailQuery.data.value.recoveryDecisions.at(-1)?.errorCode ||
+                      runDetailQuery.data.value.run.errorCode,
+                  )?.actionLabel || '请根据恢复决策处理'
+                }}</strong>
+              </div>
+              <StatusBadge
+                :status="
+                  runDetailQuery.data.value.recoveryDecisions.at(-1)?.requiresHumanReview
+                    ? 'WAIT_FOR_REVIEW'
+                    : runDetailQuery.data.value.recoveryDecisions.at(-1)?.retryScheduled
+                      ? 'RETRY_SCHEDULED'
+                      : 'DECISION_RECORDED'
+                "
+                :label="
+                  runDetailQuery.data.value.recoveryDecisions.at(-1)?.requiresHumanReview
+                    ? '等待人工'
+                    : runDetailQuery.data.value.recoveryDecisions.at(-1)?.retryScheduled
+                      ? '已安排重试'
+                      : '已记录'
+                "
+                :tone="
+                  runDetailQuery.data.value.recoveryDecisions.at(-1)?.requiresHumanReview
+                    ? 'warning'
+                    : runDetailQuery.data.value.recoveryDecisions.at(-1)?.retryScheduled
+                      ? 'primary'
+                      : 'info'
+                "
+              />
+            </div>
+            <p class="run-recovery-card__reason">
+              {{ runDetailQuery.data.value.recoveryDecisions.at(-1)?.reason }}
+            </p>
+            <dl class="run-recovery-card__facts">
+              <div>
+                <dt>失败分类</dt>
+                <dd>{{ runDetailQuery.data.value.recoveryDecisions.at(-1)?.failureCategory }}</dd>
+              </div>
+              <div>
+                <dt>错误码</dt>
+                <dd>{{ runDetailQuery.data.value.recoveryDecisions.at(-1)?.errorCode }}</dd>
+              </div>
+              <div>
+                <dt>处理原则</dt>
+                <dd>
+                  {{
+                    runDetailQuery.data.value.recoveryDecisions.at(-1)?.retryScheduled
+                      ? '系统将按重试预算继续处理'
+                      : runDetailQuery.data.value.recoveryDecisions.at(-1)?.requiresHumanReview
+                        ? '修复配置或依赖后，由有权限的操作人员重新执行'
+                        : '按照记录的恢复决策继续处理'
+                  }}
+                </dd>
+              </div>
+            </dl>
+          </section>
+
           <el-tabs class="run-detail-tabs">
             <el-tab-pane label="输入与输出">
               <div class="run-payload-grid">
@@ -1779,6 +1847,62 @@ function failureCategoryLabel(category: string) {
   color: var(--color-text-muted);
   font-size: 12px;
 }
+.run-recovery-card {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--color-warning-border);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--color-warning-soft) 60%, var(--color-surface));
+}
+.run-recovery-card__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.run-recovery-card__heading > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.run-recovery-card__heading small,
+.run-recovery-card__facts dt {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.run-recovery-card__heading strong {
+  color: var(--color-text-strong);
+  font-size: 14px;
+}
+.run-recovery-card__reason {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.run-recovery-card__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--color-warning-border) 70%, transparent);
+}
+.run-recovery-card__facts > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.run-recovery-card__facts dd {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
 .run-payload-grid {
   display: grid;
   gap: 12px;
@@ -1865,6 +1989,9 @@ function failureCategoryLabel(category: string) {
   }
   .run-diagnostics-card {
     grid-template-columns: 1fr 1fr;
+  }
+  .run-recovery-card__facts {
+    grid-template-columns: 1fr;
   }
 }
 </style>
