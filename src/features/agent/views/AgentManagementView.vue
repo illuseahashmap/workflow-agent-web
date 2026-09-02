@@ -286,7 +286,7 @@ const versions = computed(() => versionsQuery.data.value ?? [])
 const publishedMcpToolsQuery = useQuery({
   queryKey: computed(() => queryKeys.mcpPublishedTools(tenantCode.value)),
   queryFn: async (): Promise<PublishedMcpTool[]> => {
-    const connectors = await toolApi.list()
+    const connectors = (await toolApi.list({ pageNum: 1, pageSize: 100 })).records
     const published = connectors.filter(
       (connector) =>
         connector.latestCatalogStatus === 'PUBLISHED' && connector.latestCatalogVersionId,
@@ -611,7 +611,7 @@ function failureCategoryLabel(category: string) {
       <el-tabs v-model="activeTab" class="agent-tabs">
         <el-tab-pane v-if="canManageAgents" label="Agent 定义" name="agents">
           <div class="agent-tab-content">
-            <section class="page-actions compact-filter">
+            <section class="page-actions compact-filter query-panel">
               <el-form class="filter-form filter-form--agent" inline @submit.prevent="searchAgents">
                 <el-form-item label="关键词"
                   ><el-input v-model="agentQuery.keyword" clearable placeholder="Agent 编码或名称"
@@ -655,6 +655,7 @@ function failureCategoryLabel(category: string) {
                   ><template #default="{ row }"
                     ><TableTagCell>
                       <StatusBadge
+                        variant="version"
                         class="version-status-badge"
                         v-if="row.publishedVersion"
                         status="PUBLISHED"
@@ -668,6 +669,7 @@ function failureCategoryLabel(category: string) {
                   ><template #default="{ row }"
                     ><TableTagCell>
                       <StatusBadge
+                        variant="version"
                         class="version-status-badge"
                         v-if="row.latestVersion && row.latestVersion !== row.publishedVersion"
                         status="DRAFT"
@@ -738,7 +740,7 @@ function failureCategoryLabel(category: string) {
 
         <el-tab-pane v-if="canManageAgents" label="Provider 配置" name="providers">
           <div class="agent-tab-content">
-            <section class="page-actions compact-filter">
+            <section class="page-actions compact-filter query-panel">
               <el-form
                 class="filter-form filter-form--agent"
                 inline
@@ -789,7 +791,7 @@ function failureCategoryLabel(category: string) {
 
         <el-tab-pane v-if="canReadRuns" label="运行记录" name="runs">
           <div class="agent-tab-content">
-            <section class="page-actions compact-filter">
+            <section class="page-actions compact-filter query-panel">
               <el-form class="filter-form filter-form--agent" inline @submit.prevent="searchRuns">
                 <el-form-item label="关键词"
                   ><el-input v-model="runQuery.keyword" clearable placeholder="Agent、流程实例"
@@ -1517,7 +1519,7 @@ function failureCategoryLabel(category: string) {
             >
               <span class="mcp-tool-option">
                 <span>{{ tool.name }}</span>
-                <StatusBadge status="READ_ONLY" label="只读" tone="success" />
+                <StatusBadge variant="category" status="READ_ONLY" label="只读" tone="success" />
               </span>
             </el-option>
           </el-select>
@@ -1665,7 +1667,7 @@ function failureCategoryLabel(category: string) {
   min-height: 560px;
   overflow: hidden;
   border: 1px solid var(--color-border-soft);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
 }
 .agent-tabs {
@@ -1697,13 +1699,15 @@ function failureCategoryLabel(category: string) {
   height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 14px;
+  gap: var(--layout-gap);
   padding: 16px;
 }
-.agent-tab-content .page-actions {
-  border: 1px solid var(--color-border-soft);
-  border-radius: 13px;
-  background: var(--color-surface-muted);
+.agent-tab-content .query-panel {
+  padding: 16px 18px;
+  border: 1px solid rgba(219, 228, 240, 0.92);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 .filter-form--agent {
   flex: 1;
@@ -1729,13 +1733,8 @@ function failureCategoryLabel(category: string) {
 .agent-table-panel {
   min-height: 0;
   border: 1px solid var(--color-border-soft);
-  border-radius: 13px;
+  border-radius: var(--radius-sm);
   box-shadow: none;
-}
-.agent-table-panel .table-pagination {
-  justify-content: flex-end;
-  padding: 12px 14px;
-  border-top: 1px solid var(--color-border-soft);
 }
 .agent-name-cell {
   display: flex;

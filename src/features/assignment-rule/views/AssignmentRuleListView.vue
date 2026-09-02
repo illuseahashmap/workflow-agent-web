@@ -6,6 +6,8 @@ import { Plus, RefreshCw, Search, Trash2 } from '@lucide/vue'
 import { getErrorMessage } from '@/api/http'
 import { queryKeys } from '@/api/queryKeys'
 import ListEmptyState from '@/components/ListEmptyState.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
+import TableTagCell from '@/components/TableTagCell.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -384,7 +386,7 @@ function assignmentTargetsText(rule: AssignmentRule) {
 </script>
 
 <template>
-  <div class="management-page page-stack">
+  <div class="management-page page-stack directory-page">
     <PageHeader
       eyebrow="Assignment Rule"
       title="派单规则中心"
@@ -401,7 +403,7 @@ function assignmentTargetsText(rule: AssignmentRule) {
       </MetricCard>
     </section>
 
-    <section class="page-actions compact-filter">
+    <section class="page-actions compact-filter query-panel">
       <el-form class="filter-form filter-form--assignment" inline @submit.prevent="search"
         ><el-form-item label="流程标识"
           ><el-input v-model="query.processDefinitionKey" clearable /></el-form-item
@@ -434,8 +436,17 @@ function assignmentTargetsText(rule: AssignmentRule) {
         ><el-table-column
           prop="processDefinitionKey"
           label="流程标识"
-          min-width="160" /><el-table-column label="流程版本" width="110"
-          ><template #default="{ row }">{{ formatVersion(row.version) }}</template></el-table-column
+          min-width="160" /><el-table-column
+          label="流程版本"
+          width="110"
+          align="center"
+          header-align="center"
+          ><template #default="{ row }"
+            ><TableTagCell align="center"
+              ><StatusBadge
+                variant="version"
+                status="PENDING"
+                :label="formatVersion(row.version)" /></TableTagCell></template></el-table-column
         ><el-table-column
           prop="taskDefinitionKey"
           label="节点标识"
@@ -447,9 +458,16 @@ function assignmentTargetsText(rule: AssignmentRule) {
         ><el-table-column prop="priority" label="优先级" width="85" /><el-table-column
           label="派单类型"
           width="110"
-          ><template #default="{ row }">{{
-            assignmentTypeLabel(row.assignmentType)
-          }}</template></el-table-column
+          align="center"
+          header-align="center"
+          ><template #default="{ row }"
+            ><TableTagCell align="center"
+              ><StatusBadge
+                variant="category"
+                status="ACTIVE"
+                :label="
+                  assignmentTypeLabel(row.assignmentType)
+                " /></TableTagCell></template></el-table-column
         ><el-table-column label="目标" min-width="200" show-overflow-tooltip
           ><template #default="{ row }">{{
             assignmentTargetsText(row) || '-'

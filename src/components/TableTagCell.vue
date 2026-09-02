@@ -35,5 +35,6 @@ withDefaults(
 .table-tag-cell :deep(.el-tag),
 .table-tag-cell :deep(.status-badge) {
   flex: 0 0 auto;
+  max-width: none;
 }
 </style>

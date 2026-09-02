@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { UserRoundSearch } from '@lucide/vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import type { ParticipantAssignment, ParticipantRequirement } from '../types'
 import UserPickerDialog from './UserPickerDialog.vue'
 
@@ -80,10 +81,12 @@ function assignmentLabel(requirement: ParticipantRequirement) {
           <small>{{ requirement.activityId }}</small>
         </div>
         <div class="participant-card__badges">
-          <el-tag size="small" effect="plain">{{ assignmentLabel(requirement) }}</el-tag>
-          <el-tag size="small" :type="requirement.required ? 'warning' : 'success'" effect="light">
-            {{ requirement.required ? '必须指定' : '可选指定' }}
-          </el-tag>
+          <StatusBadge variant="category" status="PENDING" :label="assignmentLabel(requirement)" />
+          <StatusBadge
+            variant="category"
+            :status="requirement.required ? 'WAITING_FOR_REVIEW' : 'SUCCESS'"
+            :label="requirement.required ? '必须指定' : '可选指定'"
+          />
         </div>
       </div>
       <div class="participant-card__selection">

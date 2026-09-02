@@ -27,11 +27,12 @@ export const queryKeys = {
   assignmentRulePage: (tenantCode: string, parameters: QueryParameters) =>
     [...queryKeys.assignmentRules(tenantCode), 'page', parameters] as const,
   tenantMembers: (tenantCode: string) => [...tenantScope(tenantCode), 'members'] as const,
-  tenantMemberList: (tenantCode: string, keyword: string) =>
-    [...queryKeys.tenantMembers(tenantCode), keyword] as const,
+  tenantMemberList: (tenantCode: string, keyword: string, pageNum = 1, pageSize = 20) =>
+    [...queryKeys.tenantMembers(tenantCode), keyword, pageNum, pageSize] as const,
   directoryUsers: (tenantCode: string, parameters: QueryParameters) =>
     [...tenantScope(tenantCode), 'directory-users', 'page', parameters] as const,
-  tenantRoles: (tenantCode: string) => [...tenantScope(tenantCode), 'roles'] as const,
+  tenantRoles: (tenantCode: string, pageNum?: number, pageSize?: number) =>
+    [...tenantScope(tenantCode), 'roles', pageNum, pageSize] as const,
   permissions: () => ['platform', 'permissions'] as const,
   tenants: () => ['platform', 'tenants'] as const,
   tenantPage: (parameters: QueryParameters) =>
@@ -46,7 +47,8 @@ export const queryKeys = {
     [...queryKeys.agentProviders(tenantCode), 'page', parameters] as const,
   enabledAgentProviders: (tenantCode: string) =>
     [...queryKeys.agentProviders(tenantCode), 'enabled'] as const,
-  mcpConnectors: (tenantCode: string) => [...tenantScope(tenantCode), 'mcp-connectors'] as const,
+  mcpConnectors: (tenantCode: string, pageNum?: number, pageSize?: number) =>
+    [...tenantScope(tenantCode), 'mcp-connectors', pageNum, pageSize] as const,
   mcpPublishedTools: (tenantCode: string) =>
     [...tenantScope(tenantCode), 'mcp-published-tools'] as const,
   agentRuns: (tenantCode: string) => [...tenantScope(tenantCode), 'agent-runs'] as const,

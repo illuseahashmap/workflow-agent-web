@@ -74,6 +74,9 @@
   --control-focus-ring: rgba(37, 99, 235, 0.14);
   --control-placeholder: #94a3b8;
   --panel-radius: var(--radius-lg);
+  --layout-gap: 18px;
+  --panel-padding: 16px 18px;
+  --panel-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
   --color-text-secondary: var(--color-text-muted);
 }
 
@@ -185,18 +188,49 @@
   justify-content: center;
 }
 
+/* All tables share the same reading rail; do not let the first/last column hug the panel edge. */
+.el-table .cell {
+  padding-inline: 16px;
+}
+
 .table-pagination {
+  width: 100%;
+  box-sizing: border-box;
   min-height: 56px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  padding: 10px var(--space-4);
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px var(--space-4);
   border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
-.table-pagination .el-pagination__total {
+.table-pagination__total {
+  margin-right: 0;
   color: var(--color-text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-pagination > .el-pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+}
+
+.table-pagination .el-pagination__sizes,
+.table-pagination .btn-prev,
+.table-pagination .btn-next,
+.table-pagination .el-pager {
+  margin: 0;
+}
+
+.table-pagination .el-pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .table-pagination .el-pager li,
@@ -219,6 +253,12 @@
   .table-pagination {
     justify-content: center;
     flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .table-pagination__total {
+    width: 100%;
+    text-align: center;
   }
 }
 
@@ -229,7 +269,7 @@
 
 .page-stack,
 .management-page {
-  gap: 18px;
+  gap: var(--layout-gap);
 }
 
 .page-hero {
@@ -251,12 +291,12 @@
 .page-actions,
 .table-panel,
 .agent-table-panel {
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
+  border-radius: var(--radius-md);
+  box-shadow: var(--panel-shadow);
 }
 
 .metric-card {
-  padding: 16px 18px;
+  padding: var(--panel-padding);
 }
 
 .metric-card strong {
@@ -265,6 +305,92 @@
 
 .page-actions {
   padding: 14px 16px 2px;
+}
+
+.query-panel {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(219, 228, 240, 0.92);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.directory-page {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+/* Directory pages share one vertical rhythm and one content rail. */
+.directory-page.management-page:not(.tool-management-page) {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(360px, 1fr);
+  gap: var(--layout-gap);
+}
+
+.directory-page.management-page:not(.tool-management-page) > .page-hero,
+.directory-page.management-page:not(.tool-management-page) > .metric-grid,
+.directory-page.management-page:not(.tool-management-page) > .query-panel,
+.directory-page.management-page:not(.tool-management-page) > .table-panel {
+  min-width: 0;
+}
+
+.directory-page.management-page:not(.tool-management-page) > .table-panel {
+  min-height: 360px;
+}
+
+.access-workspace {
+  min-height: 420px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--panel-shadow);
+}
+
+.detail-page {
+  gap: var(--layout-gap);
+}
+
+.instance-summary,
+.detail-content {
+  border-radius: var(--radius-md);
+  border-color: var(--color-border);
+  box-shadow: var(--panel-shadow);
+}
+
+.inspector-card {
+  border-radius: var(--radius-sm);
+  border-color: var(--color-border);
+}
+
+.directory-page > .table-panel {
+  width: 100%;
+  min-width: 0;
+  margin-inline: 0;
+}
+
+.query-panel .filter-form {
+  min-width: 0;
+}
+
+.query-panel.definition-filter {
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.access-toolbar.query-panel {
+  min-height: 0;
+  margin-bottom: 0;
+}
+
+.section-action-bar {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--color-border-soft);
 }
 
 .el-table {

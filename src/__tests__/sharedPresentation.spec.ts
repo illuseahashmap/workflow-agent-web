@@ -9,7 +9,7 @@ describe('shared data presentation', () => {
     expect(getStatusPresentation('RUNNING')).toEqual({ label: '运行中', tone: 'primary' })
     expect(getStatusPresentation('FAILED')).toEqual({ label: '失败', tone: 'danger' })
     expect(getStatusPresentation('TERMINATED')).toEqual({ label: '已终止', tone: 'info' })
-    expect(getStatusPresentation('ASSIGNED')).toEqual({ label: '已分配', tone: 'primary' })
+    expect(getStatusPresentation('ASSIGNED')).toEqual({ label: '已分配', tone: 'info' })
     expect(getStatusPresentation('NOT_DISCOVERED')).toEqual({ label: '未发现', tone: 'info' })
     expect(getStatusPresentation(true)).toEqual({ label: '启用', tone: 'success' })
   })

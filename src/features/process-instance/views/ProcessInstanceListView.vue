@@ -98,7 +98,7 @@ function handleStarted(result: StartProcessResult) {
 </script>
 
 <template>
-  <div class="management-page page-stack">
+  <div class="management-page page-stack directory-page">
     <PageHeader
       eyebrow="Process Instance"
       title="流程实例看板"
@@ -121,7 +121,7 @@ function handleStarted(result: StartProcessResult) {
       </MetricCard>
     </section>
 
-    <section class="page-actions compact-filter filter-only">
+    <section class="page-actions compact-filter query-panel filter-only">
       <el-form class="filter-form filter-form--instances" inline @submit.prevent="search">
         <el-form-item label="流程标识"
           ><el-input v-model="query.processDefinitionKey" clearable
@@ -155,12 +155,9 @@ function handleStarted(result: StartProcessResult) {
         height="100%"
         table-layout="fixed"
       >
-        <el-table-column
-          prop="businessKey"
-          label="业务标识"
-          min-width="160"
-          show-overflow-tooltip
-        />
+        <el-table-column label="业务标识" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.businessKey || '-' }}</template>
+        </el-table-column>
         <el-table-column
           prop="processDefinitionName"
           label="流程名称"

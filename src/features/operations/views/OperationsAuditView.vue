@@ -62,13 +62,16 @@ function changePageSize(pageSize: number) {
 </script>
 
 <template>
-  <main class="page-content operations-page">
+  <main class="page-content directory-page operations-page">
     <PageHeader
       eyebrow="OPERATIONS"
       title="运行审计"
       description="按租户追踪流程操作、执行主体与 Trace，定位一次运行的完整链路。"
     />
-    <section class="filter-card operations-filter" aria-label="审计筛选">
+    <section
+      class="page-actions compact-filter query-panel operations-filter"
+      aria-label="审计筛选"
+    >
       <label
         >事件类型<input
           v-model="filters.eventType"
@@ -95,39 +98,39 @@ function changePageSize(pageSize: number) {
         title="操作事件"
         description="按发生时间倒序显示，敏感凭证不会出现在审计记录中。"
       />
-      <div v-if="showInitialLoading" class="operations-loading" aria-live="polite">
-        <span class="operations-loading__spinner" aria-hidden="true"></span>
-        <span>正在读取审计事件…</span>
-      </div>
-      <template v-else>
-        <el-table :data="records" class="operations-table">
-          <el-table-column prop="eventType" label="事件" min-width="170" />
-          <el-table-column prop="subject" label="对象" min-width="190" show-overflow-tooltip />
-          <el-table-column
-            prop="processInstanceId"
-            label="流程实例"
-            min-width="190"
-            show-overflow-tooltip
-          />
-          <el-table-column prop="actorUsername" label="操作者" width="130" />
-          <el-table-column prop="nextState" label="结果" min-width="130"
-            ><template #default="{ row }"
-              ><TableTagCell align="center"
-                ><StatusBadge :status="row.nextState || 'UNKNOWN'" /></TableTagCell></template
-          ></el-table-column>
-          <el-table-column prop="traceId" label="Trace ID" min-width="210" show-overflow-tooltip />
-          <el-table-column label="发生时间" width="175"
-            ><template #default="{ row }">{{
-              formatDateTime(row.occurredAt)
-            }}</template></el-table-column
-          >
-        </el-table>
-        <ListEmptyState
-          v-if="records.length === 0"
-          title="暂无审计事件"
-          description="流程发生操作后，事件会自动出现在这里。"
+      <el-table
+        v-loading="showInitialLoading"
+        :data="records"
+        class="operations-table"
+        element-loading-text="正在读取审计事件…"
+      >
+        <el-table-column prop="eventType" label="事件" min-width="170" />
+        <el-table-column prop="subject" label="对象" min-width="190" show-overflow-tooltip />
+        <el-table-column
+          prop="processInstanceId"
+          label="流程实例"
+          min-width="190"
+          show-overflow-tooltip
         />
-      </template>
+        <el-table-column prop="actorUsername" label="操作者" width="130" />
+        <el-table-column prop="nextState" label="结果" min-width="130"
+          ><template #default="{ row }"
+            ><TableTagCell align="center"
+              ><StatusBadge :status="row.nextState || 'UNKNOWN'" /></TableTagCell></template
+        ></el-table-column>
+        <el-table-column prop="traceId" label="Trace ID" min-width="210" show-overflow-tooltip />
+        <el-table-column label="发生时间" width="175"
+          ><template #default="{ row }">{{
+            formatDateTime(row.occurredAt)
+          }}</template></el-table-column
+        >
+        <template #empty>
+          <ListEmptyState
+            title="暂无审计事件"
+            description="流程发生操作后，事件会自动出现在这里。"
+          />
+        </template>
+      </el-table>
       <TablePagination
         v-if="!showInitialLoading"
         :total="total"
@@ -151,11 +154,7 @@ function changePageSize(pageSize: number) {
   grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) minmax(220px, 1.2fr) auto;
   align-items: end;
   gap: 14px;
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--panel-radius);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-panel);
+  padding: 16px 18px;
 }
 .operations-filter label {
   display: grid;

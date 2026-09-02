@@ -279,7 +279,9 @@ async function handleSelectionChange(nextElement?: BpmnElement) {
       { confirmButtonText: '放弃并切换', cancelButtonText: '留在当前节点', type: 'warning' },
     )
     if (!confirmed) {
-      const selection = modeler.value?.get('selection') as { select: (element: BpmnElement) => void }
+      const selection = modeler.value?.get('selection') as {
+        select: (element: BpmnElement) => void
+      }
       if (selectedElement.value) selection?.select(selectedElement.value)
       return
     }
@@ -1072,7 +1074,10 @@ onMounted(async () => {
     additionalModules: [workflowPaletteModule],
     moddleExtensions: { flowable: flowableModdle, workflow: workflowModdle },
   })
-  modeler.value.on('selection.changed', (event) => void handleSelectionChange(event.newSelection?.[0]))
+  modeler.value.on(
+    'selection.changed',
+    (event) => void handleSelectionChange(event.newSelection?.[0]),
+  )
   modeler.value.on('commandStack.changed', () => {
     if (!importing.value) dirty.value = true
   })
@@ -1294,9 +1299,16 @@ watch(selectedVersion, () => resetSelection())
             <div v-if="isAgentTask" class="agent-inspector-summary">
               <strong>{{ elementForm.name || 'Agent 节点' }}</strong>
               <span>{{ selectedAgentVersion?.agentName || '尚未选择 Agent 版本' }}</span>
-              <span>{{ agentMappingRows.length }} 个输入映射 · {{ agentOutputMappingRows.length }} 个输出映射</span>
-              <span>{{ agentProcessFailurePolicy === 'CONTINUE_EMPTY' ? '失败后继续' : '失败后保留现场' }}</span>
-              <el-button type="primary" plain @click="agentWorkbenchCollapsed = false">打开 Agent 工作台</el-button>
+              <span
+                >{{ agentMappingRows.length }} 个输入映射 ·
+                {{ agentOutputMappingRows.length }} 个输出映射</span
+              >
+              <span>{{
+                agentProcessFailurePolicy === 'CONTINUE_EMPTY' ? '失败后继续' : '失败后保留现场'
+              }}</span>
+              <el-button type="primary" plain @click="agentWorkbenchCollapsed = false"
+                >打开 Agent 工作台</el-button
+              >
             </div>
 
             <div v-if="!isAgentTask && (isTask || isSequenceFlow)" class="property-block">

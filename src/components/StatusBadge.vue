@@ -6,38 +6,62 @@ const props = defineProps<{
   status: string | boolean
   label?: string
   tone?: StatusTone
+  variant?: 'status' | 'version' | 'category' | 'filter'
 }>()
 
 const presentation = computed(() => getStatusPresentation(props.status))
+const variantClass = computed(() => `status-badge--${props.variant || 'status'}`)
+const accessibleLabel = computed(() => props.label || presentation.value.label)
 </script>
 
 <template>
   <el-tag
     class="status-badge"
+    :class="variantClass"
     :type="tone || presentation.tone"
     :data-tone="tone || presentation.tone"
     effect="light"
     size="small"
-    round
+    :round="variant === 'filter'"
+    :aria-label="accessibleLabel"
     :title="String(status)"
   >
-    {{ label || presentation.label }}
+    {{ accessibleLabel }}
   </el-tag>
 </template>
 
 <style scoped>
 .status-badge {
-  width: 74px;
-  min-width: 74px;
-  max-width: 100%;
+  width: auto;
+  min-width: 76px;
+  max-width: none;
   box-sizing: border-box;
-  height: 25px;
+  height: 24px;
+  flex: 0 0 auto;
   justify-content: center;
-  padding-inline: 8px;
-  border-radius: 999px;
+  padding-inline: 9px;
+  border-radius: 6px;
   font-size: 12px;
   font-weight: 650;
   line-height: 1;
+}
+
+.status-badge--version {
+  min-width: 60px;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.status-badge--category {
+  min-width: 0;
+  border-radius: 5px;
+  font-weight: 600;
+}
+
+.status-badge--filter {
+  min-width: 0;
+  border-radius: 999px;
 }
 
 .status-badge[data-tone='primary'] {
@@ -74,9 +98,9 @@ const presentation = computed(() => getStatusPresentation(props.status))
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
 }
 </style>

@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/http'
+import type { PageResult } from '@/types/api'
 import type {
   ToolConnectorCommand,
   ToolConnectorSummary,
@@ -7,7 +8,8 @@ import type {
 } from './types'
 
 export const toolApi = {
-  list: () => apiClient.get<ToolConnectorSummary[]>('/mcp/connectors'),
+  list: (params: { pageNum: number; pageSize: number }) =>
+    apiClient.get<PageResult<ToolConnectorSummary>>('/mcp/connectors', { params }),
   createConnector: (payload: ToolConnectorCommand) =>
     apiClient.post<{ id: number; connectorId: number; version: number }>(
       '/mcp/connectors',

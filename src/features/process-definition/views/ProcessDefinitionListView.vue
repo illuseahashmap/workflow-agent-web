@@ -21,6 +21,7 @@ import ListEmptyState from '@/components/ListEmptyState.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
 import {
   canOperateInstances as isInstanceOperable,
@@ -133,7 +134,7 @@ function handleStarted(result: StartProcessResult) {
 </script>
 
 <template>
-  <div class="management-page page-stack">
+  <div class="management-page page-stack directory-page">
     <PageHeader
       eyebrow="Process Definition"
       title="流程定义中心"
@@ -161,7 +162,7 @@ function handleStarted(result: StartProcessResult) {
       </MetricCard>
     </section>
 
-    <section class="page-actions compact-filter definition-filter">
+    <section class="page-actions compact-filter query-panel definition-filter">
       <el-form class="filter-form filter-form--definitions" inline @submit.prevent="search">
         <el-form-item label="流程标识">
           <el-input
@@ -221,24 +222,23 @@ function handleStarted(result: StartProcessResult) {
         </el-table-column>
         <el-table-column label="已发布版本" width="140" header-align="center">
           <template #default="{ row }">
-            <TableTagCell>
-              <el-tag
-                class="version-tag"
-                :type="row.activeVersion ? 'success' : 'info'"
-                effect="light"
-                round
-              >
-                {{ row.activeVersion ? formatVersion(row.activeVersion) : '尚未发布' }}
-              </el-tag>
+            <TableTagCell align="center">
+              <StatusBadge
+                variant="version"
+                :status="row.activeVersion ? 'PUBLISHED' : 'PENDING'"
+                :label="row.activeVersion ? formatVersion(row.activeVersion) : '尚未发布'"
+              />
             </TableTagCell>
           </template>
         </el-table-column>
         <el-table-column label="最新版本" width="130" header-align="center">
           <template #default="{ row }">
-            <TableTagCell>
-              <el-tag class="version-tag" type="warning" effect="light" round>
-                {{ formatVersion(row.latestVersion) }}
-              </el-tag>
+            <TableTagCell align="center">
+              <StatusBadge
+                variant="version"
+                status="PENDING"
+                :label="formatVersion(row.latestVersion)"
+              />
             </TableTagCell>
           </template>
         </el-table-column>
@@ -251,7 +251,7 @@ function handleStarted(result: StartProcessResult) {
               <el-button
                 v-if="canOperateInstances && row.activeVersion"
                 link
-                type="success"
+                type="primary"
                 @click="openStart(row.processDefinitionKey)"
               >
                 <Play :size="14" />发起

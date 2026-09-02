@@ -10,6 +10,7 @@ const STATUS_PRESENTATIONS: Record<string, StatusPresentation> = {
   DISABLED: { label: '停用', tone: 'info' },
   DRAFT: { label: '草稿', tone: 'warning' },
   PUBLISHED: { label: '已发布', tone: 'success' },
+  DEPLOYED: { label: '已部署', tone: 'success' },
   QUEUED: { label: '排队中', tone: 'primary' },
   PENDING: { label: '待执行', tone: 'info' },
   ACTIVE: { label: '待处理', tone: 'primary' },
@@ -18,7 +19,7 @@ const STATUS_PRESENTATIONS: Record<string, StatusPresentation> = {
   SUCCESS: { label: '成功', tone: 'success' },
   COMPLETED: { label: '已完成', tone: 'success' },
   TERMINATED: { label: '已终止', tone: 'info' },
-  ASSIGNED: { label: '已分配', tone: 'primary' },
+  ASSIGNED: { label: '已分配', tone: 'info' },
   NOT_DISCOVERED: { label: '未发现', tone: 'info' },
   FAILED: { label: '失败', tone: 'danger' },
   TIMED_OUT: { label: '已超时', tone: 'danger' },
@@ -30,6 +31,10 @@ const STATUS_PRESENTATIONS: Record<string, StatusPresentation> = {
   WAITING_FOR_REVIEW: { label: '等待人工', tone: 'warning' },
   RETRYING: { label: '已安排重试', tone: 'primary' },
   DECIDED: { label: '已决策', tone: 'success' },
+  WAIT_FOR_REVIEW: { label: '等待人工', tone: 'warning' },
+  RETRY_SCHEDULED: { label: '已安排重试', tone: 'primary' },
+  DECISION_RECORDED: { label: '已记录', tone: 'info' },
+  UNKNOWN: { label: '未知', tone: 'info' },
 }
 
 export function getStatusPresentation(status: string | boolean): StatusPresentation {

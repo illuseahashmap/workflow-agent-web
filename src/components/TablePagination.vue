@@ -1,5 +1,5 @@
 <script setup lang="ts">
-withDefaults(
+const props = withDefaults(
   defineProps<{
     total: number
     currentPage: number
@@ -19,25 +19,30 @@ const emit = defineEmits<{
   change: [page: number, pageSize: number]
 }>()
 
-function handleChange(page: number, pageSize: number) {
+function handlePageChange(page: number) {
   emit('update:currentPage', page)
+  emit('change', page, props.pageSize)
+}
+
+function handlePageSizeChange(pageSize: number) {
+  emit('update:currentPage', 1)
   emit('update:pageSize', pageSize)
-  emit('change', page, pageSize)
+  emit('change', 1, pageSize)
 }
 </script>
 
 <template>
-  <el-pagination
-    v-accessible-label="'每页条数'"
-    class="table-pagination"
-    :aria-label="ariaLabel"
-    :current-page="currentPage"
-    :page-size="pageSize"
-    :total="total"
-    :page-sizes="pageSizes"
-    layout="total, sizes, prev, pager, next"
-    @update:current-page="emit('update:currentPage', $event)"
-    @update:page-size="emit('update:pageSize', $event)"
-    @change="handleChange"
-  />
+  <div class="table-pagination" :aria-label="props.ariaLabel">
+    <span class="table-pagination__total">共 {{ props.total }} 条</span>
+    <el-pagination
+      v-accessible-label="'每页条数'"
+      :current-page="props.currentPage"
+      :page-size="props.pageSize"
+      :total="props.total"
+      :page-sizes="props.pageSizes"
+      layout="sizes, prev, pager, next"
+      @current-change="handlePageChange"
+      @size-change="handlePageSizeChange"
+    />
+  </div>
 </template>

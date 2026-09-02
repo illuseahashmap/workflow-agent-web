@@ -115,7 +115,7 @@ async function toggle(item: WorkflowTenant) {
 </script>
 
 <template>
-  <div class="management-page page-stack">
+  <div class="management-page page-stack directory-page">
     <PageHeader
       eyebrow="Tenant"
       title="租户管理中心"
@@ -132,7 +132,7 @@ async function toggle(item: WorkflowTenant) {
       </MetricCard>
     </section>
 
-    <section class="page-actions compact-filter">
+    <section class="page-actions compact-filter query-panel">
       <el-form class="filter-form filter-form--tenants" inline @submit.prevent="search"
         ><el-form-item label="关键词"
           ><el-input

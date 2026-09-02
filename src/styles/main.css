@@ -445,14 +445,12 @@ select {
   min-height: 520px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 16px;
 }
 
 .management-page {
   height: auto;
   min-height: calc(100vh - 134px);
   grid-template-rows: auto auto auto minmax(420px, 1fr);
-  gap: 16px;
 }
 
 .page-hero {
@@ -464,11 +462,9 @@ select {
   gap: 24px;
   padding: 26px 28px;
   border: 1px solid rgba(191, 219, 254, 0.84);
-  border-radius: 24px;
   background:
     radial-gradient(circle at 92% 18%, rgba(99, 102, 241, 0.22), transparent 28%),
     linear-gradient(135deg, #ffffff 0%, #eff6ff 52%, #f8fafc 100%);
-  box-shadow: var(--shadow-soft);
 }
 
 .page-hero::after {
@@ -535,10 +531,6 @@ select {
   align-items: center;
   gap: 14px;
   padding: 18px;
-  border: 1px solid rgba(219, 228, 240, 0.92);
-  border-radius: 18px;
-  background: var(--surface-soft);
-  box-shadow: var(--shadow-card);
 }
 
 .metric-card > span {
@@ -584,10 +576,6 @@ select {
   justify-content: space-between;
   gap: 16px;
   padding: 18px 18px 2px;
-  border: 1px solid rgba(219, 228, 240, 0.92);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: var(--shadow-card);
 }
 
 .page-actions.filter-only {
@@ -708,10 +696,6 @@ select {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid rgba(219, 228, 240, 0.92);
-  border-radius: 18px;
-  background: var(--surface);
-  box-shadow: var(--shadow-card);
 }
 
 .el-table th .cell {
@@ -773,8 +757,8 @@ select {
 }
 
 .table-pagination {
-  justify-content: flex-end;
-  padding: 12px 16px;
+  justify-content: space-between;
+  padding: 12px var(--space-4);
   border-top: 1px solid var(--border);
 }
 

@@ -8,6 +8,7 @@ import { queryKeys } from '@/api/queryKeys'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import TablePagination from '@/components/TablePagination.vue'
 import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime, joinValues } from '@/utils/format'
@@ -33,6 +34,10 @@ const canManageRoles = computed(() =>
 const activeTab = ref(canManageMembers.value ? 'members' : 'roles')
 const memberKeyword = ref('')
 const appliedKeyword = ref('')
+const memberPage = ref(1)
+const memberPageSize = ref(20)
+const rolePage = ref(1)
+const rolePageSize = ref(20)
 const memberDialogVisible = ref(false)
 const roleDialogVisible = ref(false)
 const editingMember = ref<TenantMember>()
@@ -47,22 +52,48 @@ const roleForm = reactive<SaveRoleCommand>({
 })
 
 const membersQuery = useQuery({
-  queryKey: computed(() => queryKeys.tenantMemberList(tenantCode.value, appliedKeyword.value)),
-  queryFn: () => accessApi.members(appliedKeyword.value || undefined),
+  queryKey: computed(() =>
+    queryKeys.tenantMemberList(
+      tenantCode.value,
+      appliedKeyword.value,
+      memberPage.value,
+      memberPageSize.value,
+    ),
+  ),
+  queryFn: () =>
+    accessApi.members({
+      keyword: appliedKeyword.value || undefined,
+      pageNum: memberPage.value,
+      pageSize: memberPageSize.value,
+    }),
   enabled: canManageMembers,
 })
 const rolesQuery = useQuery({
-  queryKey: computed(() => queryKeys.tenantRoles(tenantCode.value)),
-  queryFn: accessApi.roles,
+  queryKey: computed(() =>
+    queryKeys.tenantRoles(tenantCode.value, rolePage.value, rolePageSize.value),
+  ),
+  queryFn: () => accessApi.roles({ pageNum: rolePage.value, pageSize: rolePageSize.value }),
   enabled: computed(() => canManageMembers.value || canManageRoles.value),
+})
+const roleOptionsQuery = useQuery({
+  queryKey: computed(() => queryKeys.tenantRoles(tenantCode.value, 1, 100)),
+  queryFn: () => accessApi.roles({ pageNum: 1, pageSize: 100 }),
+  enabled: canManageMembers,
 })
 const permissionsQuery = useQuery({
   queryKey: queryKeys.permissions(),
   queryFn: accessApi.permissions,
   enabled: canManageRoles,
 })
-const members = computed(() => membersQuery.data.value ?? [])
-const roles = computed(() => rolesQuery.data.value ?? [])
+const members = computed(() => membersQuery.data.value?.records ?? [])
+const memberTotal = computed(() => membersQuery.data.value?.total ?? 0)
+const roles = computed(() => rolesQuery.data.value?.records ?? [])
+const roleTotal = computed(() => rolesQuery.data.value?.total ?? 0)
+const roleOptions = computed(() => roleOptionsQuery.data.value?.records ?? [])
+const memberTableHeight = computed(() =>
+  Math.min(470, Math.max(200, members.value.length * 56 + 88)),
+)
+const roleTableHeight = computed(() => Math.min(470, Math.max(200, roles.value.length * 56 + 88)))
 const memberDialogTitle = computed(() =>
   editingMember.value
     ? `配置成员角色 · ${editingMember.value.displayName}（${editingMember.value.username}）`
@@ -120,12 +151,24 @@ const saveRoleMutation = useMutation({
 })
 
 function searchMembers() {
+  memberPage.value = 1
   appliedKeyword.value = memberKeyword.value.trim()
 }
 
 function resetMembers() {
   memberKeyword.value = ''
+  memberPage.value = 1
   appliedKeyword.value = ''
+}
+
+function changeMemberPage(page: number, pageSize: number) {
+  memberPage.value = page
+  memberPageSize.value = pageSize
+}
+
+function changeRolePage(page: number, pageSize: number) {
+  rolePage.value = page
+  rolePageSize.value = pageSize
 }
 
 function addMember() {
@@ -183,8 +226,8 @@ function editRole(role: TenantRole) {
       description="管理当前租户的成员关系、业务角色和权限范围。所有修改仅作用于当前租户。"
     >
       <template #actions
-        ><el-tag type="primary" effect="plain">{{ tenantCode }}</el-tag></template
-      >
+        ><StatusBadge variant="category" status="ACTIVE" :label="tenantCode"
+      /></template>
     </PageHeader>
 
     <section class="access-workspace">
@@ -193,7 +236,7 @@ function editRole(role: TenantRole) {
           <template #label
             ><span class="tab-label"><UsersRound :size="16" />成员管理</span></template
           >
-          <div class="access-toolbar">
+          <div class="access-toolbar page-actions compact-filter query-panel">
             <el-form
               class="filter-form filter-form--members"
               inline
@@ -213,7 +256,7 @@ function editRole(role: TenantRole) {
             class="access-table"
             v-loading="membersQuery.isFetching.value"
             :data="members"
-            height="470"
+            :height="memberTableHeight"
             table-layout="fixed"
           >
             <el-table-column
@@ -255,29 +298,39 @@ function editRole(role: TenantRole) {
               />
             </template>
           </el-table>
+          <TablePagination
+            v-model:current-page="memberPage"
+            v-model:page-size="memberPageSize"
+            :total="memberTotal"
+            aria-label="成员分页"
+            @change="changeMemberPage"
+          />
         </el-tab-pane>
 
         <el-tab-pane v-if="canManageRoles" name="roles">
           <template #label
             ><span class="tab-label"><ShieldCheck :size="16" />角色管理</span></template
           >
-          <div class="access-toolbar align-right">
+          <div class="section-action-bar">
             <el-button type="primary" @click="addRole"><Plus :size="17" />新增角色</el-button>
           </div>
           <el-table
             class="access-table"
             v-loading="rolesQuery.isFetching.value"
             :data="roles"
-            height="470"
+            :height="roleTableHeight"
             table-layout="fixed"
           >
             <el-table-column label="角色名称" min-width="170">
               <template #default="{ row }">
                 <span class="role-name-cell">
                   <span>{{ row.roleName }}</span>
-                  <el-tag v-if="row.builtIn" type="info" size="small" effect="plain"
-                    >系统内置</el-tag
-                  >
+                  <StatusBadge
+                    v-if="row.builtIn"
+                    variant="category"
+                    status="DISABLED"
+                    label="系统内置"
+                  />
                 </span>
               </template>
             </el-table-column>
@@ -316,6 +369,13 @@ function editRole(role: TenantRole) {
               />
             </template>
           </el-table>
+          <TablePagination
+            v-model:current-page="rolePage"
+            v-model:page-size="rolePageSize"
+            :total="roleTotal"
+            aria-label="角色分页"
+            @change="changeRolePage"
+          />
         </el-tab-pane>
       </el-tabs>
     </section>
@@ -339,7 +399,7 @@ function editRole(role: TenantRole) {
         <el-form-item label="角色" required>
           <el-select v-model="memberForm.roleCodes" multiple clearable>
             <el-option
-              v-for="role in roles"
+              v-for="role in roleOptions"
               :key="role.roleCode"
               :label="role.roleName"
               :value="role.roleCode"

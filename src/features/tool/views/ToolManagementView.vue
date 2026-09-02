@@ -8,6 +8,7 @@ import SectionHeader from '@/components/SectionHeader.vue'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
+import TablePagination from '@/components/TablePagination.vue'
 import { queryKeys } from '@/api/queryKeys'
 import { getErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
@@ -25,6 +26,8 @@ const canManage = computed(() =>
 )
 const createVisible = ref(false)
 const discoveryVisible = ref(false)
+const pageNum = ref(1)
+const pageSize = ref(20)
 const discovery = ref<ToolDiscovery>()
 const connectorForm = reactive<ToolConnectorCommand>({
   connectorCode: '',
@@ -36,8 +39,10 @@ const connectorForm = reactive<ToolConnectorCommand>({
 })
 
 const toolsQuery = useQuery({
-  queryKey: computed(() => queryKeys.mcpConnectors(tenantCode.value)),
-  queryFn: toolApi.list,
+  queryKey: computed(() =>
+    queryKeys.mcpConnectors(tenantCode.value, pageNum.value, pageSize.value),
+  ),
+  queryFn: () => toolApi.list({ pageNum: pageNum.value, pageSize: pageSize.value }),
   enabled: computed(() => Boolean(tenantCode.value) && canManage.value),
 })
 const createMutation = useMutation({
@@ -96,6 +101,10 @@ function resetForm() {
     timeoutSeconds: 30,
   })
 }
+function changePage(nextPage: number, nextPageSize: number) {
+  pageNum.value = nextPage
+  pageSize.value = nextPageSize
+}
 function openCreate() {
   resetForm()
   createVisible.value = true
@@ -146,7 +155,7 @@ function schemaPreview(schema: string) {
 </script>
 
 <template>
-  <div class="management-page tool-management-page">
+  <div class="management-page directory-page tool-management-page">
     <PageHeader
       eyebrow="TOOL GOVERNANCE"
       title="工具目录"
@@ -157,7 +166,7 @@ function schemaPreview(schema: string) {
       </template>
     </PageHeader>
 
-    <section class="tool-principles" aria-label="工具治理原则">
+    <section class="tool-principles governance-rail" aria-label="工具治理原则">
       <article>
         <Cable :size="18" />
         <div><strong>HTTPS 连接</strong><span>只支持 Streamable HTTP</span></div>
@@ -184,7 +193,7 @@ function schemaPreview(schema: string) {
       </SectionHeader>
       <el-table
         v-loading="toolsQuery.isFetching.value"
-        :data="toolsQuery.data.value || []"
+        :data="toolsQuery.data.value?.records || []"
         row-key="connectorId"
       >
         <el-table-column label="连接器" min-width="210"
@@ -202,6 +211,7 @@ function schemaPreview(schema: string) {
           ><template #default="{ row }"
             ><TableTagCell align="center"
               ><StatusBadge
+                variant="version"
                 :status="row.connectorVersionStatus"
                 :label="formatVersion(row.connectorVersion)" /></TableTagCell></template
         ></el-table-column>
@@ -239,14 +249,23 @@ function schemaPreview(schema: string) {
             ></template
           ></el-table-column
         >
+        <template #empty>
+          <ListEmptyState
+            :icon="Wrench"
+            title="还没有 MCP 连接器"
+            description="创建一个 HTTPS 只读连接器，发现工具后再进行审核发布。"
+          >
+            <el-button type="primary" @click="openCreate">新增连接器</el-button>
+          </ListEmptyState>
+        </template>
       </el-table>
-      <ListEmptyState
-        v-if="!toolsQuery.isFetching.value && !toolsQuery.data.value?.length"
-        :icon="Wrench"
-        title="还没有 MCP 连接器"
-        description="创建一个 HTTPS 只读连接器，发现工具后再进行审核发布。"
-        ><el-button type="primary" @click="openCreate">新增连接器</el-button></ListEmptyState
-      >
+      <TablePagination
+        v-model:current-page="pageNum"
+        v-model:page-size="pageSize"
+        :total="toolsQuery.data.value?.total || 0"
+        aria-label="工具目录分页"
+        @change="changePage"
+      />
     </section>
 
     <el-dialog v-model="createVisible" title="新增 MCP 连接器" width="560px" destroy-on-close>
@@ -328,7 +347,7 @@ function schemaPreview(schema: string) {
                 <strong>{{ tool.name }}</strong
                 ><code>{{ tool.registryToolCode }}</code>
               </div>
-              <StatusBadge status="READ_ONLY" label="只读" tone="success" />
+              <StatusBadge variant="category" status="READ_ONLY" label="只读" tone="success" />
             </div>
             <p>{{ tool.description || '暂无工具说明' }}</p>
             <details>
@@ -357,24 +376,32 @@ function schemaPreview(schema: string) {
   --tool-blue: #2563eb;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 18px;
   min-height: 0;
 }
 .tool-principles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
 }
 .tool-principles article {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 70px;
+  min-height: 68px;
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: linear-gradient(135deg, #fff 0%, #f5f8ff 100%);
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
   color: var(--tool-blue);
+}
+.tool-principles article:last-child {
+  border-right: 0;
 }
 .tool-principles article div {
   display: grid;
