@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { RefreshCw, Search } from '@lucide/vue'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import SectionHeader from '@/components/SectionHeader.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -90,12 +91,10 @@ function changePageSize(pageSize: number) {
       </div>
     </section>
     <section class="table-panel operations-table-panel">
-      <div class="section-heading operations-section-heading">
-        <div>
-          <h2>操作事件</h2>
-          <p>按发生时间倒序显示，敏感凭证不会出现在审计记录中。</p>
-        </div>
-      </div>
+      <SectionHeader
+        title="操作事件"
+        description="按发生时间倒序显示，敏感凭证不会出现在审计记录中。"
+      />
       <div v-if="showInitialLoading" class="operations-loading" aria-live="polite">
         <span class="operations-loading__spinner" aria-hidden="true"></span>
         <span>正在读取审计事件…</span>
@@ -183,22 +182,9 @@ function changePageSize(pageSize: number) {
   display: flex;
   gap: 8px;
 }
-.section-heading h2 {
-  margin: 0;
-  font-size: 16px;
-}
-.section-heading p {
-  margin: 5px 0 0;
-  color: var(--color-text-muted);
-  font-size: 13px;
-}
 .operations-table-panel {
   grid-template-rows: auto minmax(300px, 1fr) auto;
   min-height: 520px;
-}
-.operations-section-heading {
-  padding: 18px 22px 14px;
-  border-bottom: 1px solid var(--color-border-soft);
 }
 .operations-loading {
   min-height: 300px;

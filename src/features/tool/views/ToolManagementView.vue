@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { ElMessage } from 'element-plus'
 import { Cable, CircleCheck, Compass, Plus, RefreshCw, Wrench } from '@lucide/vue'
 import PageHeader from '@/components/PageHeader.vue'
+import SectionHeader from '@/components/SectionHeader.vue'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
@@ -172,13 +173,15 @@ function schemaPreview(schema: string) {
     </section>
 
     <section class="tool-table-panel table-panel">
-      <div class="tool-table-heading">
-        <div>
-          <h3>连接器与目录</h3>
-          <p>先创建连接器，再发现、核对并发布工具目录。</p>
-        </div>
-        <el-button text @click="toolsQuery.refetch()"><RefreshCw :size="15" />刷新</el-button>
-      </div>
+      <SectionHeader
+        title="连接器与目录"
+        description="先创建连接器，再发现、核对并发布工具目录。"
+        heading-level="h3"
+      >
+        <template #actions>
+          <el-button text @click="toolsQuery.refetch()"><RefreshCw :size="15" />刷新</el-button>
+        </template>
+      </SectionHeader>
       <el-table
         v-loading="toolsQuery.isFetching.value"
         :data="toolsQuery.data.value || []"
@@ -390,24 +393,6 @@ function schemaPreview(schema: string) {
   height: auto;
   overflow: hidden;
 }
-.tool-table-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--color-border);
-}
-.tool-table-heading h3 {
-  margin: 0;
-  color: var(--color-text-strong);
-  font-size: 16px;
-}
-.tool-table-heading p {
-  margin: 5px 0 0;
-  color: var(--color-text-muted);
-  font-size: 12px;
-}
 .tool-name-cell {
   display: flex;
   align-items: center;
@@ -539,10 +524,6 @@ function schemaPreview(schema: string) {
   }
   .discovery-summary {
     grid-template-columns: 1fr;
-  }
-  .tool-table-heading {
-    align-items: flex-start;
-    flex-direction: column;
   }
 }
 </style>

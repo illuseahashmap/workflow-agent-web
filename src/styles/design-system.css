@@ -43,9 +43,18 @@
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+  --radius-xl: 20px;
+  --font-size-caption: 12px;
+  --font-size-section-title: 16px;
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --section-header-padding-block: 18px;
+  --section-header-padding-inline: 22px;
   --shadow-panel: 0 10px 30px rgba(37, 99, 235, 0.08);
   --shadow-popover: 0 16px 36px rgba(15, 23, 42, 0.14);
   --el-color-primary: #1d4ed8;
@@ -65,6 +74,7 @@
   --control-focus-ring: rgba(37, 99, 235, 0.14);
   --control-placeholder: #94a3b8;
   --panel-radius: var(--radius-lg);
+  --color-text-secondary: var(--color-text-muted);
 }
 
 /* Shared interaction baseline. Feature styles should add layout only. */

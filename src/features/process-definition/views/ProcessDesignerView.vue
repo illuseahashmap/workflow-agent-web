@@ -81,6 +81,8 @@ const newProcessSaving = ref(false)
 const newProcessForm = reactive({ key: '', name: '' })
 const processForm = reactive({ key: '', name: '' })
 const selectedElement = shallowRef<BpmnElement>()
+const agentWorkbenchCollapsed = ref(false)
+const agentDraftDirty = ref(false)
 const elementBeingEdited = shallowRef<BpmnElement>()
 let elementEditSequence = 0
 const selectedBusinessObject = shallowRef<ModdleElement>()
@@ -197,6 +199,8 @@ function normalizeListener(value: string) {
 
 function resetSelection(element?: BpmnElement) {
   selectedElement.value = element
+  agentWorkbenchCollapsed.value = false
+  agentDraftDirty.value = false
   const object = element?.businessObject
   selectedBusinessObject.value = object
   Object.assign(elementForm, {
@@ -246,6 +250,41 @@ function resetSelection(element?: BpmnElement) {
       listeners.taskComplete.push(value)
   }
   triggerRef(selectedBusinessObject)
+}
+
+function applyAgentConfiguration() {
+  // Keep the three related writes behind one explicit user action. The values
+  // remain local draft state until this point, so switching fields cannot
+  // partially mutate BPMN extensionElements.
+  applyAgentMappings()
+  applyAgentVersion()
+  applyAgentProcessPolicy()
+  agentDraftDirty.value = false
+}
+
+function discardAgentConfiguration() {
+  resetSelection(selectedElement.value)
+  ElMessage.info('已放弃 Agent 配置修改')
+}
+
+async function handleSelectionChange(nextElement?: BpmnElement) {
+  if (
+    agentDraftDirty.value &&
+    selectedElement.value?.id &&
+    selectedElement.value.id !== nextElement?.id
+  ) {
+    const confirmed = await confirmAction(
+      '当前 Agent 配置尚未应用，切换节点会放弃这些修改。',
+      '放弃 Agent 草稿？',
+      { confirmButtonText: '放弃并切换', cancelButtonText: '留在当前节点', type: 'warning' },
+    )
+    if (!confirmed) {
+      const selection = modeler.value?.get('selection') as { select: (element: BpmnElement) => void }
+      if (selectedElement.value) selection?.select(selectedElement.value)
+      return
+    }
+  }
+  resetSelection(nextElement)
 }
 
 function applyAgentVersion() {
@@ -1033,7 +1072,7 @@ onMounted(async () => {
     additionalModules: [workflowPaletteModule],
     moddleExtensions: { flowable: flowableModdle, workflow: workflowModdle },
   })
-  modeler.value.on('selection.changed', (event) => resetSelection(event.newSelection?.[0]))
+  modeler.value.on('selection.changed', (event) => void handleSelectionChange(event.newSelection?.[0]))
   modeler.value.on('commandStack.changed', () => {
     if (!importing.value) dirty.value = true
   })
@@ -1223,7 +1262,7 @@ watch(selectedVersion, () => resetSelection())
             </div>
           </div>
           <template v-if="selectedElement">
-            <div class="property-block base-properties">
+            <div v-if="!isAgentTask" class="property-block base-properties">
               <strong>基础信息</strong>
               <el-form label-position="top" size="small">
                 <el-form-item label="元素 ID">
@@ -1252,30 +1291,13 @@ watch(selectedVersion, () => resetSelection())
               </el-form>
             </div>
 
-            <AgentTaskConfigPanel
-              :agent-version-id="agentVersionId"
-              :agent-versions="agentVersions"
-              :selected-agent-version="selectedAgentVersion"
-              :agent-version-search-loading="agentVersionSearchLoading"
-              :agent-input-schema-fields="agentInputSchemaFields"
-              :agent-output-schema-fields="agentOutputSchemaFields"
-              :agent-mapping-rows="agentMappingRows"
-              :agent-output-mapping-rows="agentOutputMappingRows"
-              :agent-process-wait-timeout-seconds="agentProcessWaitTimeoutSeconds"
-              :agent-process-failure-policy="agentProcessFailurePolicy"
-              :search-agent-versions="searchAgentVersions"
-              :schema-field-label="schemaFieldLabel"
-              :apply-agent-version="applyAgentVersion"
-              :apply-agent-mappings="applyAgentMappings"
-              :add-agent-mapping-row="addAgentMappingRow"
-              :remove-agent-mapping-row="removeAgentMappingRow"
-              :add-agent-output-mapping-row="addAgentOutputMappingRow"
-              :remove-agent-output-mapping-row="removeAgentOutputMappingRow"
-              :apply-agent-process-policy="applyAgentProcessPolicy"
-              @update:agent-version-id="agentVersionId = $event"
-              @update:agent-process-wait-timeout-seconds="agentProcessWaitTimeoutSeconds = $event"
-              @update:agent-process-failure-policy="agentProcessFailurePolicy = $event"
-            />
+            <div v-if="isAgentTask" class="agent-inspector-summary">
+              <strong>{{ elementForm.name || 'Agent 节点' }}</strong>
+              <span>{{ selectedAgentVersion?.agentName || '尚未选择 Agent 版本' }}</span>
+              <span>{{ agentMappingRows.length }} 个输入映射 · {{ agentOutputMappingRows.length }} 个输出映射</span>
+              <span>{{ agentProcessFailurePolicy === 'CONTINUE_EMPTY' ? '失败后继续' : '失败后保留现场' }}</span>
+              <el-button type="primary" plain @click="agentWorkbenchCollapsed = false">打开 Agent 工作台</el-button>
+            </div>
 
             <div v-if="!isAgentTask && (isTask || isSequenceFlow)" class="property-block">
               <strong>流转规则</strong>
@@ -1382,6 +1404,54 @@ watch(selectedVersion, () => resetSelection())
           <p v-else class="property-empty">点击画布中的任务、网关、事件或连线查看信息</p>
         </section>
       </aside>
+      <section
+        v-if="isAgentTask && !agentWorkbenchCollapsed"
+        class="agent-config-workbench"
+        aria-label="Agent 配置工作台"
+      >
+        <div class="agent-config-workbench__bar">
+          <div>
+            <span class="agent-config-workbench__eyebrow">AGENT WORKBENCH</span>
+            <strong>{{ elementForm.name || '未命名 Agent 节点' }}</strong>
+            <span>配置暂存于当前节点草稿，应用后才会写入流程图</span>
+          </div>
+          <button
+            type="button"
+            class="agent-config-workbench__close"
+            aria-label="收起 Agent 工作台"
+            @click="agentWorkbenchCollapsed = true"
+          >
+            收起
+          </button>
+        </div>
+        <AgentTaskConfigPanel
+          :agent-version-id="agentVersionId"
+          :agent-versions="agentVersions"
+          :selected-agent-version="selectedAgentVersion"
+          :agent-version-search-loading="agentVersionSearchLoading"
+          :agent-input-schema-fields="agentInputSchemaFields"
+          :agent-output-schema-fields="agentOutputSchemaFields"
+          :agent-mapping-rows="agentMappingRows"
+          :agent-output-mapping-rows="agentOutputMappingRows"
+          :agent-process-wait-timeout-seconds="agentProcessWaitTimeoutSeconds"
+          :agent-process-failure-policy="agentProcessFailurePolicy"
+          :search-agent-versions="searchAgentVersions"
+          :schema-field-label="schemaFieldLabel"
+          :apply-agent-version="applyAgentVersion"
+          :apply-agent-mappings="applyAgentMappings"
+          :add-agent-mapping-row="addAgentMappingRow"
+          :remove-agent-mapping-row="removeAgentMappingRow"
+          :add-agent-output-mapping-row="addAgentOutputMappingRow"
+          :remove-agent-output-mapping-row="removeAgentOutputMappingRow"
+          :apply-agent-process-policy="applyAgentProcessPolicy"
+          @update:agent-version-id="agentVersionId = $event"
+          @update:agent-process-wait-timeout-seconds="agentProcessWaitTimeoutSeconds = $event"
+          @update:agent-process-failure-policy="agentProcessFailurePolicy = $event"
+          @apply="applyAgentConfiguration"
+          @discard="discardAgentConfiguration"
+          @draft-change="agentDraftDirty = true"
+        />
+      </section>
     </div>
 
     <el-dialog v-model="newProcessVisible" title="新建流程图" width="480px" destroy-on-close>
