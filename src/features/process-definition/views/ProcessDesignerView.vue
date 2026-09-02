@@ -12,7 +12,19 @@ import {
 } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Copy, Download, FileUp, MoreHorizontal, Plus, Save, Trash2 } from '@lucide/vue'
+import {
+  ArrowLeft,
+  ChevronDown,
+  Copy,
+  Download,
+  FileUp,
+  GripHorizontal,
+  MoreHorizontal,
+  Plus,
+  Save,
+  Settings2,
+  Trash2,
+} from '@lucide/vue'
 import BpmnModeler from 'bpmn-js/lib/Modeler'
 import 'bpmn-js/dist/assets/diagram-js.css'
 import 'bpmn-js/dist/assets/bpmn-js.css'
@@ -64,7 +76,9 @@ const LISTENER_SECTIONS: Array<{ kind: ListenerKind; label: string; taskOnly?: b
 const route = useRoute()
 const router = useRouter()
 const canvasElement = ref<HTMLDivElement>()
+const workspaceElement = ref<HTMLElement>()
 const fileInput = ref<HTMLInputElement>()
+const agentWorkbenchElement = ref<HTMLElement>()
 const modeler = shallowRef<BpmnModelerInstance>()
 let canvasResizeObserver: ResizeObserver | undefined
 const versions = ref<ProcessDefinition[]>([])
@@ -83,6 +97,20 @@ const processForm = reactive({ key: '', name: '' })
 const selectedElement = shallowRef<BpmnElement>()
 const agentWorkbenchCollapsed = ref(false)
 const agentDraftDirty = ref(false)
+const agentWorkbenchPosition = ref<{ left: number; top: number }>()
+const agentWorkbenchStyle = computed(() =>
+  agentWorkbenchPosition.value
+    ? {
+        left: `${agentWorkbenchPosition.value.left}px`,
+        top: `${agentWorkbenchPosition.value.top}px`,
+        right: 'auto',
+        bottom: 'auto',
+        transform: 'none',
+      }
+    : undefined,
+)
+let agentWorkbenchDrag:
+  { offsetX: number; offsetY: number; width: number; height: number } | undefined
 const elementBeingEdited = shallowRef<BpmnElement>()
 let elementEditSequence = 0
 const selectedBusinessObject = shallowRef<ModdleElement>()
@@ -199,7 +227,7 @@ function normalizeListener(value: string) {
 
 function resetSelection(element?: BpmnElement) {
   selectedElement.value = element
-  agentWorkbenchCollapsed.value = false
+  agentWorkbenchCollapsed.value = true
   agentDraftDirty.value = false
   const object = element?.businessObject
   selectedBusinessObject.value = object
@@ -250,6 +278,45 @@ function resetSelection(element?: BpmnElement) {
       listeners.taskComplete.push(value)
   }
   triggerRef(selectedBusinessObject)
+}
+
+function beginAgentWorkbenchDrag(event: PointerEvent) {
+  if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return
+  const workspace = workspaceElement.value
+  const workbench = agentWorkbenchElement.value
+  if (!workspace || !workbench) return
+  const workspaceRect = workspace.getBoundingClientRect()
+  const workbenchRect = workbench.getBoundingClientRect()
+  agentWorkbenchPosition.value ||= {
+    left: workbenchRect.left - workspaceRect.left,
+    top: workbenchRect.top - workspaceRect.top,
+  }
+  agentWorkbenchDrag = {
+    offsetX: event.clientX - workbenchRect.left,
+    offsetY: event.clientY - workbenchRect.top,
+    width: workbenchRect.width,
+    height: workbenchRect.height,
+  }
+  workbench.setPointerCapture?.(event.pointerId)
+  window.addEventListener('pointermove', moveAgentWorkbench)
+  window.addEventListener('pointerup', endAgentWorkbenchDrag, { once: true })
+}
+
+function moveAgentWorkbench(event: PointerEvent) {
+  const workspace = workspaceElement.value
+  if (!workspace || !agentWorkbenchDrag) return
+  const rect = workspace.getBoundingClientRect()
+  const maxLeft = Math.max(12, rect.width - agentWorkbenchDrag.width - 12)
+  const maxTop = Math.max(12, rect.height - agentWorkbenchDrag.height - 12)
+  agentWorkbenchPosition.value = {
+    left: Math.min(maxLeft, Math.max(12, event.clientX - rect.left - agentWorkbenchDrag.offsetX)),
+    top: Math.min(maxTop, Math.max(12, event.clientY - rect.top - agentWorkbenchDrag.offsetY)),
+  }
+}
+
+function endAgentWorkbenchDrag() {
+  agentWorkbenchDrag = undefined
+  window.removeEventListener('pointermove', moveAgentWorkbench)
 }
 
 function applyAgentConfiguration() {
@@ -1123,6 +1190,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnload)
   canvasResizeObserver?.disconnect()
   modeler.value?.destroy()
+  endAgentWorkbenchDrag()
 })
 
 watch(selectedVersion, () => resetSelection())
@@ -1190,7 +1258,7 @@ watch(selectedVersion, () => resetSelection())
       />
     </header>
 
-    <div class="designer-workspace">
+    <div ref="workspaceElement" class="designer-workspace">
       <div ref="canvasElement" class="bpmn-canvas" />
       <aside class="properties-panel">
         <section class="inspector-card">
@@ -1418,23 +1486,37 @@ watch(selectedVersion, () => resetSelection())
       </aside>
       <section
         v-if="isAgentTask && !agentWorkbenchCollapsed"
+        ref="agentWorkbenchElement"
         class="agent-config-workbench"
+        :style="agentWorkbenchStyle"
         aria-label="Agent 配置工作台"
       >
-        <div class="agent-config-workbench__bar">
+        <div
+          class="agent-config-workbench__bar"
+          role="button"
+          tabindex="0"
+          aria-label="拖拽移动 Agent 工作台"
+          @pointerdown="beginAgentWorkbenchDrag"
+        >
           <div>
-            <span class="agent-config-workbench__eyebrow">AGENT WORKBENCH</span>
+            <span class="agent-config-workbench__eyebrow"
+              ><Settings2 :size="13" />AGENT WORKBENCH</span
+            >
             <strong>{{ elementForm.name || '未命名 Agent 节点' }}</strong>
-            <span>配置暂存于当前节点草稿，应用后才会写入流程图</span>
+            <span>拖动标题栏调整位置 · 配置暂存于节点草稿</span>
           </div>
-          <button
-            type="button"
-            class="agent-config-workbench__close"
-            aria-label="收起 Agent 工作台"
-            @click="agentWorkbenchCollapsed = true"
-          >
-            收起
-          </button>
+          <div class="agent-config-workbench__tools">
+            <GripHorizontal :size="16" aria-hidden="true" />
+            <button
+              type="button"
+              class="agent-config-workbench__close"
+              aria-label="收起 Agent 工作台"
+              @click.stop="agentWorkbenchCollapsed = true"
+            >
+              <ChevronDown :size="16" />
+              <span>收起</span>
+            </button>
+          </div>
         </div>
         <AgentTaskConfigPanel
           :agent-version-id="agentVersionId"

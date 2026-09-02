@@ -898,9 +898,10 @@ select {
 
 .designer-workspace {
   min-height: 0;
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 360px;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .bpmn-canvas {
@@ -965,27 +966,44 @@ select {
 }
 
 .agent-config-workbench {
-  grid-column: 1 / -1;
-  min-height: 0;
-  height: min(40vh, 400px);
-  min-height: 280px;
-  max-height: min(48vh, 520px);
-  resize: vertical;
-  overflow: auto;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-canvas);
-  box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.08);
+  position: absolute;
+  left: calc((100% - 360px) / 2);
+  top: 50%;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: min(900px, calc(100% - 400px));
+  height: min(520px, calc(100% - 32px));
+  min-height: 420px;
+  max-height: calc(100% - 32px);
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.42);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.97);
+  box-shadow:
+    0 20px 46px rgba(15, 23, 42, 0.2),
+    0 3px 10px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(14px);
+  transform: translate(-50%, -50%);
 }
 
 .agent-config-workbench__bar {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 58px;
-  padding: 10px 18px;
+  min-height: 62px;
+  padding: 11px 14px 11px 18px;
   border-bottom: 1px solid var(--color-border-soft);
-  background: var(--color-surface);
+  border-radius: 14px 14px 0 0;
+  background: rgba(255, 255, 255, 0.82);
+  cursor: grab;
+  user-select: none;
+}
+
+.agent-config-workbench__bar:active {
+  cursor: grabbing;
 }
 
 .agent-config-workbench__bar > div {
@@ -998,6 +1016,9 @@ select {
 
 .agent-config-workbench__eyebrow {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: var(--color-primary-strong);
   font-size: 10px;
   font-weight: 750;
@@ -1014,6 +1035,13 @@ select {
   font-size: 11px;
 }
 
+.agent-config-workbench__tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text-subtle);
+}
+
 .agent-config-workbench__close {
   flex: 0 0 auto;
   padding: 6px 10px;
@@ -1025,18 +1053,35 @@ select {
   cursor: pointer;
 }
 
+.agent-config-workbench__close {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .agent-config-workbench__close:hover {
   color: var(--color-primary-strong);
   border-color: var(--color-primary-soft);
 }
 
 .agent-config-workbench .agent-task-config {
-  display: block;
-  padding: 14px 18px 18px;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
   border: 0;
   background: var(--color-canvas);
   color: var(--color-text);
   font-size: 13px;
+}
+
+.agent-workbench-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 18px 0;
 }
 
 .agent-config-workbench .agent-task-config > strong {
@@ -1175,17 +1220,18 @@ select {
 }
 
 .agent-config-note {
-  margin-top: 2px;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 10px 18px 0;
+  background: var(--color-canvas);
 }
 
 .agent-config-workbench .agent-workbench-actions {
-  position: sticky;
-  bottom: -1px;
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding-top: 12px;
-  padding-bottom: 2px;
+  padding: 12px 18px 18px;
   border-top: 1px solid var(--color-border-soft);
   background: var(--color-canvas);
 }
@@ -1987,6 +2033,7 @@ select {
   .designer-workspace {
     grid-template-columns: minmax(0, 1fr);
     display: block;
+    position: relative;
     overflow-y: auto;
   }
 
@@ -1998,10 +2045,12 @@ select {
   }
 
   .agent-config-workbench {
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    resize: none;
+    left: 50%;
+    top: 50%;
+    width: calc(100% - 24px);
+    height: min(500px, calc(100% - 24px));
+    min-height: 400px;
+    max-height: calc(100% - 24px);
   }
 
   .agent-workbench-tabs {
