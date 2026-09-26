@@ -167,7 +167,10 @@ function schemaPreview(schema: string) {
       </template>
     </PageHeader>
 
-    <section class="tool-principles governance-rail" aria-label="工具治理原则">
+    <section
+      class="tool-principles governance-rail governance-rail--overview-cards"
+      aria-label="工具治理原则"
+    >
       <article class="governance-rail__item">
         <Cable :size="18" />
         <div class="governance-rail__copy">
@@ -383,7 +386,7 @@ function schemaPreview(schema: string) {
   --tool-blue: #2563eb;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--page-section-gap);
   min-height: 0;
 }
 .tool-principles {
@@ -398,7 +401,7 @@ function schemaPreview(schema: string) {
 .tool-name-cell {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--component-gap);
 }
 .tool-name-cell__icon {
   display: grid;
@@ -411,7 +414,7 @@ function schemaPreview(schema: string) {
 }
 .tool-name-cell div {
   display: grid;
-  gap: 3px;
+  gap: var(--text-stack-gap);
   min-width: 0;
 }
 .tool-name-cell strong {
@@ -427,10 +430,10 @@ function schemaPreview(schema: string) {
 .tool-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: var(--space-4);
 }
 .tool-credential-help {
-  margin: 8px 0 0;
+  margin: var(--space-2) 0 0;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
   font-size: 12px;
@@ -440,8 +443,8 @@ function schemaPreview(schema: string) {
 .discovery-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  padding: 14px;
+  gap: var(--component-gap);
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: var(--color-surface-muted);
@@ -449,7 +452,7 @@ function schemaPreview(schema: string) {
 .discovery-summary > div {
   display: grid;
   align-content: center;
-  gap: 4px;
+  gap: var(--text-stack-gap);
   min-width: 0;
 }
 .discovery-summary small {
@@ -460,16 +463,16 @@ function schemaPreview(schema: string) {
   color: var(--color-text-strong);
 }
 .discovery-notice {
-  margin: 14px 0;
+  margin: var(--space-4) 0;
 }
 .tool-snapshot-list {
   display: grid;
-  gap: 10px;
+  gap: var(--component-gap);
 }
 .tool-snapshot {
   display: grid;
-  gap: 9px;
-  padding: 14px;
+  gap: var(--inline-gap);
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: #fff;
@@ -478,11 +481,11 @@ function schemaPreview(schema: string) {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--component-gap);
 }
 .tool-snapshot__heading > div {
   display: grid;
-  gap: 4px;
+  gap: var(--text-stack-gap);
   min-width: 0;
 }
 .tool-snapshot__heading code {
@@ -514,8 +517,8 @@ function schemaPreview(schema: string) {
 .discovery-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
+  gap: var(--inline-gap);
+  margin-top: var(--space-4);
   color: var(--color-text-muted);
   font-size: 12px;
 }

@@ -31,8 +31,9 @@ export const queryKeys = {
     [...queryKeys.tenantMembers(tenantCode), keyword, pageNum, pageSize] as const,
   directoryUsers: (tenantCode: string, parameters: QueryParameters) =>
     [...tenantScope(tenantCode), 'directory-users', 'page', parameters] as const,
-  tenantRoles: (tenantCode: string, pageNum?: number, pageSize?: number) =>
-    [...tenantScope(tenantCode), 'roles', pageNum, pageSize] as const,
+  tenantRoles: (tenantCode: string) => [...tenantScope(tenantCode), 'roles'] as const,
+  tenantRoleList: (tenantCode: string, keyword: string, pageNum = 1, pageSize = 20) =>
+    [...queryKeys.tenantRoles(tenantCode), keyword, pageNum, pageSize] as const,
   permissions: () => ['platform', 'permissions'] as const,
   tenants: () => ['platform', 'tenants'] as const,
   tenantPage: (parameters: QueryParameters) =>

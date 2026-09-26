@@ -629,7 +629,7 @@ function failureCategoryLabel(category: string) {
     </section>
 
     <section class="agent-workspace">
-      <el-tabs v-model="activeTab" class="agent-tabs">
+      <el-tabs v-model="activeTab" class="agent-tabs workspace-tabs">
         <el-tab-pane v-if="canManageAgents" label="Agent 定义" name="agents">
           <div class="agent-tab-content">
             <QueryPanel aria-label="Agent 定义查询">
@@ -1754,27 +1754,12 @@ function failureCategoryLabel(category: string) {
 .agent-tabs :deep(.el-tab-pane) {
   height: 100%;
 }
-.agent-tabs :deep(.el-tabs__header) {
-  margin: 0;
-  padding: 0 20px;
-  background: var(--color-surface-muted);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-md);
-}
-.agent-tabs :deep(.el-tabs__nav-wrap::after) {
-  height: 1px;
-  background: var(--color-border-soft);
-}
-.agent-tabs :deep(.el-tabs__item) {
-  height: 52px;
-  font-weight: 650;
-}
 .agent-tab-content {
   height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--layout-gap);
-  padding: 16px;
+  padding: 0;
 }
 .filter-form--agent {
   flex: 1;
@@ -1806,7 +1791,7 @@ function failureCategoryLabel(category: string) {
 .agent-name-cell {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--component-gap);
 }
 .agent-name-cell > span {
   width: 34px;
@@ -1852,9 +1837,9 @@ function failureCategoryLabel(category: string) {
 .manual-run-intro {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 18px;
-  padding: 13px 14px;
+  gap: var(--component-gap);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border-soft);
   border-radius: 12px;
   color: var(--color-primary);
@@ -1862,7 +1847,7 @@ function failureCategoryLabel(category: string) {
 }
 .manual-run-intro p {
   display: grid;
-  gap: 3px;
+  gap: var(--text-stack-gap);
   margin: 0;
 }
 .state-transition {
@@ -1883,7 +1868,7 @@ function failureCategoryLabel(category: string) {
 .state-history-guide {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--component-gap);
   margin: 0 4px 16px;
   color: var(--color-text-muted);
   font-size: 12px;
@@ -1927,8 +1912,8 @@ function failureCategoryLabel(category: string) {
 .run-summary-card {
   display: grid;
   grid-template-columns: 1.3fr 0.75fr 1.1fr;
-  gap: 22px;
-  padding: 18px 20px;
+  gap: var(--space-5);
+  padding: var(--panel-padding);
   border: 1px solid var(--color-border);
   border-radius: 13px;
   background: var(--color-surface-muted);
@@ -1938,7 +1923,7 @@ function failureCategoryLabel(category: string) {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 5px;
+  gap: var(--text-stack-gap);
 }
 .run-summary-card small,
 .run-summary-card__meta,
@@ -1956,8 +1941,8 @@ function failureCategoryLabel(category: string) {
 .run-result-card {
   display: grid;
   gap: 8px;
-  margin-top: 14px;
-  padding: 15px;
+  margin-top: var(--space-4);
+  padding: var(--space-4);
   border: 1px solid var(--color-border-soft);
   border-radius: 13px;
   background: var(--color-surface-muted);
@@ -1965,7 +1950,7 @@ function failureCategoryLabel(category: string) {
 .run-diagnostics-card {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(110px, 0.7fr));
-  gap: 14px;
+  gap: var(--space-4);
   margin-top: 12px;
   padding: 12px 15px;
   border: 1px solid var(--color-border-soft);
@@ -2071,7 +2056,7 @@ function failureCategoryLabel(category: string) {
 .run-recovery-card__facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--component-gap);
   margin: 0;
   padding-top: 12px;
   border-top: 1px solid color-mix(in srgb, var(--color-warning-border) 70%, transparent);

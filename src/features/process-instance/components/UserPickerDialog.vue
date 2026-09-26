@@ -138,11 +138,11 @@ function confirm() {
 .user-picker-search {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: var(--component-gap);
 }
 
 .user-picker-hint {
-  margin: 10px 0;
+  margin: var(--component-gap) 0;
   color: var(--color-text-muted);
   font-size: 12px;
 }

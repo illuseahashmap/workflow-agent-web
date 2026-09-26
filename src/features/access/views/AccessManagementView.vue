@@ -37,6 +37,8 @@ const canManageRoles = computed(() =>
 const activeTab = ref(canManageMembers.value ? 'members' : 'roles')
 const memberKeyword = ref('')
 const appliedKeyword = ref('')
+const roleKeyword = ref('')
+const appliedRoleKeyword = ref('')
 const memberPage = ref(1)
 const memberPageSize = ref(20)
 const rolePage = ref(1)
@@ -73,13 +75,23 @@ const membersQuery = useQuery({
 })
 const rolesQuery = useQuery({
   queryKey: computed(() =>
-    queryKeys.tenantRoles(tenantCode.value, rolePage.value, rolePageSize.value),
+    queryKeys.tenantRoleList(
+      tenantCode.value,
+      appliedRoleKeyword.value,
+      rolePage.value,
+      rolePageSize.value,
+    ),
   ),
-  queryFn: () => accessApi.roles({ pageNum: rolePage.value, pageSize: rolePageSize.value }),
+  queryFn: () =>
+    accessApi.roles({
+      keyword: appliedRoleKeyword.value || undefined,
+      pageNum: rolePage.value,
+      pageSize: rolePageSize.value,
+    }),
   enabled: computed(() => canManageMembers.value || canManageRoles.value),
 })
 const roleOptionsQuery = useQuery({
-  queryKey: computed(() => queryKeys.tenantRoles(tenantCode.value, 1, 100)),
+  queryKey: computed(() => queryKeys.tenantRoleList(tenantCode.value, '', 1, 100)),
   queryFn: () => accessApi.roles({ pageNum: 1, pageSize: 100 }),
   enabled: canManageMembers,
 })
@@ -164,6 +176,17 @@ function resetMembers() {
   appliedKeyword.value = ''
 }
 
+function searchRoles() {
+  rolePage.value = 1
+  appliedRoleKeyword.value = roleKeyword.value.trim()
+}
+
+function resetRoles() {
+  roleKeyword.value = ''
+  rolePage.value = 1
+  appliedRoleKeyword.value = ''
+}
+
 function changeMemberPage(page: number, pageSize: number) {
   memberPage.value = page
   memberPageSize.value = pageSize
@@ -227,179 +250,177 @@ function editRole(role: TenantRole) {
       eyebrow="Access Control"
       title="成员与角色"
       description="管理当前租户的成员关系、业务角色和权限范围。所有修改仅作用于当前租户。"
-    >
-      <template #actions
-        ><StatusBadge variant="category" status="ACTIVE" :label="tenantCode"
-      /></template>
-    </PageHeader>
+    />
 
     <section class="access-workspace">
-      <el-tabs v-model="activeTab">
+      <el-tabs v-model="activeTab" class="workspace-tabs">
         <el-tab-pane v-if="canManageMembers" name="members">
           <template #label
             ><span class="tab-label"><UsersRound :size="16" />成员管理</span></template
           >
-          <QueryPanel class="access-toolbar" aria-label="成员查询">
-            <el-form
-              class="filter-form filter-form--members"
-              inline
-              @submit.prevent="searchMembers"
-            >
-              <el-form-item label="成员">
-                <el-input v-model="memberKeyword" clearable placeholder="用户名或显示名称" />
-              </el-form-item>
-              <el-form-item class="filter-form__actions">
-                <el-button type="primary" native-type="submit"><Search :size="16" />查询</el-button>
-                <el-button @click="resetMembers"><RefreshCw :size="16" />重置</el-button>
-              </el-form-item>
-            </el-form>
-            <template #actions>
-              <el-button type="primary" @click="addMember"><Plus :size="17" />添加成员</el-button>
-            </template>
-          </QueryPanel>
-          <DataTablePanel class="access-table-panel">
-            <el-table
-              class="access-table"
-              v-loading="membersQuery.isFetching.value"
-              :data="members"
-              :height="memberTableHeight"
-              table-layout="fixed"
-            >
-              <el-table-column
-                prop="displayName"
-                label="成员"
-                min-width="140"
-                show-overflow-tooltip
-              />
-              <el-table-column
-                prop="username"
-                label="用户名"
-                min-width="130"
-                show-overflow-tooltip
-              />
-              <el-table-column label="角色" min-width="180" show-overflow-tooltip>
-                <template #default="{ row }">{{
-                  joinValues([...(row.globalRoles || []), ...row.roles]) || '-'
-                }}</template>
-              </el-table-column>
-              <el-table-column label="加入时间" width="165">
-                <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
-              </el-table-column>
-              <el-table-column label="状态" width="110" align="center" header-align="center">
-                <template #default="{ row }">
-                  <StatusBadge :status="row.enabled" />
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="148" fixed="right">
-                <template #default="{ row }">
-                  <el-button link type="primary" @click="editMember(row)">配置角色</el-button>
-                  <el-button
-                    link
-                    :type="row.enabled ? 'danger' : 'success'"
-                    @click="toggleMember(row)"
-                  >
-                    {{ row.enabled ? '停用' : '启用' }}
-                  </el-button>
-                </template>
-              </el-table-column>
-              <template #empty>
-                <ListEmptyState
-                  title="暂无成员"
-                  description="邀请或添加成员后，可在这里分配租户角色。"
-                />
-              </template>
-            </el-table>
-            <template #footer>
-              <TablePagination
-                v-model:current-page="memberPage"
-                v-model:page-size="memberPageSize"
-                :total="memberTotal"
-                aria-label="成员分页"
-                @change="changeMemberPage"
-              />
-            </template>
-          </DataTablePanel>
         </el-tab-pane>
-
         <el-tab-pane v-if="canManageRoles" name="roles">
           <template #label
             ><span class="tab-label"><ShieldCheck :size="16" />角色管理</span></template
           >
-          <DataTablePanel
-            class="access-table-panel"
-            title="角色列表"
-            description="维护当前租户可分配的角色与权限集合。"
-          >
-            <template #actions>
-              <el-button type="primary" @click="addRole"><Plus :size="17" />新增角色</el-button>
-            </template>
-            <el-table
-              class="access-table"
-              v-loading="rolesQuery.isFetching.value"
-              :data="roles"
-              :height="roleTableHeight"
-              table-layout="fixed"
-            >
-              <el-table-column label="角色名称" min-width="170">
-                <template #default="{ row }">
-                  <span class="role-name-cell">
-                    <span>{{ row.roleName }}</span>
-                    <StatusBadge
-                      v-if="row.builtIn"
-                      variant="category"
-                      status="DISABLED"
-                      label="系统内置"
-                    />
-                  </span>
-                </template>
-              </el-table-column>
-              <el-table-column
-                prop="roleCode"
-                label="角色编码"
-                min-width="150"
-                show-overflow-tooltip
-              />
-              <el-table-column
-                prop="description"
-                label="说明"
-                min-width="200"
-                show-overflow-tooltip
-              />
-              <el-table-column label="权限数" width="88">
-                <template #default="{ row }">{{ row.permissions.length }}</template>
-              </el-table-column>
-              <el-table-column label="状态" width="110" align="center" header-align="center">
-                <template #default="{ row }">
-                  <StatusBadge :status="row.enabled" />
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="100" fixed="right">
-                <template #default="{ row }">
-                  <el-button v-if="!row.builtIn" link type="primary" @click="editRole(row)"
-                    >编辑</el-button
-                  >
-                  <span v-else class="muted-copy">不可编辑</span>
-                </template>
-              </el-table-column>
-              <template #empty>
-                <ListEmptyState
-                  title="暂无角色"
-                  description="创建角色并配置权限后，即可分配给租户成员。"
-                />
-              </template>
-            </el-table>
-            <template #footer>
-              <TablePagination
-                v-model:current-page="rolePage"
-                v-model:page-size="rolePageSize"
-                :total="roleTotal"
-                aria-label="角色分页"
-                @change="changeRolePage"
-              />
-            </template>
-          </DataTablePanel>
         </el-tab-pane>
       </el-tabs>
+
+      <QueryPanel
+        class="access-toolbar"
+        :aria-label="activeTab === 'members' ? '成员查询' : '角色查询'"
+      >
+        <el-form
+          v-if="activeTab === 'members'"
+          class="filter-form filter-form--members"
+          inline
+          @submit.prevent="searchMembers"
+        >
+          <el-form-item label="成员">
+            <el-input v-model="memberKeyword" clearable placeholder="用户名或显示名称" />
+          </el-form-item>
+          <el-form-item class="filter-form__actions">
+            <el-button type="primary" native-type="submit"><Search :size="16" />查询</el-button>
+            <el-button @click="resetMembers"><RefreshCw :size="16" />重置</el-button>
+          </el-form-item>
+        </el-form>
+        <el-form
+          v-else
+          class="filter-form filter-form--members"
+          inline
+          @submit.prevent="searchRoles"
+        >
+          <el-form-item label="角色">
+            <el-input v-model="roleKeyword" clearable placeholder="角色编码、名称或说明" />
+          </el-form-item>
+          <el-form-item class="filter-form__actions">
+            <el-button type="primary" native-type="submit"><Search :size="16" />查询</el-button>
+            <el-button @click="resetRoles"><RefreshCw :size="16" />重置</el-button>
+          </el-form-item>
+        </el-form>
+      </QueryPanel>
+
+      <DataTablePanel
+        v-if="activeTab === 'members'"
+        class="access-table-panel"
+        title="租户成员"
+        description="查看当前租户成员，并维护其角色和启停状态。"
+      >
+        <template #actions>
+          <el-button type="primary" @click="addMember"><Plus :size="17" />添加成员</el-button>
+        </template>
+        <el-table
+          class="access-table"
+          v-loading="membersQuery.isFetching.value"
+          :data="members"
+          :height="memberTableHeight"
+          table-layout="fixed"
+        >
+          <el-table-column prop="displayName" label="成员" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="username" label="用户名" min-width="130" show-overflow-tooltip />
+          <el-table-column label="角色" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }">{{
+              joinValues([...(row.globalRoles || []), ...row.roles]) || '-'
+            }}</template>
+          </el-table-column>
+          <el-table-column label="加入时间" width="165">
+            <template #default="{ row }">{{ formatDateTime(row.joinedAt) }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="110" align="center" header-align="center">
+            <template #default="{ row }">
+              <StatusBadge :status="row.enabled" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="148" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="editMember(row)">配置角色</el-button>
+              <el-button link :type="row.enabled ? 'danger' : 'success'" @click="toggleMember(row)">
+                {{ row.enabled ? '停用' : '启用' }}
+              </el-button>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <ListEmptyState
+              title="暂无成员"
+              description="邀请或添加成员后，可在这里分配租户角色。"
+            />
+          </template>
+        </el-table>
+        <template #footer>
+          <TablePagination
+            v-model:current-page="memberPage"
+            v-model:page-size="memberPageSize"
+            :total="memberTotal"
+            aria-label="成员分页"
+            @change="changeMemberPage"
+          />
+        </template>
+      </DataTablePanel>
+
+      <DataTablePanel
+        v-else
+        class="access-table-panel"
+        title="业务角色"
+        description="维护当前租户可分配的角色与权限集合。"
+      >
+        <template #actions>
+          <el-button type="primary" @click="addRole"><Plus :size="17" />新增角色</el-button>
+        </template>
+        <el-table
+          class="access-table"
+          v-loading="rolesQuery.isFetching.value"
+          :data="roles"
+          :height="roleTableHeight"
+          table-layout="fixed"
+        >
+          <el-table-column label="角色名称" min-width="170">
+            <template #default="{ row }">
+              <span class="role-name-cell">
+                <span>{{ row.roleName }}</span>
+                <StatusBadge
+                  v-if="row.builtIn"
+                  variant="category"
+                  status="DISABLED"
+                  label="系统内置"
+                />
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="roleCode" label="角色编码" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
+          <el-table-column label="权限数" width="88">
+            <template #default="{ row }">{{ row.permissions.length }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="110" align="center" header-align="center">
+            <template #default="{ row }">
+              <StatusBadge :status="row.enabled" />
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button v-if="!row.builtIn" link type="primary" @click="editRole(row)"
+                >编辑</el-button
+              >
+              <span v-else class="muted-copy">不可编辑</span>
+            </template>
+          </el-table-column>
+          <template #empty>
+            <ListEmptyState
+              title="暂无角色"
+              description="创建角色并配置权限后，即可分配给租户成员。"
+            />
+          </template>
+        </el-table>
+        <template #footer>
+          <TablePagination
+            v-model:current-page="rolePage"
+            v-model:page-size="rolePageSize"
+            :total="roleTotal"
+            aria-label="角色分页"
+            @change="changeRolePage"
+          />
+        </template>
+      </DataTablePanel>
     </section>
 
     <el-dialog v-model="memberDialogVisible" :title="memberDialogTitle" width="520px">

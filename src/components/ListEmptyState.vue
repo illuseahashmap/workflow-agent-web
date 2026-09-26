@@ -31,15 +31,15 @@ defineProps<{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  padding: 32px 24px;
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-6);
   color: var(--color-text-muted);
   text-align: center;
 }
 
 .list-empty-state.is-compact {
   min-height: 168px;
-  padding-block: 24px;
+  padding-block: var(--space-6);
 }
 
 .list-empty-state__icon {
@@ -47,7 +47,7 @@ defineProps<{
   height: 54px;
   display: grid;
   place-items: center;
-  margin-bottom: 2px;
+  margin-bottom: var(--space-1);
   border: 1px solid var(--color-border-soft);
   border-radius: 18px;
   color: var(--color-primary);
@@ -70,6 +70,6 @@ defineProps<{
 }
 
 .list-empty-state__actions {
-  margin-top: 5px;
+  margin-top: var(--space-1);
 }
 </style>

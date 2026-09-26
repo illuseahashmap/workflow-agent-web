@@ -426,15 +426,15 @@ function variablePlaceholder(type: ProcessVariableType) {
 <style scoped>
 .variable-section {
   display: grid;
-  gap: 10px;
-  padding-top: 4px;
+  gap: var(--component-gap);
+  padding-top: var(--space-1);
 }
 
 .variable-section__heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .variable-section__heading h3,
@@ -448,7 +448,7 @@ function variablePlaceholder(type: ProcessVariableType) {
 }
 
 .variable-section__heading p {
-  margin-top: 4px;
+  margin-top: var(--text-stack-gap);
   color: var(--color-text-muted);
   font-size: 12px;
 }
@@ -457,7 +457,7 @@ function variablePlaceholder(type: ProcessVariableType) {
   display: grid;
   grid-template-columns: minmax(130px, 0.8fr) 112px minmax(170px, 1.2fr) 36px;
   align-items: center;
-  gap: 8px;
+  gap: var(--inline-gap);
 }
 
 .variable-grid--header {
@@ -471,7 +471,7 @@ function variablePlaceholder(type: ProcessVariableType) {
 }
 
 .variable-empty {
-  padding: 18px 0;
+  padding: var(--space-4) 0;
   border: 1px dashed var(--color-border);
   border-radius: 10px;
   color: var(--color-text-subtle);

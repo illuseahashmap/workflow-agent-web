@@ -149,7 +149,7 @@ function changePageSize(pageSize: number) {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
+  gap: var(--inline-gap);
   color: var(--color-text-muted);
   font-size: 13px;
 }

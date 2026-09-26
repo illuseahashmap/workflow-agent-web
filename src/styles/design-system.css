@@ -54,8 +54,19 @@
   --font-size-section-title: 16px;
   --line-height-tight: 1.25;
   --line-height-normal: 1.5;
-  --section-header-padding-block: 18px;
-  --section-header-padding-inline: 22px;
+  /* Semantic spacing: pages > panels > component groups > text stacks. */
+  --page-padding-block: var(--space-6);
+  --page-padding-inline: var(--space-7);
+  --page-section-gap: var(--space-4);
+  --panel-padding-block: var(--space-4);
+  --panel-padding-inline: var(--space-5);
+  --component-gap: var(--space-3);
+  --inline-gap: var(--space-2);
+  --text-stack-gap: var(--space-1);
+  --section-header-padding-block: var(--panel-padding-block);
+  --section-header-padding-inline: var(--panel-padding-inline);
+  --workspace-tab-height: 44px;
+  --query-panel-min-height: 70px;
   --shadow-panel: 0 10px 30px rgba(37, 99, 235, 0.08);
   --shadow-popover: 0 16px 36px rgba(15, 23, 42, 0.14);
   --el-color-primary: #1d4ed8;
@@ -75,8 +86,8 @@
   --control-focus-ring: rgba(37, 99, 235, 0.14);
   --control-placeholder: #94a3b8;
   --panel-radius: var(--radius-lg);
-  --layout-gap: 18px;
-  --panel-padding: 16px 18px;
+  --layout-gap: var(--page-section-gap);
+  --panel-padding: var(--panel-padding-block) var(--panel-padding-inline);
   --panel-shadow: 0 8px 24px rgba(15, 23, 42, 0.045);
   --color-text-secondary: var(--color-text-muted);
 }
@@ -201,8 +212,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 12px var(--space-4);
+  gap: var(--inline-gap);
+  padding: var(--space-3) var(--panel-padding-inline);
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
 }
@@ -217,7 +228,7 @@
 .table-pagination > .el-pagination {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--inline-gap);
   padding: 0;
 }
 
@@ -326,15 +337,15 @@
   min-height: 72px;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--component-gap);
+  padding: var(--panel-padding);
   background: var(--color-surface-muted);
 }
 
 .governance-rail__copy {
   min-width: 0;
   display: grid;
-  gap: 3px;
+  gap: var(--text-stack-gap);
   margin: 0;
 }
 
@@ -353,7 +364,7 @@
 
 /* Overview cards follow the same transparent elevation used by directory metrics. */
 .governance-rail--overview-cards {
-  gap: 14px;
+  gap: var(--page-section-gap);
   overflow: visible;
   padding: 0;
   background: transparent;
@@ -368,12 +379,18 @@
 }
 
 .page-actions {
-  padding: 14px 16px 2px;
+  padding: var(--panel-padding);
 }
 
 .query-panel {
   width: 100%;
   min-width: 0;
+  min-height: var(--query-panel-min-height);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--component-gap) var(--page-section-gap);
+  padding: var(--panel-padding);
   border: 1px solid rgba(219, 228, 240, 0.92);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -449,6 +466,31 @@
   box-shadow: var(--panel-shadow);
 }
 
+/* Shared directory workspace navigation: tabs are a peer panel, never a table wrapper. */
+.workspace-tabs > .el-tabs__header {
+  margin: 0 0 var(--page-section-gap);
+  padding: 0 var(--panel-padding-inline);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.workspace-tabs > .el-tabs__header .el-tabs__nav-wrap::after {
+  height: 1px;
+  background: var(--color-border-soft);
+}
+
+.workspace-tabs > .el-tabs__header .el-tabs__item {
+  height: var(--workspace-tab-height);
+  padding-inline: var(--space-4);
+  color: var(--color-text-muted);
+  font-weight: 650;
+}
+
+.workspace-tabs > .el-tabs__header .el-tabs__item.is-active {
+  color: var(--color-primary);
+}
+
 .detail-page {
   gap: var(--layout-gap);
 }
@@ -473,11 +515,6 @@
 
 .query-panel .filter-form {
   min-width: 0;
-}
-
-.query-panel.definition-filter {
-  border-radius: 14px;
-  padding: 16px 18px;
 }
 
 .access-toolbar.query-panel {
@@ -549,7 +586,7 @@
 @media (max-width: 840px) {
   .page-stack,
   .management-page {
-    gap: 14px;
+    gap: var(--component-gap);
   }
 
   .page-hero {
@@ -652,7 +689,7 @@
   min-height: 58px;
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--inline-gap);
   color: #334155;
   background: #f8faff;
   cursor: default;
@@ -736,11 +773,11 @@
 }
 
 .el-dialog__body {
-  padding: 8px 22px 20px;
+  padding: var(--inline-gap) var(--panel-padding-inline) var(--panel-padding-inline);
 }
 
 .el-dialog__footer {
-  padding: 14px 22px 20px;
+  padding: var(--component-gap) var(--panel-padding-inline) var(--panel-padding-inline);
   border-top: 1px solid #edf1f6;
 }
 
@@ -754,18 +791,10 @@
 }
 
 /* Shared search and action layout */
-.page-actions.compact-filter {
-  min-width: 0;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 16px;
-  padding: 16px 18px;
-}
-
 .filter-form.el-form--inline {
   min-width: 0;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
-  gap: 12px 14px;
+  gap: var(--component-gap) var(--space-4);
 }
 
 .filter-form.el-form--inline .el-form-item {
@@ -776,7 +805,7 @@
   width: 72px;
   flex: 0 0 72px;
   justify-content: flex-end;
-  padding-right: 9px;
+  padding-right: var(--inline-gap);
 }
 
 .filter-form .el-form-item__content {

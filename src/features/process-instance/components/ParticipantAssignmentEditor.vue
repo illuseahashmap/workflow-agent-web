@@ -124,9 +124,9 @@ function assignmentLabel(requirement: ParticipantRequirement) {
 <style scoped>
 .participant-section {
   display: grid;
-  gap: 10px;
-  margin-top: 18px;
-  padding-top: 18px;
+  gap: var(--component-gap);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--color-border);
 }
 

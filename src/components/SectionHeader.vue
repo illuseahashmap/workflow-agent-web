@@ -41,7 +41,7 @@ withDefaults(
   line-height: var(--line-height-tight);
 }
 .section-header__description {
-  margin: var(--space-1) 0 0;
+  margin: var(--text-stack-gap) 0 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-caption);
   line-height: var(--line-height-normal);

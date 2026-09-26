@@ -609,15 +609,16 @@ async function onDocumentFileChange(event: Event) {
 <style scoped>
 .knowledge-tabs {
   display: flex;
-  gap: 8px;
-  margin: 18px 0;
+  gap: var(--inline-gap);
+  margin: 0;
   border-bottom: 1px solid var(--color-border);
 }
 .knowledge-tabs button {
+  min-height: var(--workspace-tab-height);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: var(--inline-gap);
+  padding: var(--space-2) var(--space-4);
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;

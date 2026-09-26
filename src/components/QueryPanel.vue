@@ -8,7 +8,7 @@ withDefaults(
 </script>
 
 <template>
-  <section class="page-actions compact-filter query-panel" :aria-label="ariaLabel">
+  <section class="query-panel" :aria-label="ariaLabel">
     <slot />
     <div v-if="$slots.actions" class="query-panel__actions">
       <slot name="actions" />

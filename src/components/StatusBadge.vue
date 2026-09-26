@@ -39,7 +39,7 @@ const accessibleLabel = computed(() => props.label || presentation.value.label)
   height: 24px;
   flex: 0 0 auto;
   justify-content: center;
-  padding-inline: 9px;
+  padding-inline: var(--inline-gap);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 650;

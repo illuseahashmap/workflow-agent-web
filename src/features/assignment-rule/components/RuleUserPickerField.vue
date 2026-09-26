@@ -53,7 +53,7 @@ function remove(username: string) {
   align-items: center;
   min-height: var(--control-height);
   width: 100%;
-  gap: 10px;
+  gap: var(--inline-gap);
   padding: 6px 8px 6px 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--control-radius);

@@ -23,7 +23,7 @@ export const accessApi = {
     apiClient.post<void>(`${ROOT}/members/${userId}/enabled`, undefined, {
       params: { enabled },
     }),
-  roles: (params: { pageNum: number; pageSize: number }) =>
+  roles: (params: { keyword?: string; pageNum: number; pageSize: number }) =>
     apiClient.get<PageResult<TenantRole>>(`${ROOT}/roles`, { params }),
   saveRole: (payload: SaveRoleCommand) => apiClient.post<TenantRole>(`${ROOT}/roles`, payload),
   permissions: () => apiClient.get<PermissionItem[]>(`${ROOT}/permissions`),

@@ -1,6 +1,17 @@
 .access-workspace {
   min-width: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: var(--page-section-gap);
   overflow: visible;
+}
+
+.access-workspace .workspace-tabs > .el-tabs__header {
+  margin-bottom: 0;
+}
+
+.access-workspace .workspace-tabs > .el-tabs__content {
+  display: none;
 }
 
 .access-toolbar {
