@@ -4,11 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { ElMessage } from 'element-plus'
 import { Cable, CircleCheck, Compass, Plus, RefreshCw, Wrench } from '@lucide/vue'
 import PageHeader from '@/components/PageHeader.vue'
-import SectionHeader from '@/components/SectionHeader.vue'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
 import TablePagination from '@/components/TablePagination.vue'
+import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
+import DataTablePanel from '@/components/DataTablePanel.vue'
 import { queryKeys } from '@/api/queryKeys'
 import { getErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
@@ -155,7 +156,7 @@ function schemaPreview(schema: string) {
 </script>
 
 <template>
-  <div class="management-page directory-page tool-management-page">
+  <DirectoryPageShell class="tool-management-page">
     <PageHeader
       eyebrow="TOOL GOVERNANCE"
       title="工具目录"
@@ -167,30 +168,34 @@ function schemaPreview(schema: string) {
     </PageHeader>
 
     <section class="tool-principles governance-rail" aria-label="工具治理原则">
-      <article>
+      <article class="governance-rail__item">
         <Cable :size="18" />
-        <div><strong>HTTPS 连接</strong><span>只支持 Streamable HTTP</span></div>
+        <div class="governance-rail__copy">
+          <strong>HTTPS 连接</strong><span>只支持 Streamable HTTP</span>
+        </div>
       </article>
-      <article>
+      <article class="governance-rail__item">
         <Compass :size="18" />
-        <div><strong>发现后审核</strong><span>工具必须形成不可变快照</span></div>
+        <div class="governance-rail__copy">
+          <strong>发现后审核</strong><span>工具必须形成不可变快照</span>
+        </div>
       </article>
-      <article>
+      <article class="governance-rail__item">
         <CircleCheck :size="18" />
-        <div><strong>只读范围</strong><span>当前版本禁止写工具</span></div>
+        <div class="governance-rail__copy">
+          <strong>只读范围</strong><span>当前版本禁止写工具</span>
+        </div>
       </article>
     </section>
 
-    <section class="tool-table-panel table-panel">
-      <SectionHeader
-        title="连接器与目录"
-        description="先创建连接器，再发现、核对并发布工具目录。"
-        heading-level="h3"
-      >
-        <template #actions>
-          <el-button text @click="toolsQuery.refetch()"><RefreshCw :size="15" />刷新</el-button>
-        </template>
-      </SectionHeader>
+    <DataTablePanel
+      class="tool-table-panel"
+      title="连接器与目录"
+      description="先创建连接器，再发现、核对并发布工具目录。"
+    >
+      <template #actions>
+        <el-button text @click="toolsQuery.refetch()"><RefreshCw :size="15" />刷新</el-button>
+      </template>
       <el-table
         v-loading="toolsQuery.isFetching.value"
         :data="toolsQuery.data.value?.records || []"
@@ -259,14 +264,16 @@ function schemaPreview(schema: string) {
           </ListEmptyState>
         </template>
       </el-table>
-      <TablePagination
-        v-model:current-page="pageNum"
-        v-model:page-size="pageSize"
-        :total="toolsQuery.data.value?.total || 0"
-        aria-label="工具目录分页"
-        @change="changePage"
-      />
-    </section>
+      <template #footer>
+        <TablePagination
+          v-model:current-page="pageNum"
+          v-model:page-size="pageSize"
+          :total="toolsQuery.data.value?.total || 0"
+          aria-label="工具目录分页"
+          @change="changePage"
+        />
+      </template>
+    </DataTablePanel>
 
     <el-dialog v-model="createVisible" title="新增 MCP 连接器" width="560px" destroy-on-close>
       <el-form label-position="top" @submit.prevent="createMutation.mutate()">
@@ -367,7 +374,7 @@ function schemaPreview(schema: string) {
         </div>
       </template>
     </el-drawer>
-  </div>
+  </DirectoryPageShell>
 </template>
 
 <style scoped>
@@ -380,40 +387,8 @@ function schemaPreview(schema: string) {
   min-height: 0;
 }
 .tool-principles {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--color-surface);
-}
-.tool-principles article {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 68px;
-  padding: var(--space-3) var(--space-4);
-  border: 0;
-  border-right: 1px solid var(--color-border);
-  background: var(--color-surface-muted);
+  --governance-columns: 3;
   color: var(--tool-blue);
-}
-.tool-principles article:last-child {
-  border-right: 0;
-}
-.tool-principles article div {
-  display: grid;
-  gap: var(--space-1);
-}
-.tool-principles strong {
-  color: var(--color-text-strong);
-  font-size: 13px;
-}
-.tool-principles span {
-  color: var(--color-text-muted);
-  font-size: 12px;
 }
 .tool-table-panel {
   min-height: 0;
@@ -545,7 +520,6 @@ function schemaPreview(schema: string) {
   font-size: 12px;
 }
 @media (max-width: 760px) {
-  .tool-principles,
   .tool-form-grid {
     grid-template-columns: 1fr;
   }

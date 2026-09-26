@@ -9,6 +9,9 @@ import ListEmptyState from '@/components/ListEmptyState.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
+import QueryPanel from '@/components/QueryPanel.vue'
+import DataTablePanel from '@/components/DataTablePanel.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime } from '@/utils/format'
@@ -115,7 +118,7 @@ async function toggle(item: WorkflowTenant) {
 </script>
 
 <template>
-  <div class="management-page page-stack directory-page">
+  <DirectoryPageShell>
     <PageHeader
       eyebrow="Tenant"
       title="租户管理中心"
@@ -132,7 +135,7 @@ async function toggle(item: WorkflowTenant) {
       </MetricCard>
     </section>
 
-    <section class="page-actions compact-filter query-panel">
+    <QueryPanel aria-label="租户查询">
       <el-form class="filter-form filter-form--tenants" inline @submit.prevent="search"
         ><el-form-item label="关键词"
           ><el-input
@@ -149,11 +152,11 @@ async function toggle(item: WorkflowTenant) {
           ><el-button @click="reset"><RefreshCw :size="16" />重置</el-button></el-form-item
         ></el-form
       >
-      <div class="action-buttons page-primary-actions">
+      <template #actions>
         <el-button type="primary" @click="create"><Plus :size="17" />新增租户</el-button>
-      </div>
-    </section>
-    <section class="table-panel">
+      </template>
+    </QueryPanel>
+    <DataTablePanel>
       <el-table v-loading="tenantsQuery.isFetching.value" :data="records" height="100%"
         ><el-table-column prop="tenantName" label="租户名称" min-width="180" /><el-table-column
           prop="tenantId"
@@ -188,14 +191,15 @@ async function toggle(item: WorkflowTenant) {
             title="暂无租户"
             description="创建租户后，才能配置成员与租户级业务资源。"
           /> </template></el-table
-      ><TablePagination
-        v-model:current-page="query.pageNum"
-        v-model:page-size="query.pageSize"
-        :total="total"
-        aria-label="租户分页"
-        @change="changePage"
-      />
-    </section>
+      ><template #footer
+        ><TablePagination
+          v-model:current-page="query.pageNum"
+          v-model:page-size="query.pageSize"
+          :total="total"
+          aria-label="租户分页"
+          @change="changePage"
+      /></template>
+    </DataTablePanel>
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑租户' : '新增租户'" width="560px"
       ><el-form class="dialog-form" label-position="top"
         ><el-form-item label="租户标识" required
@@ -225,5 +229,5 @@ async function toggle(item: WorkflowTenant) {
         ></template
       ></el-dialog
     >
-  </div>
+  </DirectoryPageShell>
 </template>

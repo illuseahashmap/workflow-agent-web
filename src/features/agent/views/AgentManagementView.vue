@@ -11,6 +11,9 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import AgentProviderTable from '../components/AgentProviderTable.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
 import TablePagination from '@/components/TablePagination.vue'
+import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
+import QueryPanel from '@/components/QueryPanel.vue'
+import DataTablePanel from '@/components/DataTablePanel.vue'
 import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
 import { confirmAction, promptRequired } from '@/utils/confirmation'
@@ -588,29 +591,40 @@ function failureCategoryLabel(category: string) {
 </script>
 
 <template>
-  <div class="management-page page-stack agent-management-page">
+  <DirectoryPageShell class="agent-management-page" workspace>
     <PageHeader
       eyebrow="Agent Runtime"
       title="Agent 中心"
       description="管理租户级 Agent、不可变版本和模型 Provider，并追踪每一次可靠执行。"
     />
 
-    <section class="agent-overview">
-      <div>
+    <section
+      class="agent-overview governance-rail governance-rail--overview-cards"
+      aria-label="Agent 能力概览"
+    >
+      <div class="governance-rail__item">
         <span class="overview-icon"><Bot :size="19" /></span>
-        <p><strong>定义与版本</strong><small>配置提示词、模型和失败策略</small></p>
+        <p class="governance-rail__copy">
+          <strong>定义与版本</strong><small>配置提示词、模型和失败策略</small>
+        </p>
       </div>
-      <div>
+      <div class="governance-rail__item">
         <span class="overview-icon tone-purple"><ServerCog :size="19" /></span>
-        <p><strong>Provider</strong><small>隔离地址、模型与加密凭证</small></p>
+        <p class="governance-rail__copy">
+          <strong>Provider</strong><small>隔离地址、模型与加密凭证</small>
+        </p>
       </div>
-      <div>
+      <div class="governance-rail__item">
         <span class="overview-icon tone-green"><CirclePlay :size="19" /></span>
-        <p><strong>运行记录</strong><small>查看状态、流程关联与错误分类</small></p>
+        <p class="governance-rail__copy">
+          <strong>运行记录</strong><small>查看状态、流程关联与错误分类</small>
+        </p>
       </div>
-      <div>
+      <div class="governance-rail__item">
         <span class="overview-icon tone-amber"><ShieldCheck :size="19" /></span>
-        <p><strong>安全边界</strong><small>密钥不回显，所有数据按租户隔离</small></p>
+        <p class="governance-rail__copy">
+          <strong>安全边界</strong><small>密钥不回显，所有数据按租户隔离</small>
+        </p>
       </div>
     </section>
 
@@ -618,7 +632,7 @@ function failureCategoryLabel(category: string) {
       <el-tabs v-model="activeTab" class="agent-tabs">
         <el-tab-pane v-if="canManageAgents" label="Agent 定义" name="agents">
           <div class="agent-tab-content">
-            <section class="page-actions compact-filter query-panel">
+            <QueryPanel aria-label="Agent 定义查询">
               <el-form class="filter-form filter-form--agent" inline @submit.prevent="searchAgents">
                 <el-form-item label="关键词"
                   ><el-input v-model="agentQuery.keyword" clearable placeholder="Agent 编码或名称"
@@ -640,8 +654,8 @@ function failureCategoryLabel(category: string) {
               <el-button class="page-primary-action" type="primary" @click="openAgentCreate"
                 ><Plus :size="17" />新建 Agent</el-button
               >
-            </section>
-            <section class="agent-table-panel table-panel">
+            </QueryPanel>
+            <DataTablePanel class="agent-table-panel">
               <el-table
                 v-loading="agentsQuery.isFetching.value"
                 :data="agentsQuery.data.value?.records ?? []"
@@ -733,21 +747,23 @@ function failureCategoryLabel(category: string) {
                     :icon="Bot"
                 /></template>
               </el-table>
-              <TablePagination
-                v-model:current-page="agentQuery.pageNum"
-                v-model:page-size="agentQuery.pageSize"
-                :total="agentsQuery.data.value?.total ?? 0"
-                :page-sizes="[10, 20, 50]"
-                aria-label="Agent 定义分页"
-                @change="changeAgentPage"
-              />
-            </section>
+              <template #footer>
+                <TablePagination
+                  v-model:current-page="agentQuery.pageNum"
+                  v-model:page-size="agentQuery.pageSize"
+                  :total="agentsQuery.data.value?.total ?? 0"
+                  :page-sizes="[10, 20, 50]"
+                  aria-label="Agent 定义分页"
+                  @change="changeAgentPage"
+                />
+              </template>
+            </DataTablePanel>
           </div>
         </el-tab-pane>
 
         <el-tab-pane v-if="canManageAgents" label="Provider 配置" name="providers">
           <div class="agent-tab-content">
-            <section class="page-actions compact-filter query-panel">
+            <QueryPanel aria-label="Provider 查询">
               <el-form
                 class="filter-form filter-form--agent"
                 inline
@@ -776,29 +792,31 @@ function failureCategoryLabel(category: string) {
               <el-button class="page-primary-action" type="primary" @click="openProviderCreate"
                 ><Plus :size="17" />新建 Provider</el-button
               >
-            </section>
-            <section class="agent-table-panel table-panel">
+            </QueryPanel>
+            <DataTablePanel class="agent-table-panel">
               <AgentProviderTable
                 :rows="providersQuery.data.value?.records ?? []"
                 :loading="providersQuery.isFetching.value"
                 :provider-type-label="providerTypeLabel"
                 @edit="openProviderEdit"
               />
-              <TablePagination
-                v-model:current-page="providerQuery.pageNum"
-                v-model:page-size="providerQuery.pageSize"
-                :total="providersQuery.data.value?.total ?? 0"
-                :page-sizes="[10, 20, 50]"
-                aria-label="Provider 分页"
-                @change="changeProviderPage"
-              />
-            </section>
+              <template #footer>
+                <TablePagination
+                  v-model:current-page="providerQuery.pageNum"
+                  v-model:page-size="providerQuery.pageSize"
+                  :total="providersQuery.data.value?.total ?? 0"
+                  :page-sizes="[10, 20, 50]"
+                  aria-label="Provider 分页"
+                  @change="changeProviderPage"
+                />
+              </template>
+            </DataTablePanel>
           </div>
         </el-tab-pane>
 
         <el-tab-pane v-if="canReadRuns" label="运行记录" name="runs">
           <div class="agent-tab-content">
-            <section class="page-actions compact-filter query-panel">
+            <QueryPanel aria-label="Agent 运行记录查询">
               <el-form class="filter-form filter-form--agent" inline @submit.prevent="searchRuns">
                 <el-form-item label="关键词"
                   ><el-input v-model="runQuery.keyword" clearable placeholder="Agent、流程实例"
@@ -819,8 +837,8 @@ function failureCategoryLabel(category: string) {
                   ></el-form-item
                 >
               </el-form>
-            </section>
-            <section class="agent-table-panel table-panel">
+            </QueryPanel>
+            <DataTablePanel class="agent-table-panel">
               <el-table
                 class="agent-run-table"
                 v-loading="runsQuery.isFetching.value"
@@ -875,15 +893,17 @@ function failureCategoryLabel(category: string) {
                     :icon="CirclePlay"
                 /></template>
               </el-table>
-              <TablePagination
-                v-model:current-page="runQuery.pageNum"
-                v-model:page-size="runQuery.pageSize"
-                :total="runsQuery.data.value?.total ?? 0"
-                :page-sizes="[10, 20, 50]"
-                aria-label="运行记录分页"
-                @change="changeRunPage"
-              />
-            </section>
+              <template #footer>
+                <TablePagination
+                  v-model:current-page="runQuery.pageNum"
+                  v-model:page-size="runQuery.pageSize"
+                  :total="runsQuery.data.value?.total ?? 0"
+                  :page-sizes="[10, 20, 50]"
+                  aria-label="运行记录分页"
+                  @change="changeRunPage"
+                />
+              </template>
+            </DataTablePanel>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -1673,42 +1693,12 @@ function failureCategoryLabel(category: string) {
         ></template
       >
     </el-dialog>
-  </div>
+  </DirectoryPageShell>
 </template>
 
 <style scoped>
 .agent-overview {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-.agent-overview > div {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 18px;
-  border: 1px solid var(--color-border-soft);
-  border-radius: 14px;
-  background: var(--color-surface);
-}
-.agent-overview p,
-.agent-name-cell p {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin: 0;
-}
-.agent-overview strong {
-  color: var(--color-text-strong);
-  font-size: 13px;
-}
-.agent-overview small,
-.agent-name-cell small,
-.cell-secondary {
-  color: var(--color-text-subtle);
-  font-size: 11px;
+  --governance-columns: 4;
 }
 .overview-icon {
   width: 36px;
@@ -1732,13 +1722,25 @@ function failureCategoryLabel(category: string) {
   color: var(--color-warning);
   background: var(--color-warning-soft);
 }
+.agent-name-cell p {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+}
+.agent-name-cell small,
+.cell-secondary {
+  color: var(--color-text-subtle);
+  font-size: 11px;
+}
 .agent-workspace {
   height: clamp(560px, calc(100vh - 280px), 760px);
   min-height: 560px;
   overflow: hidden;
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .agent-tabs {
   height: 100%;
@@ -1756,6 +1758,8 @@ function failureCategoryLabel(category: string) {
   margin: 0;
   padding: 0 20px;
   background: var(--color-surface-muted);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
 }
 .agent-tabs :deep(.el-tabs__nav-wrap::after) {
   height: 1px;
@@ -1771,13 +1775,6 @@ function failureCategoryLabel(category: string) {
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--layout-gap);
   padding: 16px;
-}
-.agent-tab-content .query-panel {
-  padding: 16px 18px;
-  border: 1px solid rgba(219, 228, 240, 0.92);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-card);
 }
 .filter-form--agent {
   flex: 1;
@@ -2155,13 +2152,7 @@ function failureCategoryLabel(category: string) {
   color: var(--color-text-muted);
   font-size: 12px;
 }
-@media (max-width: 1100px) {
-  .agent-overview {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 @media (max-width: 760px) {
-  .agent-overview,
   .agent-form-grid {
     grid-template-columns: 1fr;
   }

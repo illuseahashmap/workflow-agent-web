@@ -11,6 +11,9 @@ import TableTagCell from '@/components/TableTagCell.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
+import QueryPanel from '@/components/QueryPanel.vue'
+import DataTablePanel from '@/components/DataTablePanel.vue'
 import { definitionApi, type ProcessDefinition } from '@/features/process-definition'
 import { useAuthStore } from '@/stores/auth'
 import { listUserTasks, resolveTaskMode } from '@/utils/bpmn'
@@ -386,7 +389,7 @@ function assignmentTargetsText(rule: AssignmentRule) {
 </script>
 
 <template>
-  <div class="management-page page-stack directory-page">
+  <DirectoryPageShell>
     <PageHeader
       eyebrow="Assignment Rule"
       title="派单规则中心"
@@ -403,7 +406,7 @@ function assignmentTargetsText(rule: AssignmentRule) {
       </MetricCard>
     </section>
 
-    <section class="page-actions compact-filter query-panel">
+    <QueryPanel aria-label="派单规则查询">
       <el-form class="filter-form filter-form--assignment" inline @submit.prevent="search"
         ><el-form-item label="流程标识"
           ><el-input v-model="query.processDefinitionKey" clearable /></el-form-item
@@ -427,11 +430,13 @@ function assignmentTargetsText(rule: AssignmentRule) {
           ><el-button type="primary" native-type="submit"><Search :size="16" />查询</el-button
           ><el-button @click="reset"><RefreshCw :size="16" />重置</el-button></el-form-item
         ></el-form
-      ><el-button class="page-primary-action" type="primary" @click="openCreate"
-        ><Plus :size="17" />新增规则</el-button
+      ><template #actions
+        ><el-button type="primary" @click="openCreate"
+          ><Plus :size="17" />新增规则</el-button
+        ></template
       >
-    </section>
-    <section class="table-panel">
+    </QueryPanel>
+    <DataTablePanel>
       <el-table v-loading="rulesQuery.isFetching.value" :data="records" height="100%"
         ><el-table-column
           prop="processDefinitionKey"
@@ -493,14 +498,15 @@ function assignmentTargetsText(rule: AssignmentRule) {
             title="暂无派单规则"
             description="规则为空时，流程会优先使用发起或审批时指定的参与人。"
           /> </template></el-table
-      ><TablePagination
-        v-model:current-page="query.pageNum"
-        v-model:page-size="query.pageSize"
-        :total="total"
-        aria-label="派单规则分页"
-        @change="changePage"
-      />
-    </section>
+      ><template #footer
+        ><TablePagination
+          v-model:current-page="query.pageNum"
+          v-model:page-size="query.pageSize"
+          :total="total"
+          aria-label="派单规则分页"
+          @change="changePage"
+      /></template>
+    </DataTablePanel>
 
     <el-dialog
       v-model="dialogVisible"
@@ -699,5 +705,5 @@ function assignmentTargetsText(rule: AssignmentRule) {
         >
       </template>
     </el-dialog>
-  </div>
+  </DirectoryPageShell>
 </template>

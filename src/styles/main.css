@@ -1552,14 +1552,18 @@ select {
 
 .access-workspace {
   min-height: 620px;
-  padding: 0 18px 18px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: #ffffff;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .access-workspace .el-tabs__header {
   margin-bottom: 16px;
+  padding-inline: 18px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
 }
 
 .tab-label {

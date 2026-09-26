@@ -4,10 +4,12 @@ import { useQuery } from '@tanstack/vue-query'
 import { RefreshCw, Search } from '@lucide/vue'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import SectionHeader from '@/components/SectionHeader.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
+import QueryPanel from '@/components/QueryPanel.vue'
+import DataTablePanel from '@/components/DataTablePanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { formatDateTime } from '@/utils/format'
 import { operationsApi, type WorkflowAuditQuery } from '../api'
@@ -62,42 +64,36 @@ function changePageSize(pageSize: number) {
 </script>
 
 <template>
-  <main class="page-content directory-page operations-page">
+  <DirectoryPageShell class="operations-page">
     <PageHeader
       eyebrow="OPERATIONS"
       title="运行审计"
       description="按租户追踪流程操作、执行主体与 Trace，定位一次运行的完整链路。"
     />
-    <section
-      class="page-actions compact-filter query-panel operations-filter"
-      aria-label="审计筛选"
+    <QueryPanel class="operations-filter" aria-label="审计筛选">
+      <el-form class="filter-form filter-form--operations" inline @submit.prevent="search">
+        <el-form-item label="事件类型">
+          <el-input v-model="filters.eventType" clearable placeholder="例如 TASK_APPROVED" />
+        </el-form-item>
+        <el-form-item label="流程实例">
+          <el-input v-model="filters.processInstanceId" clearable placeholder="输入实例 ID" />
+        </el-form-item>
+        <el-form-item label="Trace ID">
+          <el-input v-model="filters.traceId" clearable placeholder="输入 Trace ID" />
+        </el-form-item>
+        <el-form-item class="filter-form__actions">
+          <el-button type="primary" native-type="submit" :loading="query.isFetching.value">
+            <Search :size="15" />查询
+          </el-button>
+          <el-button @click="reset"><RefreshCw :size="15" />重置</el-button>
+        </el-form-item>
+      </el-form>
+    </QueryPanel>
+    <DataTablePanel
+      class="operations-table-panel"
+      title="操作事件"
+      description="按发生时间倒序显示，敏感凭证不会出现在审计记录中。"
     >
-      <label
-        >事件类型<input
-          v-model="filters.eventType"
-          placeholder="例如 TASK_APPROVED"
-          @keyup.enter="search"
-      /></label>
-      <label
-        >流程实例<input
-          v-model="filters.processInstanceId"
-          placeholder="输入实例 ID"
-          @keyup.enter="search"
-      /></label>
-      <label
-        >Trace ID<input v-model="filters.traceId" placeholder="输入 Trace ID" @keyup.enter="search"
-      /></label>
-      <div class="filter-actions">
-        <el-button type="primary" :loading="query.isFetching.value" @click="search"
-          ><Search :size="15" />查询</el-button
-        ><el-button @click="reset"><RefreshCw :size="15" />重置</el-button>
-      </div>
-    </section>
-    <section class="table-panel operations-table-panel">
-      <SectionHeader
-        title="操作事件"
-        description="按发生时间倒序显示，敏感凭证不会出现在审计记录中。"
-      />
       <el-table
         v-loading="showInitialLoading"
         :data="records"
@@ -131,58 +127,21 @@ function changePageSize(pageSize: number) {
           />
         </template>
       </el-table>
-      <TablePagination
-        v-if="!showInitialLoading"
-        :total="total"
-        :current-page="applied.pageNum"
-        :page-size="applied.pageSize"
-        @update:current-page="changePage"
-        @update:page-size="changePageSize"
-      />
-    </section>
-  </main>
+      <template v-if="!showInitialLoading" #footer>
+        <TablePagination
+          :total="total"
+          :current-page="applied.pageNum"
+          :page-size="applied.pageSize"
+          @update:current-page="changePage"
+          @update:page-size="changePageSize"
+        />
+      </template>
+    </DataTablePanel>
+  </DirectoryPageShell>
 </template>
 
 <style scoped>
-.operations-page {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-.operations-filter {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) minmax(220px, 1.2fr) auto;
-  align-items: end;
-  gap: 14px;
-  padding: 16px 18px;
-}
-.operations-filter label {
-  display: grid;
-  gap: 7px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  font-weight: 650;
-}
-.operations-filter input {
-  width: 100%;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--control-radius);
-  color: var(--color-text);
-  background: var(--color-surface);
-  outline: none;
-}
-.operations-filter input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-soft);
-}
-.filter-actions {
-  display: flex;
-  gap: 8px;
-}
 .operations-table-panel {
-  grid-template-rows: auto minmax(300px, 1fr) auto;
   min-height: 520px;
 }
 .operations-loading {
@@ -206,16 +165,6 @@ function changePageSize(pageSize: number) {
 @keyframes operations-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-@media (max-width: 980px) {
-  .operations-filter {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 620px) {
-  .operations-filter {
-    grid-template-columns: 1fr;
   }
 }
 </style>

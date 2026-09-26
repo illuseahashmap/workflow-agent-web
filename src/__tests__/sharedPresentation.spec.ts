@@ -2,6 +2,9 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
+import QueryPanel from '@/components/QueryPanel.vue'
+import DataTablePanel from '@/components/DataTablePanel.vue'
 import { getStatusPresentation } from '@/utils/status'
 
 describe('shared data presentation', () => {
@@ -32,5 +35,29 @@ describe('shared data presentation', () => {
 
     expect(wrapper.text()).toContain('暂无运行记录')
     expect(wrapper.text()).toContain('提交运行后会显示在这里。')
+  })
+
+  it('provides one semantic shell for directory pages and query actions', () => {
+    const shell = mount(DirectoryPageShell, { slots: { default: '<div>目录内容</div>' } })
+    const query = mount(QueryPanel, {
+      props: { ariaLabel: '流程查询' },
+      slots: { default: '<span>查询字段</span>', actions: '<button>新建</button>' },
+    })
+
+    expect(shell.element.tagName).toBe('DIV')
+    expect(shell.classes()).toContain('directory-page')
+    expect(query.attributes('aria-label')).toBe('流程查询')
+    expect(query.find('.query-panel__actions').text()).toContain('新建')
+  })
+
+  it('keeps table content and pagination in stable data panel regions', () => {
+    const wrapper = mount(DataTablePanel, {
+      props: { title: '运行记录', description: '按时间倒序显示。' },
+      slots: { default: '<div>表格内容</div>', footer: '<div>分页</div>' },
+    })
+
+    expect(wrapper.find('.section-header__title').text()).toBe('运行记录')
+    expect(wrapper.find('.data-table-panel__body').text()).toContain('表格内容')
+    expect(wrapper.find('.data-table-panel__footer').text()).toContain('分页')
   })
 })

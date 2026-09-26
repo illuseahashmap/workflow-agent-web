@@ -4,10 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { BookOpen, FileUp, RefreshCw } from '@lucide/vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageHeader from '@/components/PageHeader.vue'
-import SectionHeader from '@/components/SectionHeader.vue'
 import ListEmptyState from '@/components/ListEmptyState.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import TablePagination from '@/components/TablePagination.vue'
+import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
+import QueryPanel from '@/components/QueryPanel.vue'
+import DataTablePanel from '@/components/DataTablePanel.vue'
 import { queryKeys } from '@/api/queryKeys'
 import { getErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
@@ -275,7 +277,7 @@ async function onDocumentFileChange(event: Event) {
 </script>
 
 <template>
-  <div class="management-page directory-page knowledge-page">
+  <DirectoryPageShell class="knowledge-page" workspace>
     <PageHeader
       eyebrow="KNOWLEDGE OPERATIONS"
       title="知识库管理"
@@ -306,65 +308,65 @@ async function onDocumentFileChange(event: Event) {
         主体范围授权
       </button>
     </section>
-    <section class="table-panel knowledge-panel">
-      <SectionHeader
-        :title="
-          tab === 'profiles' ? '检索配置版本' : tab === 'jobs' ? '文档摄取任务' : '主体范围授权'
-        "
-        :description="
-          tab === 'profiles'
-            ? '先上传并完成索引，再创建 Profile；草稿只有发布后才能绑定运行时。'
-            : tab === 'jobs'
-              ? '任务按租户隔离，重复文档通过内容哈希幂等。'
-              : '为 AgentRun 的可信主体授权 Profile 使用的知识范围，运行时只取授权范围与配置范围的交集。'
-        "
-        heading-level="h3"
-        ><template #actions
-          ><el-button
-            v-if="tab === 'profiles' && canProfile"
-            type="primary"
-            @click="openProfileDialog"
-            >新增 Profile</el-button
-          ></template
-        ></SectionHeader
+    <QueryPanel v-if="tab === 'profiles'" aria-label="检索 Profile 查询">
+      <el-form class="filter-form filter-form--knowledge" inline @submit.prevent="search">
+        <el-form-item label="关键词">
+          <el-input v-model="keyword" placeholder="搜索 Profile 编码" clearable />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="status" placeholder="全部状态" clearable>
+            <el-option label="草稿" value="DRAFT" />
+            <el-option label="已发布" value="PUBLISHED" />
+          </el-select>
+        </el-form-item>
+        <el-form-item class="filter-form__actions">
+          <el-button type="primary" native-type="submit">查询</el-button>
+          <el-button @click="reset">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </QueryPanel>
+    <QueryPanel v-else-if="tab === 'grants'" aria-label="知识范围授权">
+      <el-form
+        class="filter-form filter-form--knowledge-grants"
+        inline
+        @submit.prevent="grants.refetch()"
       >
-      <div class="knowledge-filters" v-if="tab === 'profiles'">
-        <el-input
-          v-model="keyword"
-          placeholder="搜索 Profile 编码"
-          clearable
-          @keyup.enter="search"
-        /><el-select v-model="status" placeholder="全部状态" clearable
-          ><el-option label="草稿" value="DRAFT" /><el-option
-            label="已发布"
-            value="PUBLISHED" /></el-select
-        ><el-button type="primary" @click="search">查询</el-button
-        ><el-button @click="reset">重置</el-button>
-      </div>
-      <div v-else-if="tab === 'grants'" class="knowledge-filters knowledge-grant-filters">
-        <el-input
-          v-model="grantForm.principalId"
-          placeholder="主体 ID，例如 admin"
-          clearable
-          @keyup.enter="grants.refetch()"
-        />
-        <el-input
-          v-model="grantForm.scopeCode"
-          placeholder="知识范围，例如 hr"
-          clearable
-          @keyup.enter="grantScope.mutate()"
-        />
-        <el-button
-          type="primary"
-          :disabled="!validGrant()"
-          :loading="grantScope.isPending.value"
-          @click="grantScope.mutate()"
-          >授权范围</el-button
-        >
-        <el-button :disabled="!grantForm.principalId.trim()" @click="grants.refetch()"
-          >查询授权</el-button
-        >
-      </div>
+        <el-form-item label="主体 ID">
+          <el-input v-model="grantForm.principalId" placeholder="例如 admin" clearable />
+        </el-form-item>
+        <el-form-item label="知识范围">
+          <el-input v-model="grantForm.scopeCode" placeholder="例如 hr" clearable />
+        </el-form-item>
+        <el-form-item class="filter-form__actions">
+          <el-button native-type="submit" :disabled="!grantForm.principalId.trim()"
+            >查询授权</el-button
+          >
+          <el-button
+            type="primary"
+            :disabled="!validGrant()"
+            :loading="grantScope.isPending.value"
+            @click="grantScope.mutate()"
+            >授权范围</el-button
+          >
+        </el-form-item>
+      </el-form>
+    </QueryPanel>
+    <DataTablePanel
+      class="knowledge-panel"
+      :title="
+        tab === 'profiles' ? '检索配置版本' : tab === 'jobs' ? '文档摄取任务' : '主体范围授权'
+      "
+      :description="
+        tab === 'profiles'
+          ? '先上传并完成索引，再创建 Profile；草稿只有发布后才能绑定运行时。'
+          : tab === 'jobs'
+            ? '任务按租户隔离，重复文档通过内容哈希幂等。'
+            : '为可信主体授权知识范围，运行时只取授权范围与配置范围的交集。'
+      "
+    >
+      <template v-if="tab === 'profiles' && canProfile" #actions>
+        <el-button type="primary" @click="openProfileDialog">新增 Profile</el-button>
+      </template>
       <el-table
         v-if="tab === 'profiles'"
         v-loading="profiles.isFetching.value"
@@ -455,12 +457,6 @@ async function onDocumentFileChange(event: Event) {
             ? '输入主体 ID 后查询其知识范围授权。'
             : '当前租户还没有可展示的知识配置。'
         "
-      /><TablePagination
-        v-if="tab !== 'grants'"
-        :total="tab === 'profiles' ? profiles.data.value?.total || 0 : jobs.data.value?.total || 0"
-        :current-page="pageNum"
-        :page-size="pageSize"
-        @change="changePage"
       /><el-alert
         v-if="
           tab === 'profiles'
@@ -481,7 +477,17 @@ async function onDocumentFileChange(event: Event) {
           )
         "
       />
-    </section>
+      <template v-if="tab !== 'grants'" #footer>
+        <TablePagination
+          :total="
+            tab === 'profiles' ? profiles.data.value?.total || 0 : jobs.data.value?.total || 0
+          "
+          :current-page="pageNum"
+          :page-size="pageSize"
+          @change="changePage"
+        />
+      </template>
+    </DataTablePanel>
 
     <el-dialog
       v-model="profileDialogVisible"
@@ -597,7 +603,7 @@ async function onDocumentFileChange(event: Event) {
         ></template
       ></el-dialog
     >
-  </div>
+  </DirectoryPageShell>
 </template>
 
 <style scoped>
@@ -622,17 +628,6 @@ async function onDocumentFileChange(event: Event) {
   color: var(--color-primary);
   border-bottom-color: var(--color-primary);
   font-weight: 600;
-}
-.knowledge-filters {
-  display: flex;
-  gap: 10px;
-  padding: 16px 0;
-}
-.knowledge-filters .el-input {
-  width: 280px;
-}
-.knowledge-filters .el-select {
-  width: 160px;
 }
 .full-width {
   width: 100%;
@@ -659,14 +654,9 @@ async function onDocumentFileChange(event: Event) {
   pointer-events: none;
 }
 @media (max-width: 720px) {
-  .knowledge-filters,
   .form-grid {
     display: grid;
     grid-template-columns: 1fr;
-  }
-  .knowledge-filters .el-input,
-  .knowledge-filters .el-select {
-    width: 100%;
   }
 }
 </style>

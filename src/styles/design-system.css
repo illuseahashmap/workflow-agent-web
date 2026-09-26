@@ -14,6 +14,7 @@
   --color-text: #1e293b;
   --color-text-strong: #0f172a;
   --color-text-muted: #64748b;
+  --color-text-muted-strong: #56667a;
   --color-text-subtle: #94a3b8;
   --color-border: #dbe4f0;
   --color-border-soft: #e5ebf3;
@@ -303,6 +304,69 @@
   font-variant-numeric: tabular-nums;
 }
 
+.metric-card small {
+  color: var(--color-text-muted-strong);
+}
+
+/* Shared capability/governance rail: one opaque surface, not floating translucent cards. */
+.governance-rail {
+  display: grid;
+  grid-template-columns: repeat(var(--governance-columns, 4), minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  padding: 1px;
+  border-radius: var(--radius-md);
+  background: var(--color-border);
+  box-shadow: var(--panel-shadow);
+  isolation: isolate;
+}
+
+.governance-rail__item {
+  min-width: 0;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-muted);
+}
+
+.governance-rail__copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+
+.governance-rail__copy strong {
+  color: var(--color-text-strong);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.governance-rail__copy :is(small, span) {
+  color: var(--color-text-muted-strong);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* Overview cards follow the same transparent elevation used by directory metrics. */
+.governance-rail--overview-cards {
+  gap: 14px;
+  overflow: visible;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  isolation: auto;
+}
+
+.governance-rail--overview-cards .governance-rail__item {
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: var(--panel-shadow);
+}
+
 .page-actions {
   padding: 14px 16px 2px;
 }
@@ -316,6 +380,40 @@
   box-shadow: var(--shadow-card);
 }
 
+.query-panel__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.data-table-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.data-table-panel__body {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.data-table-panel__body > .el-table {
+  flex: 1;
+}
+
+.data-table-panel__footer {
+  flex: 0 0 auto;
+}
+
+.data-table-panel__footer .table-pagination {
+  border-top: 1px solid var(--color-border-soft);
+}
+
 .directory-page {
   width: 100%;
   max-width: none;
@@ -323,20 +421,23 @@
 }
 
 /* Directory pages share one vertical rhythm and one content rail. */
-.directory-page.management-page:not(.tool-management-page) {
-  display: grid;
-  grid-template-rows: auto auto auto minmax(360px, 1fr);
+.directory-page.management-page {
+  display: flex;
+  flex-direction: column;
   gap: var(--layout-gap);
 }
 
-.directory-page.management-page:not(.tool-management-page) > .page-hero,
-.directory-page.management-page:not(.tool-management-page) > .metric-grid,
-.directory-page.management-page:not(.tool-management-page) > .query-panel,
-.directory-page.management-page:not(.tool-management-page) > .table-panel {
+.directory-page.management-page > .page-hero,
+.directory-page.management-page > .metric-grid,
+.directory-page.management-page > .query-panel,
+.directory-page.management-page > .table-panel,
+.directory-page.management-page > .data-table-panel {
   min-width: 0;
 }
 
-.directory-page.management-page:not(.tool-management-page) > .table-panel {
+.directory-page.management-page > .table-panel,
+.directory-page.management-page > .data-table-panel {
+  flex: 1;
   min-height: 360px;
 }
 
@@ -460,6 +561,16 @@
   .table-panel,
   .agent-table-panel {
     border-radius: 12px;
+  }
+
+  .governance-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .governance-rail {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -690,6 +801,10 @@
   grid-template-columns: minmax(220px, 1.2fr) minmax(210px, 1fr) minmax(168px, 0.65fr) max-content;
 }
 
+.filter-form--operations.el-form--inline {
+  grid-template-columns: repeat(3, minmax(170px, 1fr)) max-content;
+}
+
 .filter-form--tenants.el-form--inline {
   grid-template-columns: minmax(240px, 1fr) minmax(150px, 0.55fr) max-content;
 }
@@ -712,12 +827,14 @@
 
 @media (max-width: 1180px) {
   .filter-form--definitions.el-form--inline,
-  .filter-form--tenants.el-form--inline {
+  .filter-form--tenants.el-form--inline,
+  .filter-form--operations.el-form--inline {
     grid-template-columns: repeat(2, minmax(190px, 1fr));
   }
 
   .filter-form--definitions .filter-form__actions,
-  .filter-form--tenants .filter-form__actions {
+  .filter-form--tenants .filter-form__actions,
+  .filter-form--operations .filter-form__actions {
     grid-column: -2 / -1;
   }
 
@@ -732,7 +849,8 @@
   .filter-form--definitions.el-form--inline,
   .filter-form--tenants.el-form--inline,
   .filter-form--assignment.el-form--inline,
-  .filter-form--instances.el-form--inline {
+  .filter-form--instances.el-form--inline,
+  .filter-form--operations.el-form--inline {
     width: 100%;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -757,5 +875,14 @@
   .page-primary-actions {
     width: 100%;
     margin-left: 0;
+  }
+
+  .query-panel__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .query-panel__actions > .el-button {
+    flex: 1;
   }
 }

@@ -1,6 +1,6 @@
 .access-workspace {
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .access-toolbar {
@@ -17,6 +17,10 @@
 .access-table {
   width: 100%;
   max-width: 100%;
+}
+
+.access-table-panel {
+  min-height: 480px;
 }
 
 @media (max-width: 840px) {

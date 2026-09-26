@@ -21,6 +21,9 @@ import ListEmptyState from '@/components/ListEmptyState.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
+import QueryPanel from '@/components/QueryPanel.vue'
+import DataTablePanel from '@/components/DataTablePanel.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
 import {
@@ -134,7 +137,7 @@ function handleStarted(result: StartProcessResult) {
 </script>
 
 <template>
-  <div class="management-page page-stack directory-page">
+  <DirectoryPageShell>
     <PageHeader
       eyebrow="Process Definition"
       title="流程定义中心"
@@ -162,7 +165,7 @@ function handleStarted(result: StartProcessResult) {
       </MetricCard>
     </section>
 
-    <section class="page-actions compact-filter query-panel definition-filter">
+    <QueryPanel class="definition-filter" aria-label="流程定义查询">
       <el-form class="filter-form filter-form--definitions" inline @submit.prevent="search">
         <el-form-item label="流程标识">
           <el-input
@@ -192,9 +195,9 @@ function handleStarted(result: StartProcessResult) {
           </div>
         </el-form-item>
       </el-form>
-    </section>
+    </QueryPanel>
 
-    <section class="table-panel elevated-panel">
+    <DataTablePanel class="elevated-panel">
       <el-table
         class="definition-table"
         v-loading="definitionsQuery.isFetching.value"
@@ -292,14 +295,16 @@ function handleStarted(result: StartProcessResult) {
           </ListEmptyState>
         </template>
       </el-table>
-      <TablePagination
-        v-model:current-page="query.pageNum"
-        v-model:page-size="query.pageSize"
-        :total="total"
-        aria-label="流程定义分页"
-        @change="changePage"
-      />
-    </section>
+      <template #footer>
+        <TablePagination
+          v-model:current-page="query.pageNum"
+          v-model:page-size="query.pageSize"
+          :total="total"
+          aria-label="流程定义分页"
+          @change="changePage"
+        />
+      </template>
+    </DataTablePanel>
 
     <el-dialog v-model="createVisible" title="新建流程" width="480px" destroy-on-close>
       <el-form label-position="top" @submit.prevent="createMutation.mutate()">
@@ -335,5 +340,5 @@ function handleStarted(result: StartProcessResult) {
       :initial-process-definition-key="startProcessDefinitionKey"
       @started="handleStarted"
     />
-  </div>
+  </DirectoryPageShell>
 </template>

@@ -10,6 +10,9 @@ import ListEmptyState from '@/components/ListEmptyState.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import MetricCard from '@/components/MetricCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
+import QueryPanel from '@/components/QueryPanel.vue'
+import DataTablePanel from '@/components/DataTablePanel.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import { canOperateInstances as isInstanceOperable } from '@/features/auth/authorization'
 import { useAuthStore } from '@/stores/auth'
@@ -98,7 +101,7 @@ function handleStarted(result: StartProcessResult) {
 </script>
 
 <template>
-  <div class="management-page page-stack directory-page">
+  <DirectoryPageShell>
     <PageHeader
       eyebrow="Process Instance"
       title="流程实例看板"
@@ -121,7 +124,7 @@ function handleStarted(result: StartProcessResult) {
       </MetricCard>
     </section>
 
-    <section class="page-actions compact-filter query-panel filter-only">
+    <QueryPanel class="filter-only" aria-label="流程实例查询">
       <el-form class="filter-form filter-form--instances" inline @submit.prevent="search">
         <el-form-item label="流程标识"
           ><el-input v-model="query.processDefinitionKey" clearable
@@ -147,8 +150,8 @@ function handleStarted(result: StartProcessResult) {
           ><el-button @click="reset"><RefreshCw :size="16" />重置</el-button></el-form-item
         >
       </el-form>
-    </section>
-    <section class="table-panel">
+    </QueryPanel>
+    <DataTablePanel>
       <el-table
         v-loading="instancesQuery.isFetching.value"
         :data="records"
@@ -214,15 +217,17 @@ function handleStarted(result: StartProcessResult) {
           />
         </template>
       </el-table>
-      <TablePagination
-        v-model:current-page="query.pageNum"
-        v-model:page-size="query.pageSize"
-        :total="total"
-        aria-label="流程实例分页"
-        @change="changePage"
-      />
-    </section>
+      <template #footer>
+        <TablePagination
+          v-model:current-page="query.pageNum"
+          v-model:page-size="query.pageSize"
+          :total="total"
+          aria-label="流程实例分页"
+          @change="changePage"
+        />
+      </template>
+    </DataTablePanel>
 
     <StartProcessDialog v-model="startVisible" @started="handleStarted" />
-  </div>
+  </DirectoryPageShell>
 </template>
