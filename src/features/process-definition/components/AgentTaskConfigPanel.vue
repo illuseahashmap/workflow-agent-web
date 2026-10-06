@@ -277,10 +277,13 @@ function handleFailurePolicyChange(
             :model-value="props.agentProcessFailurePolicy"
             @update:model-value="handleFailurePolicyChange"
             ><el-option label="保留现场，等待运维处理" value="HOLD_FOR_OPERATIONS" /><el-option
-              label="以空结果继续"
-              value="CONTINUE_EMPTY"
+              label="进入 BPMN 人工复核分支"
+              value="MANUAL_REVIEW" /><el-option label="以空结果继续" value="CONTINUE_EMPTY"
           /></el-select>
-          <p class="property-hint">失败不会隐式删除流程实例。</p></el-form-item
+          <p v-if="props.agentProcessFailurePolicy === 'MANUAL_REVIEW'" class="property-hint">
+            失败时写入 agentReviewRequired=true；请在后续网关中将该分支连接到人工任务。
+          </p>
+          <p v-else class="property-hint">失败不会隐式删除流程实例。</p></el-form-item
         >
       </div>
     </div>

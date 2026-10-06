@@ -257,8 +257,13 @@ function resetSelection(element?: BpmnElement) {
   const rawFailurePolicy = String(
     agentBinding?.processFailurePolicy || agentBinding?.failurePolicy || 'HOLD_FOR_OPERATIONS',
   )
-  agentProcessFailurePolicy.value =
-    rawFailurePolicy === 'CONTINUE_EMPTY' ? rawFailurePolicy : 'HOLD_FOR_OPERATIONS'
+  agentProcessFailurePolicy.value = [
+    'CONTINUE_EMPTY',
+    'MANUAL_REVIEW',
+    'HOLD_FOR_OPERATIONS',
+  ].includes(rawFailurePolicy)
+    ? (rawFailurePolicy as 'CONTINUE_EMPTY' | 'MANUAL_REVIEW' | 'HOLD_FOR_OPERATIONS')
+    : 'HOLD_FOR_OPERATIONS'
   agentProcessWaitTimeoutSeconds.value = Number(
     agentBinding?.processWaitTimeoutSeconds || agentBinding?.timeoutSeconds || 300,
   )
@@ -1372,7 +1377,11 @@ watch(selectedVersion, () => resetSelection())
                 {{ agentOutputMappingRows.length }} 个输出映射</span
               >
               <span>{{
-                agentProcessFailurePolicy === 'CONTINUE_EMPTY' ? '失败后继续' : '失败后保留现场'
+                agentProcessFailurePolicy === 'CONTINUE_EMPTY'
+                  ? '失败后继续'
+                  : agentProcessFailurePolicy === 'MANUAL_REVIEW'
+                    ? '失败后转人工复核分支'
+                    : '失败后保留现场'
               }}</span>
               <el-button type="primary" plain @click="agentWorkbenchCollapsed = false"
                 >打开 Agent 工作台</el-button

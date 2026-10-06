@@ -3,7 +3,7 @@ export type AgentVersionStatus = 'DRAFT' | 'PUBLISHED'
 export type AgentExecutionMode = 'MODEL_ONLY' | 'PLATFORM_AGENT' | 'REMOTE_AGENT'
 export type AgentFailurePolicy = 'FAIL_PROCESS' | 'CONTINUE_EMPTY' | 'MANUAL_REVIEW'
 export type AgentRunStatus =
-  'QUEUED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'CANCELLED'
+  'QUEUED' | 'RUNNING' | 'PAUSED' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'CANCELLED'
 export type AgentResultStatus = 'SUCCESS' | 'EMPTY' | 'PARTIAL' | 'REJECTED' | 'FAILED'
 
 export interface AgentDefinition {
@@ -118,6 +118,22 @@ export interface AgentRun {
   updatedAt: string
 }
 
+export interface AgentRuntimeOverview {
+  queued: number
+  running: number
+  pauseRequested: number
+  paused: number
+  retryWaiting: number
+  reviewRequired: number
+  expiredLeases: number
+  succeededLast24Hours: number
+  failedLast24Hours: number
+  timedOutLast24Hours: number
+  cancelledLast24Hours: number
+  oldestQueuedAt?: string
+  generatedAt: string
+}
+
 export interface AgentRunAttempt {
   id: number
   attemptNo: number
@@ -134,7 +150,7 @@ export interface AgentRunStep {
   attemptId: number
   sequenceNo: number
   stepType: string
-  status: 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'SKIPPED'
+  status: 'PENDING' | 'RUNNING' | 'PAUSED' | 'SUCCEEDED' | 'FAILED' | 'SKIPPED'
   errorCode?: string
   startedAt?: string
   completedAt?: string

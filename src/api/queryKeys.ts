@@ -57,6 +57,8 @@ export const queryKeys = {
     [...queryKeys.agentRuns(tenantCode), 'page', parameters] as const,
   agentRunDetail: (tenantCode: string, runId: number) =>
     [...queryKeys.agentRuns(tenantCode), 'detail', runId] as const,
+  agentRuntimeOverview: (tenantCode: string) =>
+    [...queryKeys.agentRuns(tenantCode), 'operations-overview'] as const,
   knowledgeProfiles: (
     tenantCode: string,
     pageNum: number,

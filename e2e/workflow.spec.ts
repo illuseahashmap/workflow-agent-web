@@ -179,6 +179,21 @@ async function mockApi(page: Page) {
         }
       } else if (url.pathname.endsWith('/agent-runs/manual-tests')) {
         data = { runId: 91, status: 'QUEUED' }
+      } else if (url.pathname.endsWith('/agent-runs/operations/overview')) {
+        data = {
+          queued: 1,
+          running: 2,
+          pauseRequested: 0,
+          paused: 1,
+          retryWaiting: 0,
+          reviewRequired: 1,
+          expiredLeases: 0,
+          succeededLast24Hours: 8,
+          failedLast24Hours: 1,
+          timedOutLast24Hours: 0,
+          cancelledLast24Hours: 0,
+          generatedAt: '2026-08-08T08:00:00+08:00',
+        }
       } else if (url.pathname.endsWith('/agent-runs/91')) {
         const run = {
           id: 91,
@@ -683,6 +698,10 @@ test('manages Agent definitions and inspects the execution ledger', async ({ pag
 
   await page.getByRole('tab', { name: '运行记录' }).click()
   const runPanel = page.getByLabel('运行记录')
+  const runtimeOverview = runPanel.getByLabel('Agent 运行态势')
+  await expect(runtimeOverview.getByText('排队中')).toBeVisible()
+  await expect(runtimeOverview.getByText('已暂停')).toBeVisible()
+  await expect(runtimeOverview.getByText('等待人工')).toBeVisible()
   await expect(runPanel.getByRole('row', { name: /instance-100/ })).toBeVisible()
   await runPanel.getByRole('button', { name: '详情' }).click()
   const drawer = page.getByRole('dialog', { name: '运行详情 #91' })

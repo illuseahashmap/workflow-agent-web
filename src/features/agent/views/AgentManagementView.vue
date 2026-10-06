@@ -11,6 +11,7 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import AgentProviderTable from '../components/AgentProviderTable.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
 import TablePagination from '@/components/TablePagination.vue'
+import MetricCard from '@/components/MetricCard.vue'
 import DirectoryPageShell from '@/components/DirectoryPageShell.vue'
 import QueryPanel from '@/components/QueryPanel.vue'
 import DataTablePanel from '@/components/DataTablePanel.vue'
@@ -62,6 +63,7 @@ const activeTab = ref(canManageAgents.value ? 'agents' : 'runs')
 const agentRunStatuses: AgentRunStatus[] = [
   'QUEUED',
   'RUNNING',
+  'PAUSED',
   'SUCCEEDED',
   'FAILED',
   'TIMED_OUT',
@@ -112,6 +114,12 @@ const runsQuery = useQuery({
   queryFn: () => agentRunApi.page(appliedRunQuery.value),
   enabled: computed(() => Boolean(tenantCode.value && canReadRuns.value)),
 })
+const runtimeOverviewQuery = useQuery({
+  queryKey: computed(() => queryKeys.agentRuntimeOverview(tenantCode.value)),
+  queryFn: agentRunApi.overview,
+  enabled: computed(() => Boolean(tenantCode.value && canReadRuns.value)),
+  refetchInterval: 15_000,
+})
 const selectedRunId = ref<number>()
 const runDetailVisible = ref(false)
 const runDetailQuery = useQuery({
@@ -122,9 +130,7 @@ const runDetailQuery = useQuery({
   ),
   refetchInterval: (query) => {
     const status = query.state.data?.run.status
-    return status && !['SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELLED'].includes(status)
-      ? 1000
-      : false
+    return status && ['QUEUED', 'RUNNING'].includes(status) ? 1000 : false
   },
 })
 watch(
@@ -160,10 +166,7 @@ const retryAgentRunMutation = useMutation({
   mutationFn: (reason: string) => agentRunApi.retry(selectedRunId.value!, reason),
   onSuccess: async () => {
     ElMessage.success('已重新排队，修复后的配置将在当前 Agent 节点重新执行')
-    await Promise.all([
-      runDetailQuery.refetch(),
-      queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns(tenantCode.value) }),
-    ])
+    await refreshRunOperations()
   },
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
@@ -172,13 +175,54 @@ const cancelAgentRunMutation = useMutation({
   mutationFn: (reason: string) => agentRunApi.cancel(selectedRunId.value!, reason),
   onSuccess: async () => {
     ElMessage.success('运行已取消，系统已记录处置原因')
-    await Promise.all([
-      runDetailQuery.refetch(),
-      queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns(tenantCode.value) }),
-    ])
+    await refreshRunOperations()
   },
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
+
+async function refreshRunOperations() {
+  await Promise.all([
+    runDetailQuery.refetch(),
+    runtimeOverviewQuery.refetch(),
+    queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns(tenantCode.value) }),
+  ])
+}
+
+const pauseAgentRunMutation = useMutation({
+  mutationFn: (reason: string) => agentRunApi.pause(selectedRunId.value!, reason),
+  onSuccess: async () => {
+    ElMessage.success('暂停请求已受理；运行中的任务会在下一个安全检查点暂停')
+    await refreshRunOperations()
+  },
+  onError: (error) => ElMessage.error(getErrorMessage(error)),
+})
+
+const resumeAgentRunMutation = useMutation({
+  mutationFn: (reason: string) => agentRunApi.resume(selectedRunId.value!, reason),
+  onSuccess: async () => {
+    ElMessage.success('运行已从最近检查点重新排队')
+    await refreshRunOperations()
+  },
+  onError: (error) => ElMessage.error(getErrorMessage(error)),
+})
+
+async function pauseActiveRun() {
+  const reason = await promptRequired(
+    '运行中的任务会在下一个持久化安全边界暂停，不会强制中断模型或工具调用。',
+    '暂停 Agent 运行',
+    { inputPlaceholder: '请输入暂停原因', inputValidator: (value) => value.trim().length > 0 },
+  )
+  if (reason) pauseAgentRunMutation.mutate(reason)
+}
+
+async function resumePausedRun() {
+  const reason = await promptRequired(
+    '恢复后会创建新的 Attempt，并从最近的完整检查点继续。',
+    '恢复 Agent 运行',
+    { inputPlaceholder: '请输入恢复说明', inputValidator: (value) => value.trim().length > 0 },
+  )
+  if (reason) resumeAgentRunMutation.mutate(reason)
+}
 
 async function retryFailedRun() {
   const reason = await promptRequired(
@@ -815,7 +859,49 @@ function failureCategoryLabel(category: string) {
         </el-tab-pane>
 
         <el-tab-pane v-if="canReadRuns" label="运行记录" name="runs">
-          <div class="agent-tab-content">
+          <div class="agent-tab-content agent-tab-content--runtime">
+            <section class="runtime-overview" aria-label="Agent 运行态势">
+              <MetricCard :value="runtimeOverviewQuery.data.value?.queued ?? 0" label="排队中">
+                <template #icon>Q</template>
+              </MetricCard>
+              <MetricCard :value="runtimeOverviewQuery.data.value?.running ?? 0" label="运行中">
+                <template #icon>▶</template>
+              </MetricCard>
+              <MetricCard
+                :value="runtimeOverviewQuery.data.value?.paused ?? 0"
+                label="已暂停"
+                tone="warning"
+              >
+                <template #icon>Ⅱ</template>
+              </MetricCard>
+              <MetricCard
+                :value="runtimeOverviewQuery.data.value?.reviewRequired ?? 0"
+                label="等待人工"
+                tone="warning"
+              >
+                <template #icon>!</template>
+              </MetricCard>
+              <MetricCard
+                :value="runtimeOverviewQuery.data.value?.failedLast24Hours ?? 0"
+                label="24h 失败"
+                tone="warning"
+              >
+                <template #icon>×</template>
+              </MetricCard>
+              <p
+                v-if="runtimeOverviewQuery.data.value?.pauseRequested"
+                class="runtime-overview__notice"
+              >
+                {{ runtimeOverviewQuery.data.value.pauseRequested }} 个运行正在等待安全检查点暂停
+              </p>
+              <p
+                v-if="runtimeOverviewQuery.data.value?.expiredLeases"
+                class="runtime-overview__alert"
+              >
+                {{ runtimeOverviewQuery.data.value.expiredLeases }}
+                个运行租约已过期，恢复任务将自动接管
+              </p>
+            </section>
             <QueryPanel aria-label="Agent 运行记录查询">
               <el-form class="filter-form filter-form--agent" inline @submit.prevent="searchRuns">
                 <el-form-item label="关键词"
@@ -1005,11 +1091,38 @@ function failureCategoryLabel(category: string) {
 
           <section
             v-if="
-              canExecuteRuns && ['QUEUED', 'RUNNING'].includes(runDetailQuery.data.value.run.status)
+              canExecuteRuns &&
+              ['QUEUED', 'RUNNING', 'PAUSED'].includes(runDetailQuery.data.value.run.status)
             "
             class="run-operations-card"
           >
-            <span>运行仍在执行中</span>
+            <span>
+              {{
+                runDetailQuery.data.value.run.status === 'PAUSED'
+                  ? '运行已停在持久化安全边界，可从最近检查点恢复'
+                  : '可协作式暂停或取消当前运行'
+              }}
+            </span>
+            <el-button
+              v-if="['QUEUED', 'RUNNING'].includes(runDetailQuery.data.value.run.status)"
+              type="warning"
+              plain
+              size="small"
+              :loading="pauseAgentRunMutation.isPending.value"
+              @click="pauseActiveRun"
+            >
+              暂停运行
+            </el-button>
+            <el-button
+              v-else
+              type="primary"
+              plain
+              size="small"
+              :loading="resumeAgentRunMutation.isPending.value"
+              @click="resumePausedRun"
+            >
+              恢复运行
+            </el-button>
             <el-button
               type="danger"
               plain
@@ -1321,14 +1434,12 @@ function failureCategoryLabel(category: string) {
           </el-tabs>
         </template>
         <div v-else-if="runDetailQuery.isError.value" class="run-detail-state">
-          <el-result icon="error" title="运行详情加载失败">
-            <template #sub-title>
-              <span>{{ getErrorMessage(runDetailQuery.error.value) }}</span>
-            </template>
-            <template #extra>
-              <el-button type="primary" @click="runDetailQuery.refetch()">重新加载</el-button>
-            </template>
-          </el-result>
+          <el-alert type="error" title="运行详情加载失败" :closable="false">
+            <p>{{ getErrorMessage(runDetailQuery.error.value) }}</p>
+            <el-button type="primary" size="small" @click="runDetailQuery.refetch()">
+              重新加载
+            </el-button>
+          </el-alert>
         </div>
         <div v-else class="run-detail-state">
           <el-empty description="暂无运行详情" />
@@ -1760,6 +1871,28 @@ function failureCategoryLabel(category: string) {
   grid-template-rows: auto minmax(0, 1fr);
   gap: var(--layout-gap);
   padding: 0;
+}
+.agent-tab-content--runtime {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+.runtime-overview {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--section-gap-sm);
+}
+.runtime-overview__notice,
+.runtime-overview__alert {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  font-size: 12px;
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+.runtime-overview__alert {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
 }
 .filter-form--agent {
   flex: 1;

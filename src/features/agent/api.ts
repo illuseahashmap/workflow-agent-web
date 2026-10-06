@@ -9,6 +9,7 @@ import type {
   AgentRun,
   AgentRunDetail,
   AgentRunStatus,
+  AgentRuntimeOverview,
   AgentRunSubmission,
   AgentVersion,
   AgentVersionCommand,
@@ -95,4 +96,9 @@ export const agentRunApi = {
     apiClient.post<void>(`/agent-runs/${runId}/retry`, { reason, retryWindowSeconds }),
   cancel: (runId: number, reason: string) =>
     apiClient.post<void>(`/agent-runs/${runId}/cancel`, { reason }),
+  pause: (runId: number, reason: string) =>
+    apiClient.post<void>(`/agent-runs/operations/${runId}/pause`, { reason }),
+  resume: (runId: number, reason: string, resumeWindowSeconds = 120) =>
+    apiClient.post<void>(`/agent-runs/operations/${runId}/resume`, { reason, resumeWindowSeconds }),
+  overview: () => apiClient.get<AgentRuntimeOverview>('/agent-runs/operations/overview'),
 }

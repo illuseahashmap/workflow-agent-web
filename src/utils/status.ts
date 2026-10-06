@@ -15,6 +15,7 @@ const STATUS_PRESENTATIONS: Record<string, StatusPresentation> = {
   PENDING: { label: '待执行', tone: 'info' },
   ACTIVE: { label: '待处理', tone: 'primary' },
   RUNNING: { label: '运行中', tone: 'primary' },
+  PAUSED: { label: '已暂停', tone: 'warning' },
   SUCCEEDED: { label: '成功', tone: 'success' },
   SUCCESS: { label: '成功', tone: 'success' },
   COMPLETED: { label: '已完成', tone: 'success' },
