@@ -36,6 +36,7 @@ export function mergeInteractionVariables(
 
 function defaultValue(field: InteractionDataField): unknown {
   if (field.dataType === 'boolean') return undefined
+  if (field.dataType === 'integer' || field.dataType === 'number') return null
   return ''
 }
 

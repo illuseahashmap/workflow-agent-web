@@ -47,7 +47,7 @@ function placeholder(field: InteractionDataField) {
         </el-select>
         <el-input-number
           v-else-if="field.dataType === 'integer' || field.dataType === 'number'"
-          v-model="values[field.variablePath] as number"
+          v-model="values[field.variablePath] as number | null"
           :precision="field.dataType === 'integer' ? 0 : undefined"
           :controls="false"
           class="interaction-field__number"

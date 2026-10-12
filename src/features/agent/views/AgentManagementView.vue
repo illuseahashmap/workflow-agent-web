@@ -19,6 +19,7 @@ import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorizati
 import { useAuthStore } from '@/stores/auth'
 import { confirmAction, promptRequired } from '@/utils/confirmation'
 import { formatDateTime, formatVersion } from '@/utils/format'
+import { areQueryParamsEqual } from '@/utils/query'
 import { getStatusLabel } from '@/utils/status'
 import { agentApi, agentProviderApi, agentRunApi } from '../api'
 import { toolApi, type PublishedMcpTool } from '@/features/tool'
@@ -461,11 +462,14 @@ const saveProviderMutation = useMutation({
 
 function searchAgents() {
   agentQuery.pageNum = 1
-  appliedAgentQuery.value = { ...agentQuery }
+  const nextQuery = { ...agentQuery }
+  const queryUnchanged = areQueryParamsEqual(appliedAgentQuery.value, nextQuery)
+  appliedAgentQuery.value = nextQuery
+  if (queryUnchanged) void agentsQuery.refetch()
 }
 function resetAgents() {
   Object.assign(agentQuery, { keyword: '', enabled: undefined, pageNum: 1 })
-  appliedAgentQuery.value = { ...agentQuery }
+  searchAgents()
 }
 function changeAgentPage(pageNum: number, pageSize: number) {
   Object.assign(agentQuery, { pageNum, pageSize })
@@ -530,11 +534,14 @@ async function refreshVersions() {
 
 function searchProviders() {
   providerQuery.pageNum = 1
-  appliedProviderQuery.value = { ...providerQuery }
+  const nextQuery = { ...providerQuery }
+  const queryUnchanged = areQueryParamsEqual(appliedProviderQuery.value, nextQuery)
+  appliedProviderQuery.value = nextQuery
+  if (queryUnchanged) void providersQuery.refetch()
 }
 function resetProviders() {
   Object.assign(providerQuery, { keyword: '', enabled: undefined, pageNum: 1 })
-  appliedProviderQuery.value = { ...providerQuery }
+  searchProviders()
 }
 function changeProviderPage(pageNum: number, pageSize: number) {
   Object.assign(providerQuery, { pageNum, pageSize })
@@ -569,11 +576,14 @@ function openProviderEdit(provider: AgentProvider) {
 
 function searchRuns() {
   runQuery.pageNum = 1
-  appliedRunQuery.value = { ...runQuery }
+  const nextQuery = { ...runQuery }
+  const queryUnchanged = areQueryParamsEqual(appliedRunQuery.value, nextQuery)
+  appliedRunQuery.value = nextQuery
+  if (queryUnchanged) void runsQuery.refetch()
 }
 function resetRuns() {
   Object.assign(runQuery, { keyword: '', status: undefined, pageNum: 1 })
-  appliedRunQuery.value = { ...runQuery }
+  searchRuns()
 }
 function changeRunPage(pageNum: number, pageSize: number) {
   Object.assign(runQuery, { pageNum, pageSize })
