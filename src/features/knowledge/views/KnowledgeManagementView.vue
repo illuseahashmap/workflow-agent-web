@@ -63,7 +63,7 @@ const documentFileInput = ref<HTMLInputElement | null>(null)
 const grantForm = reactive({ principalId: '', scopeCode: '' })
 const profileForm = reactive({
   profileCode: '',
-  strategy: 'HYBRID',
+  strategy: 'KEYWORD',
   maxResults: 10,
   minimumScore: 0,
   indexVersionId: 0,
@@ -218,7 +218,7 @@ function validGrant() {
 function openProfileDialog() {
   Object.assign(profileForm, {
     profileCode: '',
-    strategy: 'HYBRID',
+    strategy: 'KEYWORD',
     maxResults: 10,
     minimumScore: 0,
     indexVersionId: indexVersions.data.value?.[0]?.id || 0,
@@ -243,8 +243,15 @@ function validProfile() {
     profileForm.knowledgeScopes.split(',').some((item) => item.trim()) &&
     profileForm.indexVersionId > 0 &&
     profileForm.maxResults >= 1 &&
-    profileForm.maxResults <= 50,
+    profileForm.maxResults <= 50 &&
+    (profileForm.strategy === 'KEYWORD' || selectedIndexSupportsVector()),
   )
+}
+function selectedIndexSupportsVector() {
+  const selectedIndex = indexVersions.data.value?.find(
+    (item) => item.id === profileForm.indexVersionId,
+  )
+  return Boolean(selectedIndex && selectedIndex.embeddingModel !== 'none')
 }
 function validDocument() {
   return Boolean(
@@ -501,9 +508,15 @@ async function onDocumentFileChange(event: Event) {
             placeholder="例如 employee-search" /></el-form-item
         ><el-form-item label="检索策略"
           ><el-select v-model="profileForm.strategy" class="full-width"
-            ><el-option label="混合检索" value="HYBRID" /><el-option
-              label="关键词检索"
-              value="KEYWORD" /></el-select></el-form-item
+            ><el-option label="关键词检索" value="KEYWORD" /><el-option
+              label="向量检索"
+              value="VECTOR"
+              :disabled="!selectedIndexSupportsVector()" /><el-option
+              label="混合检索"
+              value="HYBRID"
+              :disabled="!selectedIndexSupportsVector()"
+          /></el-select>
+          <div class="form-help">向量与混合策略需要使用已生成 Embedding 的索引。</div></el-form-item
         ><el-form-item label="可用索引版本" required
           ><el-select
             v-model="profileForm.indexVersionId"
