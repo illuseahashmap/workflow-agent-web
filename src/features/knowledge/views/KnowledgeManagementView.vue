@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
 import { knowledgeApi } from '../api'
+import CitationPreview from './CitationPreview.vue'
 
 const auth = useAuthStore()
 const queryClient = useQueryClient()
@@ -60,6 +61,10 @@ const status = ref('')
 const profileDialogVisible = ref(false)
 const documentDialogVisible = ref(false)
 const documentFileInput = ref<HTMLInputElement | null>(null)
+const originalFile = ref<File | null>(null)
+let selection = 0
+let selectedName = ''
+const previewVisible = ref(false)
 const grantForm = reactive({ principalId: '', scopeCode: '' })
 const profileForm = reactive({
   profileCode: '',
@@ -153,6 +158,7 @@ const publishProfile = useMutation({
 })
 const uploadDocument = useMutation({
   mutationFn: async () => {
+    if (originalFile.value) return knowledgeApi.uploadOriginal(documentForm, originalFile.value)
     const digest = await crypto.subtle.digest(
       'SHA-256',
       new TextEncoder().encode(documentForm.content),
@@ -160,12 +166,15 @@ const uploadDocument = useMutation({
     documentForm.contentHash = Array.from(new Uint8Array(digest))
       .map((value) => value.toString(16).padStart(2, '0'))
       .join('')
-    return knowledgeApi.uploadDocument(documentForm)
+    await knowledgeApi.uploadDocument(documentForm)
+    return null
   },
-  onSuccess: () => {
+  onSuccess: (intake) => {
     documentDialogVisible.value = false
     queryClient.invalidateQueries({ queryKey: ['tenant', tenantCode.value, 'knowledge-jobs'] })
-    ElMessage.success('文档已提交，摄取任务已排队')
+    if (intake?.status === 'NOT_INDEXED')
+      ElMessage.warning('原件已保存，未建索引：' + intake.exclusions.join('；'))
+    else ElMessage.success('文档已提交，摄取任务已排队')
   },
   onError: (error) => ElMessage.error(getErrorMessage(error)),
 })
@@ -227,6 +236,9 @@ function openProfileDialog() {
   profileDialogVisible.value = true
 }
 function openDocumentDialog() {
+  selection++
+  selectedName = ''
+  originalFile.value = null
   Object.assign(documentForm, {
     sourceCode: '',
     sourceName: '',
@@ -257,7 +269,7 @@ function validDocument() {
   return Boolean(
     documentForm.sourceCode.trim() &&
     documentForm.externalDocumentId.trim() &&
-    documentForm.content.trim(),
+    (originalFile.value || documentForm.content.trim()),
   )
 }
 async function publish(id: number) {
@@ -269,17 +281,37 @@ async function publish(id: number) {
   publishProfile.mutate(id)
 }
 async function onDocumentFileChange(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  const content = await file.text()
-  documentForm.content = content
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))
-  documentForm.contentHash = Array.from(new Uint8Array(digest))
-    .map((value) => value.toString(16).padStart(2, '0'))
-    .join('')
-  if (!documentForm.externalDocumentId) documentForm.externalDocumentId = file.name
   const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  const current = ++selection
+  const autoName =
+    !documentForm.externalDocumentId || documentForm.externalDocumentId === selectedName
+  selectedName = ''
+  originalFile.value = null
+  documentForm.content = ''
+  if (autoName) documentForm.externalDocumentId = ''
   input.value = ''
+  if (
+    !/\.(txt|md|xlsx|docx|pdf)$/i.test(file.name) ||
+    file.size === 0 ||
+    file.size > 2 * 1024 * 1024
+  ) {
+    ElMessage.error('请选择支持的非空文件，大小不能超过 2 MiB')
+    return
+  }
+  if (/\.txt$/i.test(file.name)) {
+    try {
+      const content = await file.text()
+      if (selection !== current) return
+      documentForm.content = content
+    } catch {
+      if (selection === current) ElMessage.error('无法读取文本文件，请重新选择')
+      return
+    }
+  } else originalFile.value = file
+  selectedName = file.name
+  if (!documentForm.externalDocumentId) documentForm.externalDocumentId = file.name
 }
 </script>
 
@@ -301,11 +333,13 @@ async function onDocumentFileChange(event: Event) {
                 : grants.refetch()
           "
           ><RefreshCw :size="15" />刷新</el-button
+        ><el-button @click="previewVisible = true">回读引用</el-button
         ><el-button v-if="canDocument" type="primary" @click="openDocumentDialog"
           ><FileUp :size="15" />上传文档</el-button
         ></template
       >
     </PageHeader>
+    <CitationPreview v-if="previewVisible" :key="tenantCode" @close="previewVisible = false" />
     <section class="knowledge-tabs" role="tablist">
       <button :class="{ active: tab === 'profiles' }" @click="switchTab('profiles')">
         <BookOpen :size="16" />检索 Profile
@@ -559,18 +593,14 @@ async function onDocumentFileChange(event: Event) {
         ></template
       ></el-dialog
     >
-    <el-dialog
-      v-model="documentDialogVisible"
-      title="上传文本 / Markdown 文档"
-      width="620px"
-      destroy-on-close
+    <el-dialog v-model="documentDialogVisible" title="上传知识文档" width="620px" destroy-on-close
       ><el-form label-position="top"
         ><div class="form-grid">
           <el-form-item label="知识源编码" required
             ><el-input
               v-model="documentForm.sourceCode"
               placeholder="例如 handbook" /></el-form-item
-          ><el-form-item label="知识源名称"
+          ><el-form-item v-if="!originalFile" label="知识源名称"
             ><el-input v-model="documentForm.sourceName" placeholder="员工手册"
           /></el-form-item>
         </div>
@@ -589,17 +619,17 @@ async function onDocumentFileChange(event: Event) {
               ref="documentFileInput"
               class="file-picker__input"
               type="file"
-              accept=".txt,.md,text/plain,text/markdown"
+              accept=".txt,.md,.xlsx,.docx,.pdf"
               @change="onDocumentFileChange"
             />
-            <el-button @click="documentFileInput?.click()"
-              ><FileUp :size="15" />选择 .txt / .md</el-button
-            >
+            <el-button @click="documentFileInput?.click()"><FileUp :size="15" />选择文件</el-button>
+            <span v-if="originalFile">{{ originalFile.name }}</span>
           </div>
           <div class="form-help">
-            首期只接受 UTF-8 文本和 Markdown，文件内容会在浏览器读取后提交。
+            Markdown、Excel 支持按原件位置建索引；Word、PDF 仅归档。也可导入纯文本。单文件上限 2
+            MiB。
           </div></el-form-item
-        ><el-form-item label="文档内容" required
+        ><el-form-item v-if="!originalFile" label="文档内容" required
           ><el-input
             v-model="documentForm.content"
             type="textarea"
@@ -612,7 +642,7 @@ async function onDocumentFileChange(event: Event) {
           :loading="uploadDocument.isPending.value"
           :disabled="!validDocument()"
           @click="uploadDocument.mutate()"
-          >提交摄取任务</el-button
+          >提交文档</el-button
         ></template
       ></el-dialog
     >

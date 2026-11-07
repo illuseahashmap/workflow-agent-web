@@ -26,6 +26,28 @@ export const knowledgeApi = {
     apiClient.post<RetrievalProfile>(`/knowledge/retrieval-profiles/${id}/publish`),
   uploadDocument: (payload: DocumentUpload) =>
     apiClient.post<DocumentView>('/knowledge/documents', payload),
+  uploadOriginal: (
+    identity: { sourceCode: string; externalDocumentId: string; version: number },
+    file: File,
+  ) => {
+    const body = new FormData()
+    body.set('sourceCode', identity.sourceCode.trim())
+    body.set('externalDocumentId', identity.externalDocumentId.trim())
+    body.set('version', String(identity.version))
+    body.set('file', file)
+    return apiClient.post<{ status: 'PARSED' | 'NOT_INDEXED'; exclusions: string[] }>(
+      '/knowledge/originals',
+      body,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+  },
+  previewCitation: (traceId: string, chunkId: string) =>
+    apiClient.get<{
+      format: string
+      originalSha256: string
+      excerpt: string
+      anchor: { part: string; start: string; end: string }
+    }>('/knowledge/citations/preview', { params: { traceId, chunkId } }),
   jobs: (params: { pageNum: number; pageSize: number; status?: string }) =>
     apiClient.get<PageResult<IngestionJob>>('/knowledge/ingestion-jobs', { params }),
   grants: (principalId: string) =>
