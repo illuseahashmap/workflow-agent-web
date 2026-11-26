@@ -466,58 +466,74 @@ test.beforeEach(async ({ page }) => {
   await mockApi(page)
 })
 
-test('uploads native knowledge bytes and reads only the requested citation', async ({ page }) => {
-  const bytes = Buffer.from([80, 75, 0, 255, 128, 3])
-  await page.route('**/api/knowledge/originals', async (route) => {
-    expect(route.request().headers()['content-type']).toContain('multipart/form-data; boundary=')
-    expect(route.request().postDataBuffer()?.includes(bytes)).toBe(true)
-    await route.fulfill({ json: { code: 'SUCCESS', data: { status: 'PARSED', exclusions: [] } } })
-  })
-  await page.route('**/api/knowledge/citations/preview?**', async (route) => {
-    const params = new URL(route.request().url()).searchParams
-    expect(params.get('traceId')).toBe('trace-1')
-    if (params.get('chunkId') !== 'chunk-1') {
-      await route.fulfill({ status: 404, json: { code: 'NOT_FOUND', message: '引用不可用' } })
-      return
-    }
-    await route.fulfill({
-      json: {
-        code: 'SUCCESS',
-        data: {
-          format: 'XLSX',
-          anchor: {
-            part: '审批矩阵',
-            start: 'A9',
-            end: 'D9',
-          },
-          excerpt: '必要时提交采购委员会',
-        },
-      },
+for (const format of ['XLSX', 'DOCX']) {
+  test(`uploads native knowledge bytes and reads only the requested citation: ${format}`, async ({
+    page,
+  }) => {
+    const bytes = Buffer.from([80, 75, 0, 255, 128, 3])
+    await page.route('**/api/knowledge/originals', async (route) => {
+      expect(route.request().headers()['content-type']).toContain('multipart/form-data; boundary=')
+      expect(route.request().postDataBuffer()?.includes(bytes)).toBe(true)
+      await route.fulfill({ json: { code: 'SUCCESS', data: { status: 'PARSED', exclusions: [] } } })
     })
-  })
-  await page.goto('/knowledge')
-  await page.getByRole('button', { name: '上传文档' }).click()
-  await page.getByPlaceholder('例如 handbook').fill('procurement')
-  await page
-    .locator('input[type=file]')
-    .setInputFiles({
-      name: 'approval.xlsx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    await page.route('**/api/knowledge/citations/preview?**', async (route) => {
+      const params = new URL(route.request().url()).searchParams
+      expect(params.get('traceId')).toBe('trace-1')
+      if (params.get('chunkId') !== 'chunk-1') {
+        await route.fulfill({ status: 404, json: { code: 'NOT_FOUND', message: '引用不可用' } })
+        return
+      }
+      await route.fulfill({
+        json: {
+          code: 'SUCCESS',
+          data: {
+            format,
+            anchor:
+              format === 'DOCX'
+                ? {
+                    part: 'word/document.xml',
+                    start: 'body/tbl[1]/tr[4]',
+                    end: 'body/tbl[1]/tr[4]',
+                  }
+                : {
+                    part: '审批矩阵',
+                    start: 'A9',
+                    end: 'D9',
+                  },
+            excerpt: '必要时提交采购委员会',
+          },
+        },
+      })
+    })
+    await page.goto('/knowledge')
+    await page.getByRole('button', { name: '上传文档' }).click()
+    await page.getByPlaceholder('例如 handbook').fill('procurement')
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'approval.' + format.toLowerCase(),
+      mimeType:
+        format === 'XLSX'
+          ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       buffer: bytes,
     })
-  await page.getByRole('button', { name: '提交文档' }).click()
-  await expect(page.getByRole('dialog')).toBeHidden()
-  await page.getByRole('button', { name: '回读引用' }).click()
-  await page.getByPlaceholder('knowledge_search 结果中的 traceId').fill('trace-1')
-  const locator = page.getByPlaceholder('引用中的 reference.locator')
-  await locator.fill('chunk-1')
-  await page.getByRole('button', { name: '读取原文' }).click()
-  await expect(page.getByText('必要时提交采购委员会')).toBeVisible()
-  await locator.fill('revoked')
-  await expect(page.getByText('必要时提交采购委员会')).toBeHidden()
-  await page.getByRole('button', { name: '读取原文' }).click()
-  await expect(page.getByRole('alert').filter({ hasText: '引用不可用' })).toBeVisible()
-})
+    await page.getByRole('button', { name: '提交文档' }).click()
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await page.getByRole('button', { name: '回读引用' }).click()
+    await page.getByPlaceholder('knowledge_search 结果中的 traceId').fill('trace-1')
+    const locator = page.getByPlaceholder('引用中的 reference.locator')
+    await locator.fill('chunk-1')
+    await page.getByRole('button', { name: '读取原文' }).click()
+    await expect(page.getByText('必要时提交采购委员会')).toBeVisible()
+    if (format === 'DOCX')
+      await expect(
+        page.getByRole('heading', { name: 'DOCX · 正文第 1 个表格 · 第 4 行' }),
+      ).toBeVisible()
+    await locator.fill('revoked')
+    await expect(page.getByText('必要时提交采购委员会')).toBeHidden()
+    await page.getByRole('button', { name: '读取原文' }).click()
+    await expect(page.getByRole('alert').filter({ hasText: '引用不可用' })).toBeVisible()
+  })
+}
 
 test('keeps the process definition workspace accessible', async ({ page }) => {
   await page.goto('/process-definitions')

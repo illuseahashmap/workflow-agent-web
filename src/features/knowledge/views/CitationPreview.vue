@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { knowledgeApi } from '../api'
 import { getErrorMessage } from '@/api/http'
 
@@ -8,6 +8,20 @@ const trace = ref('')
 const chunk = ref('')
 const preview = ref<Awaited<ReturnType<typeof knowledgeApi.previewCitation>> | null>(null)
 const error = ref('')
+const location = computed(() => {
+  if (!preview.value) return ''
+  const {
+    format,
+    anchor: { part, start, end },
+  } = preview.value
+  if (format === 'DOCX') {
+    const paragraph = /^body\/p\[(\d+)\]$/.exec(start)
+    if (paragraph) return `正文第 ${paragraph[1]} 段`
+    const row = /^body\/tbl\[(\d+)\]\/tr\[(\d+)\]$/.exec(start)
+    if (row) return `正文第 ${row[1]} 个表格 · 第 ${row[2]} 行`
+  }
+  return `${part || '行'} ${start === end ? start : start + ' – ' + end}`
+})
 const busy = ref(false)
 let generation = 0
 watch(
@@ -54,10 +68,7 @@ async function read() {
     </el-form>
     <p v-if="error" role="alert">{{ error }}</p>
     <section v-if="preview" aria-live="polite">
-      <h4>
-        {{ preview.format }} · {{ preview.anchor.part || '行' }} {{ preview.anchor.start }} –
-        {{ preview.anchor.end }}
-      </h4>
+      <h4>{{ preview.format }} · {{ location }}</h4>
       <p class="excerpt">{{ preview.excerpt }}</p>
     </section>
   </el-dialog>

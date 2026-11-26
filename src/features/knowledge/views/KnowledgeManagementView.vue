@@ -626,8 +626,8 @@ async function onDocumentFileChange(event: Event) {
             <span v-if="originalFile">{{ originalFile.name }}</span>
           </div>
           <div class="form-help">
-            Markdown、Excel 支持按原件位置建索引；Word、PDF 仅归档。也可导入纯文本。单文件上限 2
-            MiB。
+            Markdown、Excel 和 Word 正文段落、简单表格支持定位引用；未决修订等复杂 Word 文档及 PDF
+            仅归档。也可导入纯文本。单文件上限 2 MiB。
           </div></el-form-item
         ><el-form-item v-if="!originalFile" label="文档内容" required
           ><el-input
