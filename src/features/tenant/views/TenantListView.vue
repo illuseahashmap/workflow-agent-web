@@ -16,8 +16,18 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { confirmAction } from '@/utils/confirmation'
 import { formatDateTime } from '@/utils/format'
 import { tenantApi } from '../api'
+import { useAuthStore } from '@/stores/auth'
+import TenantCapacityDialog from '../components/TenantCapacityDialog.vue'
 import type { TenantCommand, WorkflowTenant } from '../types'
 
+const auth = useAuthStore()
+const canConfigureCapacity = computed(() => auth.user?.roles.includes('PLATFORM_ADMIN') ?? false)
+const capacityVisible = ref(false)
+const capacityTenant = ref<WorkflowTenant>()
+function openCapacity(tenant?: WorkflowTenant) {
+  capacityTenant.value = tenant
+  capacityVisible.value = true
+}
 const queryClient = useQueryClient()
 const query = reactive({
   keyword: '',
@@ -153,6 +163,7 @@ async function toggle(item: WorkflowTenant) {
         ></el-form
       >
       <template #actions>
+        <el-button v-if="canConfigureCapacity" @click="openCapacity()">平台配额</el-button>
         <el-button type="primary" @click="create"><Plus :size="17" />新增租户</el-button>
       </template>
     </QueryPanel>
@@ -179,8 +190,10 @@ async function toggle(item: WorkflowTenant) {
           ><template #default="{ row }">{{
             formatDateTime(row.updatedAt)
           }}</template></el-table-column
-        ><el-table-column label="操作" width="150" fixed="right"
+        ><el-table-column label="操作" :width="canConfigureCapacity ? 240 : 150" fixed="right"
           ><template #default="{ row }"
+            ><el-button v-if="canConfigureCapacity" link type="primary" @click="openCapacity(row)"
+              >资源配额</el-button
             ><el-button link type="primary" @click="edit(row)">编辑</el-button
             ><el-button link :type="row.enabled ? 'danger' : 'success'" @click="toggle(row)">{{
               row.enabled ? '禁用' : '启用'
@@ -229,5 +242,11 @@ async function toggle(item: WorkflowTenant) {
         ></template
       ></el-dialog
     >
+    <TenantCapacityDialog
+      v-if="capacityVisible && canConfigureCapacity"
+      v-model="capacityVisible"
+      :tenant-code="capacityTenant?.tenantCode"
+      :tenant-name="capacityTenant?.tenantName"
+    />
   </DirectoryPageShell>
 </template>

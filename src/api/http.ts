@@ -83,6 +83,9 @@ export const apiClient = {
   async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return unwrap(http.post<ApiResponse<T>>(url, data, await withCsrf(config)))
   },
+  async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
+    return unwrap(http.put<ApiResponse<T>>(url, data, await withCsrf(config)))
+  },
   async patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return unwrap(http.patch<ApiResponse<T>>(url, data, await withCsrf(config)))
   },

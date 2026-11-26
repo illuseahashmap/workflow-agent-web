@@ -36,6 +36,8 @@ export const queryKeys = {
     [...queryKeys.tenantRoles(tenantCode), keyword, pageNum, pageSize] as const,
   permissions: () => ['platform', 'permissions'] as const,
   tenants: () => ['platform', 'tenants'] as const,
+  capacities: () => ['platform', 'capacities'] as const,
+  capacity: (tenantCode?: string) => [...queryKeys.capacities(), tenantCode ?? 'global'] as const,
   tenantPage: (parameters: QueryParameters) =>
     [...queryKeys.tenants(), 'page', parameters] as const,
   agents: (tenantCode: string) => [...tenantScope(tenantCode), 'agents'] as const,
