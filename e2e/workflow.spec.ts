@@ -782,6 +782,75 @@ test('manages Agent definitions and inspects the execution ledger', async ({ pag
   await expect(drawer.getByText('Trace ID：trace-91')).toBeVisible()
 })
 
+for (const versionStatus of ['DRAFT', 'PUBLISHED']) {
+  test(`configures the runtime only for ${versionStatus} versions`, async ({ page }) => {
+    await page.route('**/api/agents/41/versions', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 'SUCCESS',
+          data: [
+            {
+              id: 51,
+              definitionId: 41,
+              version: 1,
+              status: versionStatus,
+              executionMode: 'PLATFORM_AGENT',
+              systemPrompt: 'test',
+              timeoutSeconds: 120,
+              failurePolicy: 'MANUAL_REVIEW',
+              toolCodes: [],
+            },
+          ],
+        },
+      })
+    })
+    await page.route('**/api/agents/versions/51/runtime', async (route) => {
+      await route.fulfill({
+        json: {
+          code: 'SUCCESS',
+          data:
+            route.request().method() === 'PUT'
+              ? route.request().postDataJSON()
+              : {
+                  backend: 'NATIVE',
+                  artifactDigest: null,
+                  stateSchemaVersion: 2,
+                  maxModelCalls: 6,
+                  maxToolCalls: 4,
+                },
+        },
+      })
+    })
+    await page.goto('/agents')
+    await page.getByLabel('Agent 定义').getByRole('button', { name: '版本管理' }).click()
+    await page.getByRole('button', { name: '运行引擎', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: '版本运行引擎', exact: true })
+    await expect(dialog.getByRole('radio', { name: '原生', exact: true })).toBeChecked()
+    if (versionStatus === 'PUBLISHED') {
+      await expect(dialog.getByRole('radio', { name: 'LangGraph' })).toBeDisabled()
+      await expect(dialog.getByRole('button', { name: '保存', exact: true })).toHaveCount(0)
+    } else {
+      await dialog.getByRole('radio', { name: 'LangGraph' }).press('Space')
+      await expect(dialog.getByRole('radio', { name: 'LangGraph' })).toBeChecked()
+      await expect(dialog.getByRole('button', { name: '保存', exact: true })).toBeDisabled()
+      await dialog.getByLabel('已部署的图版本指纹（SHA-256）').fill('a'.repeat(64))
+      const saved = page.waitForRequest(
+        (request) =>
+          request.url().endsWith('/agents/versions/51/runtime') && request.method() === 'PUT',
+      )
+      await dialog.getByRole('button', { name: '保存', exact: true }).click()
+      expect((await saved).postDataJSON()).toEqual({
+        backend: 'LANGGRAPH',
+        artifactDigest: 'a'.repeat(64),
+        stateSchemaVersion: 2,
+        maxModelCalls: 6,
+        maxToolCalls: 4,
+      })
+      await expect(dialog).toBeHidden()
+    }
+  })
+}
+
 test('keeps Agent list pagination anchored when result sets are empty', async ({ page }) => {
   await page.goto('/agents')
 

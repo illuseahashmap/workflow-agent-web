@@ -9,6 +9,7 @@ import ListEmptyState from '@/components/ListEmptyState.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import AgentProviderTable from '../components/AgentProviderTable.vue'
+import AgentRuntimeBindingButton from '../components/AgentRuntimeBindingButton.vue'
 import TableTagCell from '@/components/TableTagCell.vue'
 import TablePagination from '@/components/TablePagination.vue'
 import MetricCard from '@/components/MetricCard.vue'
@@ -1596,7 +1597,7 @@ function failureCategoryLabel(category: string) {
             formatDateTime(row.publishedAt)
           }}</template></el-table-column
         >
-        <el-table-column label="操作" width="150" fixed="right"
+        <el-table-column label="操作" width="230" fixed="right"
           ><template #default="{ row }"
             ><el-button
               v-if="row.status === 'DRAFT'"
@@ -1610,11 +1611,9 @@ function failureCategoryLabel(category: string) {
               type="success"
               @click="publishVersion(row)"
               >发布</el-button
-            ><el-button v-else link type="primary" @click="openVersionEditor(row)"
-              >查看</el-button
-            ></template
-          ></el-table-column
-        >
+            ><el-button v-else link type="primary" @click="openVersionEditor(row)">查看</el-button
+            ><AgentRuntimeBindingButton :version="row" /></template
+        ></el-table-column>
       </el-table>
     </el-dialog>
 

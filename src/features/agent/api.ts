@@ -2,6 +2,7 @@ import { apiClient } from '@/api/http'
 import type { PageResult } from '@/types/api'
 import type {
   AgentDefinition,
+  AgentRuntimeBinding,
   AgentDefinitionCommand,
   AgentManualRunCommand,
   AgentProvider,
@@ -31,6 +32,10 @@ export interface AgentRunPageQuery {
 }
 
 export const agentApi = {
+  runtime: (versionId: number) =>
+    apiClient.get<AgentRuntimeBinding>(`/agents/versions/${versionId}/runtime`),
+  configureRuntime: (versionId: number, payload: AgentRuntimeBinding) =>
+    apiClient.put<AgentRuntimeBinding>(`/agents/versions/${versionId}/runtime`, payload),
   page: (params: AgentPageQuery) =>
     apiClient.get<PageResult<AgentDefinition>>('/agents', { params }),
   create: (payload: AgentDefinitionCommand) => apiClient.post<AgentDefinition>('/agents', payload),

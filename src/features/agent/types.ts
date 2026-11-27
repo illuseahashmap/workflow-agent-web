@@ -100,6 +100,14 @@ export interface AgentProviderCommand {
   enabled: boolean
 }
 
+export interface AgentRuntimeBinding {
+  backend: 'NATIVE' | 'LANGGRAPH'
+  artifactDigest: string | null
+  stateSchemaVersion: 2
+  maxModelCalls: number
+  maxToolCalls: number
+}
+
 export interface AgentRun {
   id: number
   agentCode: string
