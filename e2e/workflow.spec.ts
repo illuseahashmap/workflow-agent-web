@@ -1,6 +1,37 @@
 import { expect, test, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
+test('knowledge grant refresh never sends a blank principal', async ({ page }) => {
+  const principals: string[] = []
+  await page.route('**/api/knowledge/scope-grants?**', async (route) => {
+    principals.push(new URL(route.request().url()).searchParams.get('principalId') ?? '')
+    await route.fulfill({ json: { code: 'SUCCESS', data: [] } })
+  })
+  await page.goto('/knowledge')
+  await page.getByRole('button', { name: '主体范围授权' }).click()
+  const principal = page.getByPlaceholder('例如 admin')
+  const refresh = page.getByRole('button', { name: '刷新', exact: true })
+  await expect(refresh).toBeDisabled()
+  await principal.fill('   ')
+  await principal.press('Enter')
+  await expect(page.getByRole('button', { name: '查询授权' })).toBeDisabled()
+  expect(principals).toEqual([])
+  await Promise.all([
+    page.waitForResponse((response) => response.url().includes('/knowledge/scope-grants?')),
+    principal.fill(' admin '),
+  ])
+  await expect(refresh).toBeEnabled()
+  await Promise.all([
+    page.waitForResponse((response) => response.url().includes('/knowledge/scope-grants?')),
+    refresh.click(),
+  ])
+  await principal.fill('')
+  await principal.press('Enter')
+  await expect(refresh).toBeDisabled()
+  expect(principals.length).toBeGreaterThanOrEqual(2)
+  expect(principals.every((value) => value === 'admin')).toBe(true)
+})
+
 async function mockApi(page: Page) {
   await page.route(
     (url) => url.pathname.startsWith('/api/'),

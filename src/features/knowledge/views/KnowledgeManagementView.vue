@@ -118,15 +118,24 @@ const jobs = useQuery({
     Boolean(tenantCode.value && canIngestionRead.value && tab.value === 'jobs'),
   ),
 })
-const grants = useQuery({
-  queryKey: computed(() => ['knowledge-scope-grants', tenantCode.value, grantForm.principalId]),
-  queryFn: () => knowledgeApi.grants(grantForm.principalId.trim()),
-  enabled: computed(() =>
-    Boolean(
-      tenantCode.value && canScope.value && tab.value === 'grants' && grantForm.principalId.trim(),
-    ),
+const canQueryGrants = computed(() =>
+  Boolean(
+    tenantCode.value && canScope.value && tab.value === 'grants' && grantForm.principalId.trim(),
   ),
+)
+const grants = useQuery({
+  queryKey: computed(() => [
+    'knowledge-scope-grants',
+    tenantCode.value,
+    grantForm.principalId.trim(),
+  ]),
+  queryFn: () =>
+    canQueryGrants.value ? knowledgeApi.grants(grantForm.principalId.trim()) : Promise.resolve([]),
+  enabled: canQueryGrants,
 })
+function refreshGrants() {
+  if (canQueryGrants.value) return grants.refetch()
+}
 const indexVersions = useQuery({
   queryKey: computed(() => ['knowledge-index-versions', tenantCode.value]),
   queryFn: () => knowledgeApi.indexVersions(),
@@ -186,7 +195,7 @@ const grantScope = useMutation({
     }),
   onSuccess: () => {
     queryClient.invalidateQueries({
-      queryKey: ['knowledge-scope-grants', tenantCode.value, grantForm.principalId],
+      queryKey: ['knowledge-scope-grants', tenantCode.value, grantForm.principalId.trim()],
     })
     grantForm.scopeCode = ''
     ElMessage.success('知识范围已授权')
@@ -197,7 +206,7 @@ const revokeScope = useMutation({
   mutationFn: (scopeCode: string) => knowledgeApi.revoke(grantForm.principalId.trim(), scopeCode),
   onSuccess: () => {
     queryClient.invalidateQueries({
-      queryKey: ['knowledge-scope-grants', tenantCode.value, grantForm.principalId],
+      queryKey: ['knowledge-scope-grants', tenantCode.value, grantForm.principalId.trim()],
     })
     ElMessage.success('知识范围授权已移除')
   },
@@ -325,12 +334,13 @@ async function onDocumentFileChange(event: Event) {
       <template #actions
         ><el-button
           text
+          :disabled="tab === 'grants' && !canQueryGrants"
           @click="
             tab === 'profiles'
               ? profiles.refetch()
               : tab === 'jobs'
                 ? jobs.refetch()
-                : grants.refetch()
+                : refreshGrants()
           "
           ><RefreshCw :size="15" />刷新</el-button
         ><el-button @click="previewVisible = true">回读引用</el-button
@@ -370,7 +380,7 @@ async function onDocumentFileChange(event: Event) {
       <el-form
         class="filter-form filter-form--knowledge-grants"
         inline
-        @submit.prevent="grants.refetch()"
+        @submit.prevent="refreshGrants"
       >
         <el-form-item label="主体 ID">
           <el-input v-model="grantForm.principalId" placeholder="例如 admin" clearable />
@@ -379,9 +389,7 @@ async function onDocumentFileChange(event: Event) {
           <el-input v-model="grantForm.scopeCode" placeholder="例如 hr" clearable />
         </el-form-item>
         <el-form-item class="filter-form__actions">
-          <el-button native-type="submit" :disabled="!grantForm.principalId.trim()"
-            >查询授权</el-button
-          >
+          <el-button native-type="submit" :disabled="!canQueryGrants">查询授权</el-button>
           <el-button
             type="primary"
             :disabled="!validGrant()"
