@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { APP_PERMISSION, APP_ROLE, hasAccess } from '@/features/auth/authorization'
 import { knowledgeApi } from '../api'
+import type { QueryExpansionPolicy } from '../types'
 import CitationPreview from './CitationPreview.vue'
 
 const auth = useAuthStore()
@@ -69,6 +70,7 @@ const grantForm = reactive({ principalId: '', scopeCode: '' })
 const profileForm = reactive({
   profileCode: '',
   strategy: 'KEYWORD',
+  queryExpansionPolicy: 'DISABLED' as QueryExpansionPolicy,
   maxResults: 10,
   minimumScore: 0,
   indexVersionId: 0,
@@ -237,6 +239,7 @@ function openProfileDialog() {
   Object.assign(profileForm, {
     profileCode: '',
     strategy: 'KEYWORD',
+    queryExpansionPolicy: 'DISABLED' as QueryExpansionPolicy,
     maxResults: 10,
     minimumScore: 0,
     indexVersionId: indexVersions.data.value?.[0]?.id || 0,
@@ -429,11 +432,14 @@ async function onDocumentFileChange(event: Event) {
               variant="version"
               :status="row.status"
               :label="`第 ${row.version} 版`" /></template></el-table-column
-        ><el-table-column prop="strategy" label="策略" width="140" /><el-table-column
-          prop="maxResults"
-          label="Top K"
-          width="90"
-        /><el-table-column label="状态" width="120"
+        ><el-table-column prop="strategy" label="策略" width="140" />
+        <el-table-column label="查询扩展" width="130"
+          ><template #default="{ row }">{{
+            row.queryExpansionPolicy === 'RRF_V1' ? '主题词扩展' : '关闭'
+          }}</template></el-table-column
+        ><el-table-column prop="maxResults" label="Top K" width="90" /><el-table-column
+          label="状态"
+          width="120"
           ><template #default="{ row }"
             ><StatusBadge :status="row.status" /></template></el-table-column
         ><el-table-column label="操作" width="120"
@@ -559,6 +565,14 @@ async function onDocumentFileChange(event: Event) {
               :disabled="!selectedIndexSupportsVector()"
           /></el-select>
           <div class="form-help">向量与混合策略需要使用已生成 Embedding 的索引。</div></el-form-item
+        ><el-form-item label="查询扩展"
+          ><el-select v-model="profileForm.queryExpansionPolicy" class="full-width"
+            ><el-option label="关闭（单次查询）" value="DISABLED" />
+            <el-option label="主题词扩展" value="RRF_V1" />
+          </el-select>
+          <div class="form-help">
+            发布后固定；修改策略需要创建新版本。扩展查询沿用相同的知识范围与索引。
+          </div> </el-form-item
         ><el-form-item label="可用索引版本" required
           ><el-select
             v-model="profileForm.indexVersionId"

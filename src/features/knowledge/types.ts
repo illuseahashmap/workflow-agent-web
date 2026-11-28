@@ -1,8 +1,11 @@
+export type QueryExpansionPolicy = 'DISABLED' | 'RRF_V1'
+
 export interface RetrievalProfile {
   id: number
   profileCode: string
   version: number
   strategy: string
+  queryExpansionPolicy?: QueryExpansionPolicy
   maxResults: number
   minimumScore: number
   indexVersionId: number

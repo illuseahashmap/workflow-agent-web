@@ -973,3 +973,40 @@ test('keeps designer operations and properties available on mobile', async ({ pa
   await expect(page.getByRole('menuitem', { name: '导入流程图' })).toBeVisible()
   await expect(page.getByText('流程概览', { exact: true })).toBeVisible()
 })
+
+test('retrieval profile expansion defaults off and requires explicit opt-in', async ({ page }) => {
+  await page.route('**/api/knowledge/index-versions**', async (route) => {
+    await route.fulfill({
+      json: {
+        code: 'SUCCESS',
+        data: [
+          { id: 41, sourceCode: 'policy', version: 1, embeddingModel: 'NONE', status: 'ACTIVE' },
+        ],
+      },
+    })
+  })
+  const policies: string[] = []
+  await page.route('**/api/knowledge/retrieval-profiles', async (route) => {
+    policies.push(route.request().postDataJSON().queryExpansionPolicy)
+    await route.fulfill({ json: { code: 'SUCCESS', data: { id: 1 } } })
+  })
+  await page.goto('/knowledge')
+  for (const policy of ['DISABLED', 'RRF_V1']) {
+    await page.getByRole('button', { name: '新增 Profile', exact: true }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText('关闭（单次查询）', { exact: true })).toBeVisible()
+    await dialog.getByPlaceholder('例如 employee-search').fill('policy-test')
+    await dialog.getByPlaceholder('多个范围用逗号分隔，例如 hr,policy').fill('policy')
+    await expect(dialog.getByText('policy · 第 1 版 · NONE', { exact: true })).toBeVisible()
+    await dialog
+      .locator('.el-form-item')
+      .filter({ hasText: '查询扩展' })
+      .locator('.el-select__wrapper')
+      .click()
+    const labels: Record<string, string> = { DISABLED: '关闭（单次查询）', RRF_V1: '主题词扩展' }
+    await page.getByRole('option', { name: labels[policy], exact: true }).click()
+    await dialog.getByRole('button', { name: '创建草稿', exact: true }).click()
+    await expect(dialog).toBeHidden()
+  }
+  expect(policies).toEqual(['DISABLED', 'RRF_V1'])
+})

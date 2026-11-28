@@ -7,6 +7,7 @@ import type {
   IngestionJob,
   KnowledgeScopeGrant,
   RetrievalProfile,
+  QueryExpansionPolicy,
 } from './types'
 
 export const knowledgeApi = {
@@ -17,6 +18,7 @@ export const knowledgeApi = {
   createProfile: (payload: {
     profileCode: string
     strategy: string
+    queryExpansionPolicy?: QueryExpansionPolicy
     maxResults: number
     minimumScore: number
     indexVersionId: number
