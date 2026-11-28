@@ -27,11 +27,11 @@ Workflow management frontend for `workflow-agent-service`.
 ## Development
 
 ```bash
-corepack pnpm install
+corepack pnpm install --frozen-lockfile
 corepack pnpm dev
 ```
 
-The development server proxies `/api` to `http://localhost:8080`. Override it through a local environment file based on `.env.example`.
+The development server proxies `/api` to `http://localhost:8080`. `vite.config.ts` reads the process environment directly: set `VITE_API_PROXY_TARGET` in the terminal that starts Vite (PowerShell: `$env:VITE_API_PROXY_TARGET='http://127.0.0.1:8080'`; bash: `export VITE_API_PROXY_TARGET=http://127.0.0.1:8080`). A value in `.env` alone does not change that proxy. See [AGENTS.md](AGENTS.md) and the product root's `docs/AI-BOOTSTRAP.md` for complete environment and database setup.
 
 ## Verification
 
@@ -39,6 +39,7 @@ The development server proxies `/api` to `http://localhost:8080`. Override it th
 corepack pnpm lint
 corepack pnpm test:unit --run
 corepack pnpm build
+corepack pnpm exec playwright install chromium
 corepack pnpm test:e2e --project=chromium
 ```
 
